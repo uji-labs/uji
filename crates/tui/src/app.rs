@@ -27,6 +27,7 @@ pub struct App {
     input: String,
     cursor: usize,
     running: bool,
+    pending: Option<String>,
 }
 
 impl App {
@@ -42,6 +43,7 @@ impl App {
             input: String::new(),
             cursor: 0,
             running: true,
+            pending: None,
         }
     }
 
@@ -55,6 +57,18 @@ impl App {
 
     pub fn push_message(&mut self, message: StoredMessage) {
         self.messages.push(message);
+    }
+
+    pub fn pending(&self) -> Option<&str> {
+        self.pending.as_deref()
+    }
+
+    pub fn append_pending(&mut self, delta: &str) {
+        self.pending.get_or_insert_with(String::new).push_str(delta);
+    }
+
+    pub fn take_pending(&mut self) -> Option<String> {
+        self.pending.take()
     }
 
     pub fn state(&self) -> &Rc<RefCell<UiState>> {

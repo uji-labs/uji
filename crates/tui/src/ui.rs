@@ -19,28 +19,43 @@ const MUTED: Color = Color::Rgb(0x80, 0x80, 0x80);
 pub fn render(frame: &mut Frame<'_>, app: &App) {
     let state: Rc<RefCell<UiState>> = app.state().clone();
     let state = state.borrow();
-    let rects = model::layout(frame.area(), state.windows());
-    for (win, area) in state.windows().iter().zip(rects) {
-        render_window(frame, app, &state, win, area);
-    }
+    render_node(frame, app, &state, Node::Root, frame.area());
 }
 
-fn render_window(frame: &mut Frame<'_>, app: &App, state: &UiState, win: &WindowSpec, area: Rect) {
-    let block = block_for(win);
-    let inner = block.as_ref().map_or(area, |b| b.inner(area));
-    let kind = state
-        .buffer_kind(&win.buffer)
-        .unwrap_or(BufferKind::Messages);
+#[derive(Clone, Copy)]
+enum Node<'a> {
+    Root,
+    Window(&'a WindowSpec),
+}
 
-    let paragraph = match kind {
-        BufferKind::Messages => Paragraph::new(render_messages(app.messages(), inner.width)),
-        BufferKind::Input => Paragraph::new(render_input(app, state)),
-    };
-    let paragraph = match block {
-        Some(block) => paragraph.block(block),
-        None => paragraph,
-    };
-    frame.render_widget(paragraph, area);
+fn render_node(frame: &mut Frame<'_>, app: &App, state: &UiState, node: Node<'_>, area: Rect) {
+    match node {
+        Node::Root => {
+            let rects = model::layout(area, state.windows());
+            for (window, rect) in state.windows().iter().zip(rects) {
+                render_node(frame, app, state, Node::Window(window), rect);
+            }
+        }
+        Node::Window(window) => {
+            let block = block_for(window);
+            let inner = block.as_ref().map_or(area, |b| b.inner(area));
+            let kind = state
+                .buffer_kind(&window.buffer)
+                .unwrap_or(BufferKind::Messages);
+
+            let paragraph = match kind {
+                BufferKind::Messages => {
+                    Paragraph::new(render_messages(app.messages(), app.pending(), inner.width))
+                }
+                BufferKind::Input => Paragraph::new(render_input(app, state)),
+            };
+            let paragraph = match block {
+                Some(block) => paragraph.block(block),
+                None => paragraph,
+            };
+            frame.render_widget(paragraph, area);
+        }
+    }
 }
 
 fn block_for(win: &WindowSpec) -> Option<Block<'static>> {
@@ -57,7 +72,11 @@ fn block_for(win: &WindowSpec) -> Option<Block<'static>> {
     Some(block)
 }
 
-fn render_messages(messages: &[StoredMessage], width: u16) -> Vec<Line<'static>> {
+fn render_messages(
+    messages: &[StoredMessage],
+    pending: Option<&str>,
+    width: u16,
+) -> Vec<Line<'static>> {
     let fill = " ".repeat(usize::from(width));
     let mut lines = Vec::new();
     for stored in messages {
@@ -84,6 +103,13 @@ fn render_messages(messages: &[StoredMessage], width: u16) -> Vec<Line<'static>>
                     lines.push(Line::from(format!(" {line}")).style(muted));
                 }
             }
+        }
+    }
+    if let Some(pending) = pending.filter(|text| !text.is_empty()) {
+        lines.push(Line::from(""));
+        let text_style = Style::default().fg(TEXT);
+        for line in pending.lines() {
+            lines.push(Line::from(format!(" {line}")).style(text_style));
         }
     }
     lines

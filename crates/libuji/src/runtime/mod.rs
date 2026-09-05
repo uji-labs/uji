@@ -9,7 +9,7 @@ mod watcher;
 
 pub use error::RuntimeError;
 pub(crate) use inner::Inner;
-pub(crate) use loop_data::LoopData;
+pub(crate) use loop_data::{LlmEvent, LoopData};
 
 use std::cell::RefCell;
 use std::io;
@@ -59,6 +59,7 @@ impl Runtime {
         inner.load_plugins(plugin_dir);
         inner.ensure_default_layout();
         inner.sync_opts();
+        inner.sync_llm();
 
         Ok(Self {
             inner,
@@ -94,6 +95,8 @@ impl Runtime {
         let reader_running = Arc::new(AtomicBool::new(true));
         input::spawn(sender, reader_running.clone());
 
+        let (llm_sender, llm_channel) = calloop::channel::channel::<LlmEvent>();
+
         let mut data = LoopData {
             inner,
             app,
@@ -101,6 +104,7 @@ impl Runtime {
             terminal,
             dirty: false,
             running: true,
+            llm_tx: llm_sender,
         };
 
         event_loop
@@ -110,6 +114,15 @@ impl Runtime {
                 calloop::channel::Event::Closed => data.running = false,
             })
             .map_err(|err| io::Error::other(format!("register input source: {err}")))?;
+
+        event_loop
+            .handle()
+            .insert_source(llm_channel, |event, _meta, data: &mut LoopData| {
+                if let calloop::channel::Event::Msg(event) = event {
+                    data.on_llm_event(event);
+                }
+            })
+            .map_err(|err| io::Error::other(format!("register llm source: {err}")))?;
 
         let _watcher = {
             let paths = config::watch_paths();

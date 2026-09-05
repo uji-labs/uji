@@ -1,9 +1,11 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use mlua::{Lua as LuaState, Table};
 use tui::state::UiState;
+use uji_core::llm::{Echo, Llm, LlmConfig};
 
 use super::handlers::Handlers;
 use super::scheduled::Scheduled;
@@ -14,6 +16,8 @@ pub(crate) struct Inner {
     pub(crate) state: Rc<RefCell<UiState>>,
     pub(crate) handlers: RefCell<Handlers>,
     pub(crate) scheduled: Scheduled,
+    pub(crate) llm: RefCell<Arc<dyn Llm>>,
+    pub(crate) llm_model: RefCell<String>,
 }
 
 impl Inner {
@@ -23,6 +27,8 @@ impl Inner {
             state: Rc::new(RefCell::new(UiState::new())),
             handlers: RefCell::default(),
             scheduled: Scheduled::default(),
+            llm: RefCell::new(Arc::new(Echo)),
+            llm_model: RefCell::default(),
         })
     }
 
@@ -50,6 +56,7 @@ impl Inner {
         self.load_plugins(None);
         self.ensure_default_layout();
         self.sync_opts();
+        self.sync_llm();
     }
 
     pub(crate) fn run_init(&self, config_path: Option<PathBuf>) {
@@ -109,5 +116,40 @@ impl Inner {
             .and_then(|opt| opt.get::<Option<bool>>("cursor_blink").ok().flatten())
             .unwrap_or(true);
         self.state.borrow_mut().set_cursor_blink(cursor_blink);
+    }
+
+    pub(crate) fn sync_llm(&self) {
+        let mut config = LlmConfig::default();
+        let table = self
+            .lua
+            .globals()
+            .get::<Table>("uji")
+            .ok()
+            .and_then(|uji| uji.get::<Table>("opt").ok())
+            .and_then(|opt| opt.get::<Table>("llm").ok());
+        if let Some(table) = table {
+            if let Some(provider) = table.get::<Option<String>>("provider").ok().flatten() {
+                config.provider = provider;
+            }
+            if let Some(model) = table.get::<Option<String>>("model").ok().flatten() {
+                config.model = model;
+            }
+            config.base_url = table.get::<Option<String>>("base_url").ok().flatten();
+            config.api_key = table.get::<Option<String>>("api_key").ok().flatten();
+        }
+        if let Some(provider) = std::env::var("UJI_LLM_PROVIDER")
+            .ok()
+            .filter(|value| !value.is_empty())
+        {
+            config.provider = provider;
+        }
+        if let Some(model) = std::env::var("UJI_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.is_empty())
+        {
+            config.model = model;
+        }
+        *self.llm.borrow_mut() = uji_core::llm::resolve(&config);
+        *self.llm_model.borrow_mut() = config.model;
     }
 }
