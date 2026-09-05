@@ -1,0 +1,9 @@
+[package]
+name = "uji-cmd"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

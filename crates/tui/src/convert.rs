@@ -21,8 +21,9 @@ impl FromStr for BufferKind {
         match s {
             "messages" => Ok(Self::Messages),
             "input" => Ok(Self::Input),
+            "status" => Ok(Self::Status),
             other => Err(ParseError(format!(
-                "unknown buffer kind: {other} (expected \"messages\" or \"input\")"
+                "unknown buffer kind: {other} (expected \"messages\", \"input\" or \"status\")"
             ))),
         }
     }
@@ -33,6 +34,7 @@ impl fmt::Display for BufferKind {
         f.write_str(match self {
             Self::Messages => "messages",
             Self::Input => "input",
+            Self::Status => "status",
         })
     }
 }

@@ -4,6 +4,7 @@ use ratatui::layout::Rect;
 pub enum BufferKind {
     Messages,
     Input,
+    Status,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,14 +61,22 @@ pub struct WindowSpec {
     pub opts: WinOpts,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalOpts {
     pub cursor_blink: bool,
+    pub suggest_enabled: bool,
+    pub suggest_max_height: u16,
+    pub footer_hint: String,
 }
 
 impl Default for GlobalOpts {
     fn default() -> Self {
-        Self { cursor_blink: true }
+        Self {
+            cursor_blink: true,
+            suggest_enabled: true,
+            suggest_max_height: 5,
+            footer_hint: "ctrl+c exit".into(),
+        }
     }
 }
 

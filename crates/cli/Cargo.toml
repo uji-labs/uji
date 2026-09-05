@@ -1,0 +1,15 @@
+[package]
+name = "uji-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+libuji = { path = "../libuji" }
+clap = { version = "4", features = ["derive"] }
+
+[[bin]]
+name = "uji"
+path = "src/main.rs"
+
+[lints]
+workspace = true

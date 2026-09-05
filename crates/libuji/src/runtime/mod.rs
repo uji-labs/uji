@@ -1,3 +1,4 @@
+mod builtin;
 mod error;
 pub mod events;
 mod handlers;
@@ -46,10 +47,6 @@ impl Runtime {
     ) -> Result<Self, RuntimeError> {
         let inner = Inner::new(LuaState::new());
         let uji = register_all(&inner.lua, &inner)?;
-        if let Ok(opt) = inner.lua.create_table() {
-            let _ = opt.set("cursor_blink", true);
-            let _ = uji.set("opt", opt);
-        }
         let _ = inner.lua.globals().set("uji", uji);
 
         let event_loop = EventLoop::try_new()?;
@@ -59,7 +56,6 @@ impl Runtime {
         inner.load_plugins(plugin_dir);
         inner.ensure_default_layout();
         inner.sync_opts();
-        inner.sync_llm();
 
         Ok(Self {
             inner,
@@ -105,7 +101,13 @@ impl Runtime {
             dirty: false,
             running: true,
             llm_tx: llm_sender,
+            active: None,
+            action_done: false,
         };
+
+        data.inner.resolve_llm(&mut *data.storage);
+        data.refresh_suggestions();
+        data.refresh_status();
 
         event_loop
             .handle()

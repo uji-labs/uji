@@ -4,7 +4,7 @@ use diesel::sqlite::SqliteConnection;
 
 use crate::storage::error::{Result, StorageError};
 use crate::storage::interface::StorageInterface;
-use crate::storage::schema::{messages, sessions};
+use crate::storage::schema::{messages, sessions, settings};
 
 use super::id::{MessageId, SessionId, now_millis};
 use super::model::{Message, Session, StoredMessage, Time};
@@ -21,6 +21,9 @@ pub trait SessionStorage {
     -> Result<StoredMessage>;
     fn messages(&mut self, session_id: &SessionId) -> Result<Vec<StoredMessage>>;
     fn message(&mut self, id: &MessageId) -> Result<Option<(SessionId, StoredMessage)>>;
+
+    fn get_setting(&mut self, key: &str) -> Result<Option<String>>;
+    fn set_setting(&mut self, key: &str, value: &str) -> Result<()>;
 }
 
 impl<T: StorageInterface<Connection = SqliteConnection>> SessionStorage for T {
@@ -152,5 +155,26 @@ impl<T: StorageInterface<Connection = SqliteConnection>> SessionStorage for T {
             }
             None => Ok(None),
         }
+    }
+
+    fn get_setting(&mut self, key: &str) -> Result<Option<String>> {
+        let conn = self.get_connection();
+        let value = settings::table
+            .find(key.to_string())
+            .select(settings::value)
+            .first::<String>(conn)
+            .optional()?;
+        Ok(value)
+    }
+
+    fn set_setting(&mut self, key: &str, value: &str) -> Result<()> {
+        let conn = self.get_connection();
+        insert_into(settings::table)
+            .values((settings::key.eq(key), settings::value.eq(value)))
+            .on_conflict(settings::key)
+            .do_update()
+            .set(settings::value.eq(value))
+            .execute(conn)?;
+        Ok(())
     }
 }

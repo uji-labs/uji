@@ -1,4 +1,5 @@
 pub mod buffer;
+pub mod llm;
 pub mod opts;
 pub mod window;
 

@@ -5,6 +5,8 @@ pub struct UiState {
     buffers: Vec<BufferSpec>,
     windows: Vec<WindowSpec>,
     opts: GlobalOpts,
+    current_provider: Option<String>,
+    current_model: Option<String>,
 }
 
 impl UiState {
@@ -47,11 +49,39 @@ impl UiState {
     }
 
     pub fn opts(&self) -> GlobalOpts {
-        self.opts
+        self.opts.clone()
     }
 
     pub fn set_cursor_blink(&mut self, on: bool) {
         self.opts.cursor_blink = on;
+    }
+
+    pub fn set_suggest_enabled(&mut self, enabled: bool) {
+        self.opts.suggest_enabled = enabled;
+    }
+
+    pub fn set_suggest_max_height(&mut self, max_height: u16) {
+        self.opts.suggest_max_height = max_height;
+    }
+
+    pub fn set_footer_hint(&mut self, hint: String) {
+        self.opts.footer_hint = hint;
+    }
+
+    pub fn current_provider(&self) -> Option<&str> {
+        self.current_provider.as_deref()
+    }
+
+    pub fn current_model(&self) -> Option<&str> {
+        self.current_model.as_deref()
+    }
+
+    pub fn set_current_provider(&mut self, provider: String) {
+        self.current_provider = Some(provider);
+    }
+
+    pub fn set_current_model(&mut self, model: String) {
+        self.current_model = Some(model);
     }
 
     pub fn buffer_kind(&self, name: &str) -> Option<BufferKind> {
@@ -62,7 +92,7 @@ impl UiState {
         UiModel {
             buffers: self.buffers.clone(),
             windows: self.windows.clone(),
-            opts: self.opts,
+            opts: self.opts.clone(),
         }
     }
 }

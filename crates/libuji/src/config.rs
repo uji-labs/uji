@@ -66,9 +66,6 @@ pub(crate) fn watch_paths() -> Vec<PathBuf> {
 fn from_lua(source: &str, name: &str) -> Result<UiModel, mlua::Error> {
     let inner = Inner::new(Lua::new());
     let uji = crate::lua::functions::register_all(&inner.lua, &inner)?;
-    let opt = inner.lua.create_table()?;
-    opt.set("cursor_blink", true)?;
-    uji.set("opt", opt)?;
     inner.lua.globals().set("uji", uji)?;
     inner.lua.load(source).set_name(name).exec()?;
 
@@ -76,7 +73,8 @@ fn from_lua(source: &str, name: &str) -> Result<UiModel, mlua::Error> {
         .lua
         .globals()
         .get::<Table>("uji")
-        .and_then(|uji| uji.get::<Table>("opt"))
+        .and_then(|uji| uji.get::<Table>("ui"))
+        .and_then(|ui| ui.get::<Table>("opt"))
         .ok()
         .and_then(|opt| opt.get::<Option<bool>>("cursor_blink").ok().flatten())
         .unwrap_or(true);
@@ -85,6 +83,9 @@ fn from_lua(source: &str, name: &str) -> Result<UiModel, mlua::Error> {
     Ok(UiModel {
         buffers: state.buffers().to_vec(),
         windows: state.windows().to_vec(),
-        opts: GlobalOpts { cursor_blink },
+        opts: GlobalOpts {
+            cursor_blink,
+            ..GlobalOpts::default()
+        },
     })
 }
