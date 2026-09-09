@@ -1,6 +1,8 @@
 use std::time::Instant;
 
-use crate::model::{GlobalOpts, RunState, UiConfig, UiModel, WinOpts, WindowKind, WindowSpec};
+use crate::model::{
+    Builtin, Color, GlobalOpts, Line, RunState, Size, UiConfig, UiModel, WinOpts, WindowSpec,
+};
 
 #[derive(Debug, Default)]
 pub struct UiState {
@@ -11,7 +13,6 @@ pub struct UiState {
     next_window_id: u32,
     run_state: RunState,
     turn_started: Option<Instant>,
-    footer: Vec<String>,
 }
 
 impl UiState {
@@ -19,13 +20,13 @@ impl UiState {
         Self::default()
     }
 
-    pub fn push_window(&mut self, kind: WindowKind, lines: Vec<String>, opts: WinOpts) -> u32 {
+    pub fn open_window(&mut self, builtin: Option<Builtin>, opts: WinOpts) -> u32 {
         let id = self.next_window_id;
         self.next_window_id += 1;
         self.windows.push(WindowSpec {
             id,
-            kind,
-            lines,
+            builtin,
+            buffer: Vec::new(),
             opts,
         });
         id
@@ -45,12 +46,44 @@ impl UiState {
         &self.windows
     }
 
+    pub fn windows_mut(&mut self) -> &mut [WindowSpec] {
+        &mut self.windows
+    }
+
+    pub fn set_window_lines(&mut self, id: u32, lines: Vec<Line>) {
+        if let Some(window) = self.windows.iter_mut().find(|w| w.id == id) {
+            window.buffer = lines;
+        }
+    }
+
+    pub fn clear_window(&mut self, id: u32) {
+        if let Some(window) = self.windows.iter_mut().find(|w| w.id == id) {
+            window.buffer.clear();
+        }
+    }
+
+    pub fn set_window_size(&mut self, id: u32, size: Size) {
+        if let Some(window) = self.windows.iter_mut().find(|w| w.id == id) {
+            window.opts.size = size;
+        }
+    }
+
+    pub fn set_window_title(&mut self, id: u32, title: Option<String>) {
+        if let Some(window) = self.windows.iter_mut().find(|w| w.id == id) {
+            window.opts.title = title;
+        }
+    }
+
     pub fn opts(&self) -> GlobalOpts {
         self.opts.clone()
     }
 
     pub fn set_cursor_blink(&mut self, on: bool) {
         self.opts.cursor_blink = on;
+    }
+
+    pub fn set_input_color(&mut self, color: Option<Color>) {
+        self.opts.input_color = color;
     }
 
     pub fn set_suggest_enabled(&mut self, enabled: bool) {
@@ -64,6 +97,12 @@ impl UiState {
     pub fn apply_config(&mut self, config: &UiConfig) {
         if let Some(cursor_blink) = config.input.cursor_blink {
             self.set_cursor_blink(cursor_blink);
+        }
+        if let Some(color) = config.input.text_color.as_deref() {
+            match color.parse::<Color>() {
+                Ok(color) => self.set_input_color(Some(color)),
+                Err(err) => eprintln!("uji: {err}"),
+            }
         }
         if let Some(enabled) = config.suggest.enabled {
             self.set_suggest_enabled(enabled);
@@ -79,14 +118,6 @@ impl UiState {
                 self.opts.loader_interval_ms = interval_ms;
             }
         }
-    }
-
-    pub fn push_footer(&mut self, segment: String) {
-        self.footer.push(segment);
-    }
-
-    pub fn clear_footer(&mut self) {
-        self.footer.clear();
     }
 
     pub fn loader_frames(&self) -> &[String] {
@@ -127,14 +158,6 @@ impl UiState {
 
     pub fn set_turn_started(&mut self, started: Option<Instant>) {
         self.turn_started = started;
-    }
-
-    pub fn footer(&self) -> &[String] {
-        &self.footer
-    }
-
-    pub fn set_footer(&mut self, footer: Vec<String>) {
-        self.footer = footer;
     }
 
     pub fn loader_frame(&self) -> String {

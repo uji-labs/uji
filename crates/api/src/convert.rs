@@ -1,4 +1,4 @@
-use crate::model::{Border, Size, Split, WinOpts};
+use crate::model::{Border, Color, Size, Split, WinOpts};
 use mlua::Value as LuaValue;
 
 pub(crate) trait FromLuaValue: Sized {
@@ -40,6 +40,14 @@ impl FromLuaValue for WinOpts {
                 .map_err(|err| mlua::Error::runtime(err.to_string()))?;
         }
         opts.title = table.get::<Option<String>>("title")?;
+        opts.wrap = table.get::<Option<bool>>("wrap")?.unwrap_or(false);
+        if let Some(color) = table.get::<Option<String>>("border_color")? {
+            opts.border_color = Some(
+                color
+                    .parse::<Color>()
+                    .map_err(|err| mlua::Error::runtime(err.to_string()))?,
+            );
+        }
         Ok(opts)
     }
 }

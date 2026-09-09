@@ -4,11 +4,135 @@ use std::str::FromStr;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum WindowKind {
+pub enum Builtin {
     Messages,
     Input,
-    Status,
-    Text,
+}
+
+impl fmt::Display for Builtin {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Messages => "messages",
+            Self::Input => "input",
+        })
+    }
+}
+
+impl FromStr for Builtin {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "messages" => Ok(Self::Messages),
+            "input" => Ok(Self::Input),
+            other => Err(ParseError(format!(
+                "unknown view: {other} (expected \"messages\" or \"input\")"
+            ))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Color {
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    Gray,
+    DarkGray,
+    LightRed,
+    LightGreen,
+    LightYellow,
+    LightBlue,
+    LightMagenta,
+    LightCyan,
+    White,
+    Rgb(u8, u8, u8),
+}
+
+impl FromStr for Color {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(hex) = s.strip_prefix('#') {
+            if hex.len() != 6 {
+                return Err(ParseError(format!("invalid color: {s} (expected #rrggbb)")));
+            }
+            let parse = |i: usize| {
+                u8::from_str_radix(&hex[i..i + 2], 16)
+                    .map_err(|_| ParseError(format!("invalid color: {s}")))
+            };
+            return Ok(Self::Rgb(parse(0)?, parse(2)?, parse(4)?));
+        }
+        match s {
+            "black" => Ok(Self::Black),
+            "red" => Ok(Self::Red),
+            "green" => Ok(Self::Green),
+            "yellow" => Ok(Self::Yellow),
+            "blue" => Ok(Self::Blue),
+            "magenta" => Ok(Self::Magenta),
+            "cyan" => Ok(Self::Cyan),
+            "white" => Ok(Self::White),
+            "gray" | "grey" => Ok(Self::Gray),
+            "dark_gray" | "dark_grey" | "light_black" => Ok(Self::DarkGray),
+            "light_red" => Ok(Self::LightRed),
+            "light_green" => Ok(Self::LightGreen),
+            "light_yellow" => Ok(Self::LightYellow),
+            "light_blue" => Ok(Self::LightBlue),
+            "light_magenta" => Ok(Self::LightMagenta),
+            "light_cyan" => Ok(Self::LightCyan),
+            other => Err(ParseError(format!("unknown color: {other}"))),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Style {
+    pub fg: Option<Color>,
+    pub bg: Option<Color>,
+    pub bold: bool,
+    pub italic: bool,
+    pub underline: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Span {
+    pub text: String,
+    pub style: Style,
+}
+
+impl Span {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            style: Style::default(),
+        }
+    }
+
+    pub fn styled(text: impl Into<String>, style: Style) -> Self {
+        Self {
+            text: text.into(),
+            style,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Line {
+    pub spans: Vec<Span>,
+}
+
+impl Line {
+    pub fn blank() -> Self {
+        Self { spans: Vec::new() }
+    }
+
+    pub fn single(span: Span) -> Self {
+        Self { spans: vec![span] }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -17,6 +141,7 @@ pub enum Border {
     None,
     Plain,
     Rounded,
+    Horizontal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,6 +165,8 @@ pub struct WinOpts {
     pub size: Size,
     pub border: Border,
     pub title: Option<String>,
+    pub wrap: bool,
+    pub border_color: Option<Color>,
 }
 
 impl Default for WinOpts {
@@ -49,6 +176,8 @@ impl Default for WinOpts {
             size: Size::Fill,
             border: Border::None,
             title: None,
+            wrap: false,
+            border_color: None,
         }
     }
 }
@@ -56,14 +185,15 @@ impl Default for WinOpts {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WindowSpec {
     pub id: u32,
-    pub kind: WindowKind,
-    pub lines: Vec<String>,
+    pub builtin: Option<Builtin>,
+    pub buffer: Vec<Line>,
     pub opts: WinOpts,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GlobalOpts {
     pub cursor_blink: bool,
+    pub input_color: Option<Color>,
     pub suggest_enabled: bool,
     pub suggest_max_height: u16,
     pub loader_frames: Vec<String>,
@@ -74,6 +204,7 @@ impl Default for GlobalOpts {
     fn default() -> Self {
         Self {
             cursor_blink: true,
+            input_color: None,
             suggest_enabled: true,
             suggest_max_height: 5,
             loader_frames: Vec::new(),
@@ -93,6 +224,7 @@ pub struct UiConfig {
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct InputConfig {
     pub cursor_blink: Option<bool>,
+    pub text_color: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -132,33 +264,33 @@ impl Default for UiModel {
             windows: vec![
                 WindowSpec {
                     id: 0,
-                    kind: WindowKind::Messages,
-                    lines: Vec::new(),
+                    builtin: Some(Builtin::Messages),
+                    buffer: Vec::new(),
                     opts: WinOpts {
                         split: Split::Top,
                         size: Size::Fill,
+                        wrap: true,
                         ..WinOpts::default()
                     },
                 },
                 WindowSpec {
                     id: 1,
-                    kind: WindowKind::Status,
-                    lines: Vec::new(),
+                    builtin: None,
+                    buffer: Vec::new(),
                     opts: WinOpts {
                         split: Split::Bottom,
                         size: Size::Fixed(1),
-                        border: Border::None,
                         ..WinOpts::default()
                     },
                 },
                 WindowSpec {
                     id: 2,
-                    kind: WindowKind::Input,
-                    lines: Vec::new(),
+                    builtin: Some(Builtin::Input),
+                    buffer: Vec::new(),
                     opts: WinOpts {
                         split: Split::Bottom,
                         size: Size::Fixed(3),
-                        border: Border::None,
+                        border: Border::Horizontal,
                         ..WinOpts::default()
                     },
                 },
@@ -178,33 +310,6 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
-
-impl FromStr for WindowKind {
-    type Err = ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "messages" => Ok(Self::Messages),
-            "input" => Ok(Self::Input),
-            "status" => Ok(Self::Status),
-            "text" => Ok(Self::Text),
-            other => Err(ParseError(format!(
-                "unknown window kind: {other} (expected \"messages\", \"input\", \"status\" or \"text\")"
-            ))),
-        }
-    }
-}
-
-impl fmt::Display for WindowKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Messages => "messages",
-            Self::Input => "input",
-            Self::Status => "status",
-            Self::Text => "text",
-        })
-    }
-}
 
 impl FromStr for Split {
     type Err = ParseError;
@@ -239,6 +344,7 @@ impl FromStr for Border {
             "none" => Ok(Self::None),
             "plain" => Ok(Self::Plain),
             "rounded" => Ok(Self::Rounded),
+            "horizontal" => Ok(Self::Horizontal),
             other => Err(ParseError(format!("unknown border: {other}"))),
         }
     }
@@ -250,6 +356,7 @@ impl fmt::Display for Border {
             Self::None => "none",
             Self::Plain => "plain",
             Self::Rounded => "rounded",
+            Self::Horizontal => "horizontal",
         })
     }
 }

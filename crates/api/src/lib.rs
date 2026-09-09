@@ -69,13 +69,12 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     let ui = lua.create_table()?;
     ui.set("open_win", window::open_win(lua, api)?)?;
     ui.set("close_win", window::close_win(lua, api)?)?;
+    ui.set("set_lines", window::set_lines(lua, api)?)?;
+    ui.set("clear", window::clear(lua, api)?)?;
+    ui.set("set_size", window::set_size(lua, api)?)?;
+    ui.set("set_title", window::set_title(lua, api)?)?;
     ui.set("configure", window::configure(lua, api)?)?;
     uji.set("ui", ui)?;
-
-    let footer = lua.create_table()?;
-    footer.set("clear", status::footer_clear(lua, api)?)?;
-    footer.set("push", status::footer_push(lua, api)?)?;
-    uji.set("footer", footer)?;
 
     let llm = lua.create_table()?;
     llm.set("current_provider", llm::current_provider(lua, api)?)?;

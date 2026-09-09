@@ -37,6 +37,7 @@ impl Render for Messages<'_> {
                     for line in text.lines() {
                         lines.push(Line::from(format!(" {line}")).style(text_style));
                     }
+                    lines.push(Line::from(""));
                 }
                 Message::System { text } => {
                     lines.push(Line::from(""));
@@ -44,6 +45,7 @@ impl Render for Messages<'_> {
                     for line in text.lines() {
                         lines.push(Line::from(format!(" {line}")).style(muted));
                     }
+                    lines.push(Line::from(""));
                 }
                 Message::Error { text } => {
                     lines.push(Line::from(""));
@@ -51,6 +53,7 @@ impl Render for Messages<'_> {
                     for line in text.lines() {
                         lines.push(Line::from(format!(" {line}")).style(error));
                     }
+                    lines.push(Line::from(""));
                 }
             }
         }

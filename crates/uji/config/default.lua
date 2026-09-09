@@ -1,10 +1,8 @@
--- Default uji UI, configured via component objects (nvim-style).
+-- Default uji UI, configured via windows + buffers (nvim-style).
 
-uji.ui.open_win({ view = "messages", split = "top", size = "fill", border = "none" })
-uji.ui.open_win({ view = "status", split = "bottom", size = 1 })
-uji.ui.open_win({ view = "input", split = "bottom", size = 3 })
-
-local waiting_text = "Working"
+uji.ui.open_win({ view = "messages", split = "top", size = "fill", wrap = true })
+local status = uji.ui.open_win({ split = "bottom", size = 1 })
+uji.ui.open_win({ view = "input", split = "bottom", size = 3, border = "horizontal" })
 
 uji.ui.configure({
     input = { cursor_blink = true },
@@ -17,28 +15,28 @@ uji.ui.configure({
     },
 })
 
-local function render_footer()
-    uji.footer.clear()
+local waiting_text = "Working"
+
+local function render_status()
     if uji.status.state() == "working" then
-        local frame = uji.status.loader_frame()
-        if frame ~= "" then
-            uji.footer.push(frame)
-        end
-        uji.footer.push(waiting_text)
-        local elapsed = uji.status.elapsed()
-        if elapsed then
-            uji.footer.push(string.format("(%ds)", math.floor(elapsed)))
-        end
+        local elapsed = math.floor(uji.status.elapsed() or 0)
+        uji.ui.set_lines(status, {
+            {
+                { text = uji.status.loader_frame() .. " ", color = "cyan", bold = true },
+                { text = waiting_text .. " (" .. elapsed .. "s)", color = "#808080" },
+            },
+        })
     else
         local provider = uji.status.provider()
         local model = uji.status.model()
         if provider then
-            uji.footer.push(provider .. "/" .. model)
+            uji.ui.set_lines(status, { { text = provider .. "/" .. model, color = "#808080" } })
+        else
+            uji.ui.clear(status)
         end
     end
-    uji.footer.push("ctrl+c exit")
 end
 
-uji.on("status_changed", render_footer)
-uji.on("tick", render_footer)
-render_footer()
+uji.on("status_changed", render_status)
+uji.on("tick", render_status)
+render_status()
