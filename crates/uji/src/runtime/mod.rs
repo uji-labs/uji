@@ -126,7 +126,7 @@ impl Runtime {
             })
             .map_err(|err| io::Error::other(format!("register llm source: {err}")))?;
 
-        let timer = calloop::timer::Timer::from_duration(std::time::Duration::from_millis(80));
+        let timer = calloop::timer::Timer::from_duration(data.timer_interval());
         event_loop
             .handle()
             .insert_source(timer, |_event, _meta, data: &mut LoopData| {
