@@ -185,14 +185,7 @@ impl LoopData {
     }
 
     pub(crate) fn timer_interval(&self) -> Duration {
-        let ms = self
-            .inner
-            .state()
-            .borrow()
-            .opts()
-            .waiting
-            .loader_interval_ms
-            .max(1);
+        let ms = self.inner.state().borrow().opts().loader_interval_ms.max(1);
         Duration::from_millis(ms)
     }
 

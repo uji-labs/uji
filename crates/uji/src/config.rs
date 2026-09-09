@@ -56,6 +56,5 @@ fn from_lua(source: &str, name: &str) -> Result<UiModel, mlua::Error> {
     lua.globals().set("uji", uji)?;
     lua.load(source).set_name(name).exec()?;
     let inner = Inner::new(lua, api);
-    inner.apply_ui_config();
     Ok(inner.state().borrow().snapshot())
 }

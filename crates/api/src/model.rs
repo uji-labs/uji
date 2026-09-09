@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+use serde::Deserialize;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowKind {
     Messages,
@@ -64,7 +66,8 @@ pub struct GlobalOpts {
     pub cursor_blink: bool,
     pub suggest_enabled: bool,
     pub suggest_max_height: u16,
-    pub waiting: WaitingOpts,
+    pub loader_frames: Vec<String>,
+    pub loader_interval_ms: u64,
 }
 
 impl Default for GlobalOpts {
@@ -73,9 +76,32 @@ impl Default for GlobalOpts {
             cursor_blink: true,
             suggest_enabled: true,
             suggest_max_height: 5,
-            waiting: WaitingOpts::default(),
+            loader_frames: Vec::new(),
+            loader_interval_ms: 80,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct InputConfig {
+    pub cursor_blink: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct SuggestConfig {
+    pub enabled: Option<bool>,
+    pub max_height: Option<u16>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoaderConfig {
+    pub frames: Option<Vec<String>>,
+    pub interval_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WaitingConfig {
+    pub loader: Option<LoaderConfig>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -84,23 +110,6 @@ pub enum RunState {
     Idle,
     Working,
     Error,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WaitingOpts {
-    pub text: String,
-    pub loader_frames: Vec<String>,
-    pub loader_interval_ms: u64,
-}
-
-impl Default for WaitingOpts {
-    fn default() -> Self {
-        Self {
-            text: "Working".into(),
-            loader_frames: Vec::new(),
-            loader_interval_ms: 80,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,6 +1,9 @@
 use std::time::Instant;
 
-use crate::model::{GlobalOpts, RunState, UiModel, WaitingOpts, WinOpts, WindowKind, WindowSpec};
+use crate::model::{
+    GlobalOpts, InputConfig, RunState, SuggestConfig, UiModel, WaitingConfig, WinOpts, WindowKind,
+    WindowSpec,
+};
 
 #[derive(Debug, Default)]
 pub struct UiState {
@@ -61,8 +64,30 @@ impl UiState {
         self.opts.suggest_max_height = max_height;
     }
 
-    pub fn set_waiting(&mut self, waiting: WaitingOpts) {
-        self.opts.waiting = waiting;
+    pub fn apply_input(&mut self, config: &InputConfig) {
+        if let Some(cursor_blink) = config.cursor_blink {
+            self.set_cursor_blink(cursor_blink);
+        }
+    }
+
+    pub fn apply_suggest(&mut self, config: &SuggestConfig) {
+        if let Some(enabled) = config.enabled {
+            self.set_suggest_enabled(enabled);
+        }
+        if let Some(max_height) = config.max_height {
+            self.set_suggest_max_height(max_height);
+        }
+    }
+
+    pub fn apply_waiting(&mut self, config: &WaitingConfig) {
+        if let Some(loader) = &config.loader {
+            if let Some(frames) = &loader.frames {
+                self.opts.loader_frames.clone_from(frames);
+            }
+            if let Some(interval_ms) = loader.interval_ms {
+                self.opts.loader_interval_ms = interval_ms;
+            }
+        }
     }
 
     pub fn push_footer(&mut self, segment: String) {
@@ -74,11 +99,11 @@ impl UiState {
     }
 
     pub fn loader_frames(&self) -> &[String] {
-        &self.opts.waiting.loader_frames
+        &self.opts.loader_frames
     }
 
     pub fn loader_interval_ms(&self) -> u64 {
-        self.opts.waiting.loader_interval_ms
+        self.opts.loader_interval_ms
     }
 
     pub fn current_provider(&self) -> Option<&str> {
@@ -125,11 +150,11 @@ impl UiState {
         let Some(started) = self.turn_started else {
             return String::new();
         };
-        let frames = &self.opts.waiting.loader_frames;
+        let frames = &self.opts.loader_frames;
         if frames.is_empty() {
             return String::new();
         }
-        let interval = u128::from(self.opts.waiting.loader_interval_ms.max(1));
+        let interval = u128::from(self.opts.loader_interval_ms.max(1));
         let len = u128::try_from(frames.len()).unwrap_or(1);
         let idx = (started.elapsed().as_millis() / interval) % len;
         let idx = usize::try_from(idx).unwrap_or(0);

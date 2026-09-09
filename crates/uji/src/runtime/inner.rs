@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use mlua::{Lua as LuaState, Table};
+use mlua::Lua as LuaState;
 use uji_api::Api;
-use uji_api::model::WaitingOpts;
 use uji_api::state::UiState;
 
 use crate::config::{self, DEFAULT_LUA};
@@ -49,7 +48,6 @@ impl Inner {
         self.state().borrow_mut().clear();
         self.run_init(None);
         self.load_plugins(None);
-        self.apply_ui_config();
     }
 
     pub(crate) fn run_init(&self, config_path: Option<PathBuf>) {
@@ -91,59 +89,6 @@ impl Inner {
                 eprintln!("uji: plugin error in {name}: {err}");
             }
         }
-    }
-
-    pub(crate) fn apply_ui_config(&self) {
-        let ui = self
-            .lua
-            .globals()
-            .get::<Table>("uji")
-            .ok()
-            .and_then(|uji| uji.get::<Table>("ui").ok());
-
-        let input = ui.as_ref().and_then(|ui| ui.get::<Table>("input").ok());
-        let cursor_blink = input
-            .as_ref()
-            .and_then(|i| i.get::<Option<bool>>("cursor_blink").ok().flatten())
-            .unwrap_or(true);
-
-        let suggest = ui.as_ref().and_then(|ui| ui.get::<Table>("suggest").ok());
-        let suggest_enabled = suggest
-            .as_ref()
-            .and_then(|s| s.get::<Option<bool>>("enabled").ok().flatten())
-            .unwrap_or(true);
-        let suggest_max_height = suggest
-            .as_ref()
-            .and_then(|s| s.get::<Option<i64>>("max_height").ok().flatten())
-            .and_then(|n| u16::try_from(n).ok())
-            .unwrap_or(5);
-
-        let waiting = ui.as_ref().and_then(|ui| ui.get::<Table>("waiting").ok());
-        let waiting_text = waiting
-            .as_ref()
-            .and_then(|w| w.get::<Option<String>>("text").ok().flatten())
-            .unwrap_or_else(|| "Working".into());
-        let loader = waiting.as_ref().and_then(|w| w.get::<Table>("loader").ok());
-        let loader_frames = loader
-            .as_ref()
-            .and_then(|l| l.get::<Option<Vec<String>>>("frames").ok().flatten())
-            .unwrap_or_default();
-        let loader_interval_ms = loader
-            .as_ref()
-            .and_then(|l| l.get::<Option<i64>>("interval_ms").ok().flatten())
-            .and_then(|n| u64::try_from(n).ok())
-            .unwrap_or(80);
-
-        let state_rc = self.state();
-        let mut state = state_rc.borrow_mut();
-        state.set_cursor_blink(cursor_blink);
-        state.set_suggest_enabled(suggest_enabled);
-        state.set_suggest_max_height(suggest_max_height);
-        state.set_waiting(WaitingOpts {
-            text: waiting_text,
-            loader_frames,
-            loader_interval_ms,
-        });
     }
 
     pub(crate) fn resolve_llm(&self, storage: &mut dyn SessionStorage) {

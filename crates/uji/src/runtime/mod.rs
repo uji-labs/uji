@@ -54,7 +54,6 @@ impl Runtime {
 
         inner.run_init(config_path);
         inner.load_plugins(plugin_dir);
-        inner.apply_ui_config();
 
         Ok(Self {
             inner,
