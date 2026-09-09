@@ -64,7 +64,6 @@ pub struct GlobalOpts {
     pub cursor_blink: bool,
     pub suggest_enabled: bool,
     pub suggest_max_height: u16,
-    pub footer_hint: String,
     pub waiting: WaitingOpts,
 }
 
@@ -74,7 +73,6 @@ impl Default for GlobalOpts {
             cursor_blink: true,
             suggest_enabled: true,
             suggest_max_height: 5,
-            footer_hint: "ctrl+c exit".into(),
             waiting: WaitingOpts::default(),
         }
     }

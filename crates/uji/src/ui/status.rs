@@ -12,17 +12,8 @@ pub(crate) struct Status;
 impl Render for Status {
     fn render(&self, ctx: &Context<'_>, surface: &mut Surface<'_>) {
         let segments: Vec<&str> = ctx.state.footer().iter().map(String::as_str).collect();
-        let text = if segments.is_empty() {
-            ctx.state.opts().footer_hint.clone()
-        } else {
-            format!(
-                "{} · {}",
-                segments.join(" · "),
-                ctx.state.opts().footer_hint
-            )
-        };
         surface.render_widget(Paragraph::new(Line::styled(
-            text,
+            segments.join(" · "),
             Style::default().fg(MUTED),
         )));
     }

@@ -61,12 +61,16 @@ impl UiState {
         self.opts.suggest_max_height = max_height;
     }
 
-    pub fn set_footer_hint(&mut self, hint: String) {
-        self.opts.footer_hint = hint;
-    }
-
     pub fn set_waiting(&mut self, waiting: WaitingOpts) {
         self.opts.waiting = waiting;
+    }
+
+    pub fn push_footer(&mut self, segment: String) {
+        self.footer.push(segment);
+    }
+
+    pub fn clear_footer(&mut self) {
+        self.footer.clear();
     }
 
     pub fn loader_frames(&self) -> &[String] {

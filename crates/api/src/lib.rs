@@ -71,6 +71,11 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     ui.set("close_win", window::close_win(lua, api)?)?;
     uji.set("ui", ui)?;
 
+    let footer = lua.create_table()?;
+    footer.set("clear", status::footer_clear(lua, api)?)?;
+    footer.set("push", status::footer_push(lua, api)?)?;
+    uji.set("footer", footer)?;
+
     let llm = lua.create_table()?;
     llm.set("current_provider", llm::current_provider(lua, api)?)?;
     llm.set("current_model", llm::current_model(lua, api)?)?;

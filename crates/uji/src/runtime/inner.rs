@@ -107,12 +107,6 @@ impl Inner {
             .and_then(|i| i.get::<Option<bool>>("cursor_blink").ok().flatten())
             .unwrap_or(true);
 
-        let footer_hint = ui
-            .as_ref()
-            .and_then(|ui| ui.get::<Table>("footer").ok())
-            .and_then(|f| f.get::<Option<String>>("hint").ok().flatten())
-            .unwrap_or_else(|| "ctrl+c exit".into());
-
         let suggest = ui.as_ref().and_then(|ui| ui.get::<Table>("suggest").ok());
         let suggest_enabled = suggest
             .as_ref()
@@ -143,7 +137,6 @@ impl Inner {
         let state_rc = self.state();
         let mut state = state_rc.borrow_mut();
         state.set_cursor_blink(cursor_blink);
-        state.set_footer_hint(footer_hint);
         state.set_suggest_enabled(suggest_enabled);
         state.set_suggest_max_height(suggest_max_height);
         state.set_waiting(WaitingOpts {
