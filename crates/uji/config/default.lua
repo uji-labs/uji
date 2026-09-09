@@ -4,22 +4,18 @@ uji.ui.open_win({ view = "messages", split = "top", size = "fill", border = "non
 uji.ui.open_win({ view = "status", split = "bottom", size = 1 })
 uji.ui.open_win({ view = "input", split = "bottom", size = 3 })
 
-uji.ui.input = {
-    cursor_blink = true,
-}
+local waiting_text = "Working"
 
-uji.ui.suggest = {
-    enabled = true,
-    max_height = 5,
-}
-
-uji.ui.waiting = {
-    text = "Working",
-    loader = {
-        frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
-        interval_ms = 80,
+uji.ui.configure({
+    input = { cursor_blink = true },
+    suggest = { enabled = true, max_height = 5 },
+    waiting = {
+        loader = {
+            frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+            interval_ms = 80,
+        },
     },
-}
+})
 
 local function render_footer()
     uji.footer.clear()
@@ -28,7 +24,7 @@ local function render_footer()
         if frame ~= "" then
             uji.footer.push(frame)
         end
-        uji.footer.push(uji.ui.waiting.text)
+        uji.footer.push(waiting_text)
         local elapsed = uji.status.elapsed()
         if elapsed then
             uji.footer.push(string.format("(%ds)", math.floor(elapsed)))

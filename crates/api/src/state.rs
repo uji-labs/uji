@@ -1,9 +1,6 @@
 use std::time::Instant;
 
-use crate::model::{
-    GlobalOpts, InputConfig, RunState, SuggestConfig, UiModel, WaitingConfig, WinOpts, WindowKind,
-    WindowSpec,
-};
+use crate::model::{GlobalOpts, RunState, UiConfig, UiModel, WinOpts, WindowKind, WindowSpec};
 
 #[derive(Debug, Default)]
 pub struct UiState {
@@ -64,23 +61,17 @@ impl UiState {
         self.opts.suggest_max_height = max_height;
     }
 
-    pub fn apply_input(&mut self, config: &InputConfig) {
-        if let Some(cursor_blink) = config.cursor_blink {
+    pub fn apply_config(&mut self, config: &UiConfig) {
+        if let Some(cursor_blink) = config.input.cursor_blink {
             self.set_cursor_blink(cursor_blink);
         }
-    }
-
-    pub fn apply_suggest(&mut self, config: &SuggestConfig) {
-        if let Some(enabled) = config.enabled {
+        if let Some(enabled) = config.suggest.enabled {
             self.set_suggest_enabled(enabled);
         }
-        if let Some(max_height) = config.max_height {
+        if let Some(max_height) = config.suggest.max_height {
             self.set_suggest_max_height(max_height);
         }
-    }
-
-    pub fn apply_waiting(&mut self, config: &WaitingConfig) {
-        if let Some(loader) = &config.loader {
+        if let Some(loader) = &config.waiting.loader {
             if let Some(frames) = &loader.frames {
                 self.opts.loader_frames.clone_from(frames);
             }

@@ -14,9 +14,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use mlua::{Function, Lua, LuaSerdeExt, Table, Value};
+use mlua::{Function, Lua, Table};
 
-use crate::model::{InputConfig, SuggestConfig, WaitingConfig};
 use crate::state::UiState;
 
 use self::handlers::Handlers;
@@ -67,40 +66,10 @@ impl Api {
 pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     let uji = lua.create_table()?;
 
-    let backing = lua.create_table()?;
-    backing.set("open_win", window::open_win(lua, api)?)?;
-    backing.set("close_win", window::close_win(lua, api)?)?;
-
-    let state = api.state();
-    let backing_key = lua.create_registry_value(backing.clone())?;
-    let metatable = lua.create_table()?;
-    metatable.set("__index", backing)?;
-    metatable.set(
-        "__newindex",
-        lua.create_function(move |lua, (_proxy, key, value): (Table, String, Value)| {
-            let backing: Table = lua.registry_value(&backing_key)?;
-            backing.raw_set(key.clone(), value.clone())?;
-            match key.as_str() {
-                "input" => {
-                    let config: InputConfig = lua.from_value(value)?;
-                    state.borrow_mut().apply_input(&config);
-                }
-                "suggest" => {
-                    let config: SuggestConfig = lua.from_value(value)?;
-                    state.borrow_mut().apply_suggest(&config);
-                }
-                "waiting" => {
-                    let config: WaitingConfig = lua.from_value(value)?;
-                    state.borrow_mut().apply_waiting(&config);
-                }
-                _ => {}
-            }
-            Ok(())
-        })?,
-    )?;
-
     let ui = lua.create_table()?;
-    ui.set_metatable(Some(metatable))?;
+    ui.set("open_win", window::open_win(lua, api)?)?;
+    ui.set("close_win", window::close_win(lua, api)?)?;
+    ui.set("configure", window::configure(lua, api)?)?;
     uji.set("ui", ui)?;
 
     let footer = lua.create_table()?;

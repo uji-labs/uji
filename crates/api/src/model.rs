@@ -82,24 +82,32 @@ impl Default for GlobalOpts {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default)]
+pub struct UiConfig {
+    pub input: InputConfig,
+    pub suggest: SuggestConfig,
+    pub waiting: WaitingConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct InputConfig {
     pub cursor_blink: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct SuggestConfig {
     pub enabled: Option<bool>,
     pub max_height: Option<u16>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct LoaderConfig {
     pub frames: Option<Vec<String>>,
     pub interval_ms: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Default)]
 pub struct WaitingConfig {
     pub loader: Option<LoaderConfig>,
 }

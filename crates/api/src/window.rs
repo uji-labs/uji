@@ -1,8 +1,8 @@
 use std::rc::Rc;
 
-use crate::model::{WinOpts, WindowKind};
+use crate::model::{UiConfig, WinOpts, WindowKind};
 use crate::state::UiState;
-use mlua::{Function, Lua, Table, Value as LuaValue};
+use mlua::{Function, Lua, LuaSerdeExt, Table, Value as LuaValue};
 
 use super::Api;
 use super::convert::FromLuaValue;
@@ -44,5 +44,14 @@ pub fn close_win(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
     lua.create_function(move |_, id: u32| {
         let mut state = state.borrow_mut();
         Ok(close(&mut state, id))
+    })
+}
+
+pub fn configure(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
+    let state = api.state();
+    lua.create_function(move |lua, opts: Table| {
+        let config: UiConfig = lua.from_value(LuaValue::Table(opts))?;
+        state.borrow_mut().apply_config(&config);
+        Ok(())
     })
 }
