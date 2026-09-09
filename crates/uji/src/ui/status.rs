@@ -11,10 +11,11 @@ pub(crate) struct Status;
 
 impl Render for Status {
     fn render(&self, ctx: &Context<'_>, surface: &mut Surface<'_>) {
-        let text = if ctx.app.status().is_empty() {
+        let status = ctx.state.status();
+        let text = if status.is_empty() {
             ctx.state.opts().footer_hint.clone()
         } else {
-            format!("{} · {}", ctx.app.status(), ctx.state.opts().footer_hint)
+            format!("{status} · {}", ctx.state.opts().footer_hint)
         };
         surface.render_widget(Paragraph::new(Line::styled(
             text,

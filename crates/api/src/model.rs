@@ -65,6 +65,7 @@ pub struct GlobalOpts {
     pub suggest_enabled: bool,
     pub suggest_max_height: u16,
     pub footer_hint: String,
+    pub waiting: WaitingOpts,
 }
 
 impl Default for GlobalOpts {
@@ -74,6 +75,42 @@ impl Default for GlobalOpts {
             suggest_enabled: true,
             suggest_max_height: 5,
             footer_hint: "ctrl+c exit".into(),
+            waiting: WaitingOpts::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RunState {
+    #[default]
+    Idle,
+    Working,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LoaderMode {
+    #[default]
+    Braille,
+    Dots,
+    Line,
+    Pulse,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WaitingOpts {
+    pub text: String,
+    pub loader_mode: LoaderMode,
+    pub loader_interval_ms: u64,
+}
+
+impl Default for WaitingOpts {
+    fn default() -> Self {
+        Self {
+            text: "Working".into(),
+            loader_mode: LoaderMode::Braille,
+            loader_interval_ms: 80,
         }
     }
 }
@@ -136,6 +173,35 @@ impl fmt::Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
+
+impl FromStr for LoaderMode {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "braille" => Ok(Self::Braille),
+            "dots" => Ok(Self::Dots),
+            "line" => Ok(Self::Line),
+            "pulse" => Ok(Self::Pulse),
+            "none" => Ok(Self::None),
+            other => Err(ParseError(format!(
+                "unknown loader mode: {other} (expected \"braille\", \"dots\", \"line\", \"pulse\" or \"none\")"
+            ))),
+        }
+    }
+}
+
+impl fmt::Display for LoaderMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Braille => "braille",
+            Self::Dots => "dots",
+            Self::Line => "line",
+            Self::Pulse => "pulse",
+            Self::None => "none",
+        })
+    }
+}
 
 impl FromStr for WindowKind {
     type Err = ParseError;

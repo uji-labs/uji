@@ -7,6 +7,7 @@ pub mod model;
 pub mod schedule;
 pub mod scheduled;
 pub mod state;
+pub mod status;
 pub mod window;
 
 use std::cell::RefCell;
@@ -68,12 +69,21 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     let ui = lua.create_table()?;
     ui.set("open_win", window::open_win(lua, api)?)?;
     ui.set("close_win", window::close_win(lua, api)?)?;
+    ui.set("set_status", status::set_status(lua, api)?)?;
     uji.set("ui", ui)?;
 
     let llm = lua.create_table()?;
     llm.set("current_provider", llm::current_provider(lua, api)?)?;
     llm.set("current_model", llm::current_model(lua, api)?)?;
     uji.set("llm", llm)?;
+
+    let status = lua.create_table()?;
+    status.set("provider", status::provider(lua, api)?)?;
+    status.set("model", status::model(lua, api)?)?;
+    status.set("state", status::state(lua, api)?)?;
+    status.set("elapsed", status::elapsed(lua, api)?)?;
+    status.set("loader_frame", status::loader_frame(lua, api)?)?;
+    uji.set("status", status)?;
 
     uji.set("schedule", schedule::schedule(lua, api)?)?;
     uji.set("on", event::on(lua, api)?)?;

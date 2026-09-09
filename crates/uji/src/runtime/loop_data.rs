@@ -1,7 +1,9 @@
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use crossterm::event::Event as TermEvent;
+use uji_api::model::RunState;
 
 use crate::app::{self, App, KeyAction, SuggestItem};
 use crate::cmd::{Args, Context};
@@ -84,6 +86,13 @@ impl LoopData {
             .map(|stored| stored.message.clone())
             .collect();
         let sender = self.llm_tx.clone();
+        {
+            let state_rc = self.inner.state();
+            let mut state = state_rc.borrow_mut();
+            state.set_run_state(RunState::Working);
+            state.set_turn_started(Some(Instant::now()));
+        }
+        self.inner.emit("status_changed", &[]);
         self.runtime.spawn(async move {
             let mut on_event = |event: StreamEvent| {
                 let _ = sender.send(event);
@@ -98,13 +107,27 @@ impl LoopData {
                 self.app.append_pending(&delta);
                 self.dirty = true;
             }
-            StreamEvent::Done(text) => self.finish_assistant(&text),
+            StreamEvent::Done(text) => {
+                self.finish_assistant(&text);
+                self.stop_working();
+            }
             StreamEvent::Failed(err) => {
                 self.app.take_pending();
                 eprintln!("uji: llm: {err}");
                 self.dirty = true;
+                self.stop_working();
             }
         }
+    }
+
+    fn stop_working(&mut self) {
+        {
+            let state_rc = self.inner.state();
+            let mut state = state_rc.borrow_mut();
+            state.set_run_state(RunState::Idle);
+            state.set_turn_started(None);
+        }
+        self.inner.emit("status_changed", &[]);
     }
 
     fn finish_assistant(&mut self, text: &str) {
@@ -135,17 +158,24 @@ impl LoopData {
         self.app.set_suggestions(pool);
     }
 
-    pub(crate) fn refresh_status(&mut self) {
-        let state_rc = self.inner.state();
-        let state = state_rc.borrow();
-        let provider = state.current_provider().unwrap_or("").to_string();
-        let model = state.current_model().unwrap_or_default().to_string();
-        let status = if model.is_empty() {
-            provider
-        } else {
-            format!("{provider}/{model}")
-        };
-        self.app.set_status(status);
+    pub(crate) fn on_timer(&mut self) {
+        let working = self.inner.state().borrow().run_state() == RunState::Working;
+        if working {
+            self.inner.emit("tick", &[]);
+            self.dirty = true;
+        }
+    }
+
+    pub(crate) fn timer_interval(&self) -> Duration {
+        let ms = self
+            .inner
+            .state()
+            .borrow()
+            .opts()
+            .waiting
+            .loader_interval_ms
+            .max(1);
+        Duration::from_millis(ms)
     }
 
     fn on_command(&mut self, command: &str) {
@@ -210,7 +240,8 @@ impl Context for LoopData {
 
     fn resolve_llm(&mut self) {
         self.inner.resolve_llm(&mut *self.storage);
-        self.refresh_status();
+        self.inner.emit("status_changed", &[]);
+        self.dirty = true;
     }
 
     fn reload(&mut self) {

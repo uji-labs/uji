@@ -1,4 +1,6 @@
-use crate::model::{GlobalOpts, UiModel, WinOpts, WindowKind, WindowSpec};
+use std::time::Instant;
+
+use crate::model::{GlobalOpts, RunState, UiModel, WaitingOpts, WinOpts, WindowKind, WindowSpec};
 
 #[derive(Debug, Default)]
 pub struct UiState {
@@ -7,6 +9,9 @@ pub struct UiState {
     current_provider: Option<String>,
     current_model: Option<String>,
     next_window_id: u32,
+    run_state: RunState,
+    turn_started: Option<Instant>,
+    status: String,
 }
 
 impl UiState {
@@ -60,6 +65,10 @@ impl UiState {
         self.opts.footer_hint = hint;
     }
 
+    pub fn set_waiting(&mut self, waiting: WaitingOpts) {
+        self.opts.waiting = waiting;
+    }
+
     pub fn current_provider(&self) -> Option<&str> {
         self.current_provider.as_deref()
     }
@@ -74,6 +83,30 @@ impl UiState {
 
     pub fn set_current_model(&mut self, model: String) {
         self.current_model = Some(model);
+    }
+
+    pub fn run_state(&self) -> RunState {
+        self.run_state
+    }
+
+    pub fn set_run_state(&mut self, state: RunState) {
+        self.run_state = state;
+    }
+
+    pub fn turn_started(&self) -> Option<Instant> {
+        self.turn_started
+    }
+
+    pub fn set_turn_started(&mut self, started: Option<Instant>) {
+        self.turn_started = started;
+    }
+
+    pub fn status(&self) -> &str {
+        &self.status
+    }
+
+    pub fn set_status(&mut self, status: String) {
+        self.status = status;
     }
 
     pub fn snapshot(&self) -> UiModel {

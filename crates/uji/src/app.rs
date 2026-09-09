@@ -59,7 +59,6 @@ pub struct App {
     pending: Option<String>,
     mode: Mode,
     suggest_pool: Vec<SuggestItem>,
-    status: String,
 }
 
 impl App {
@@ -78,7 +77,6 @@ impl App {
             pending: None,
             mode: Mode::Normal,
             suggest_pool: Vec::new(),
-            status: String::new(),
         }
     }
 
@@ -120,14 +118,6 @@ impl App {
 
     pub fn take_pending(&mut self) -> Option<String> {
         self.pending.take()
-    }
-
-    pub fn status(&self) -> &str {
-        &self.status
-    }
-
-    pub fn set_status(&mut self, status: String) {
-        self.status = status;
     }
 
     pub fn mode(&self) -> &Mode {

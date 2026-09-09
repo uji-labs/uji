@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use mlua::{Lua as LuaState, Table};
 use uji_api::Api;
-use uji_api::model::{Border, Size, Split, WinOpts, WindowKind};
+use uji_api::model::{Border, LoaderMode, Size, Split, WaitingOpts, WinOpts, WindowKind};
 use uji_api::state::UiState;
 
 use crate::config::{self, DEFAULT_LUA};
@@ -136,6 +136,23 @@ impl Inner {
             .and_then(|n| u16::try_from(n).ok())
             .unwrap_or(5);
 
+        let waiting = ui.as_ref().and_then(|ui| ui.get::<Table>("waiting").ok());
+        let waiting_text = waiting
+            .as_ref()
+            .and_then(|w| w.get::<Option<String>>("text").ok().flatten())
+            .unwrap_or_else(|| "Working".into());
+        let loader = waiting.as_ref().and_then(|w| w.get::<Table>("loader").ok());
+        let loader_mode = loader
+            .as_ref()
+            .and_then(|l| l.get::<Option<String>>("mode").ok().flatten())
+            .and_then(|m| m.parse::<LoaderMode>().ok())
+            .unwrap_or(LoaderMode::Braille);
+        let loader_interval_ms = loader
+            .as_ref()
+            .and_then(|l| l.get::<Option<i64>>("interval_ms").ok().flatten())
+            .and_then(|n| u64::try_from(n).ok())
+            .unwrap_or(80);
+
         let state_rc = self.state();
         let mut state = state_rc.borrow_mut();
         let _ = uji_api::window::open(
@@ -175,6 +192,11 @@ impl Inner {
         state.set_footer_hint(footer_hint);
         state.set_suggest_enabled(suggest_enabled);
         state.set_suggest_max_height(suggest_max_height);
+        state.set_waiting(WaitingOpts {
+            text: waiting_text,
+            loader_mode,
+            loader_interval_ms,
+        });
     }
 
     pub(crate) fn resolve_llm(&self, storage: &mut dyn SessionStorage) {
