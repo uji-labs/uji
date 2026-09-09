@@ -69,7 +69,6 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     let ui = lua.create_table()?;
     ui.set("open_win", window::open_win(lua, api)?)?;
     ui.set("close_win", window::close_win(lua, api)?)?;
-    ui.set("set_status", status::set_status(lua, api)?)?;
     uji.set("ui", ui)?;
 
     let llm = lua.create_table()?;

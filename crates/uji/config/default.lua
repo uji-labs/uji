@@ -1,11 +1,10 @@
 -- Default uji UI, configured via component objects (nvim-style).
 
-uji.ui.messages = {
-    border = "none",
-}
+uji.ui.open_win({ view = "messages", split = "top", size = "fill", border = "none" })
+uji.ui.open_win({ view = "status", split = "bottom", size = 1 })
+uji.ui.open_win({ view = "input", split = "bottom", size = 3 })
 
 uji.ui.input = {
-    height = 3,
     cursor_blink = true,
 }
 
@@ -21,33 +20,7 @@ uji.ui.suggest = {
 uji.ui.waiting = {
     text = "Working",
     loader = {
-        mode = "braille",
+        frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
         interval_ms = 80,
     },
 }
-
-local function render_status()
-    local parts = {}
-    if uji.status.state() == "working" then
-        local frame = uji.status.loader_frame()
-        if frame ~= "" then
-            table.insert(parts, frame)
-        end
-        table.insert(parts, uji.ui.waiting.text)
-        local elapsed = uji.status.elapsed()
-        if elapsed then
-            table.insert(parts, string.format("(%ds)", math.floor(elapsed)))
-        end
-    else
-        local provider = uji.status.provider()
-        local model = uji.status.model()
-        if provider then
-            table.insert(parts, provider .. "/" .. model)
-        end
-    end
-    uji.ui.set_status(table.concat(parts, " "))
-end
-
-uji.on("status_changed", render_status)
-uji.on("tick", render_status)
-render_status()

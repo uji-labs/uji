@@ -11,7 +11,7 @@ pub struct UiState {
     next_window_id: u32,
     run_state: RunState,
     turn_started: Option<Instant>,
-    status: String,
+    footer: Vec<String>,
 }
 
 impl UiState {
@@ -69,6 +69,14 @@ impl UiState {
         self.opts.waiting = waiting;
     }
 
+    pub fn loader_frames(&self) -> &[String] {
+        &self.opts.waiting.loader_frames
+    }
+
+    pub fn loader_interval_ms(&self) -> u64 {
+        self.opts.waiting.loader_interval_ms
+    }
+
     pub fn current_provider(&self) -> Option<&str> {
         self.current_provider.as_deref()
     }
@@ -101,12 +109,27 @@ impl UiState {
         self.turn_started = started;
     }
 
-    pub fn status(&self) -> &str {
-        &self.status
+    pub fn footer(&self) -> &[String] {
+        &self.footer
     }
 
-    pub fn set_status(&mut self, status: String) {
-        self.status = status;
+    pub fn set_footer(&mut self, footer: Vec<String>) {
+        self.footer = footer;
+    }
+
+    pub fn loader_frame(&self) -> String {
+        let Some(started) = self.turn_started else {
+            return String::new();
+        };
+        let frames = &self.opts.waiting.loader_frames;
+        if frames.is_empty() {
+            return String::new();
+        }
+        let interval = u128::from(self.opts.waiting.loader_interval_ms.max(1));
+        let len = u128::try_from(frames.len()).unwrap_or(1);
+        let idx = (started.elapsed().as_millis() / interval) % len;
+        let idx = usize::try_from(idx).unwrap_or(0);
+        frames[idx].clone()
     }
 
     pub fn snapshot(&self) -> UiModel {

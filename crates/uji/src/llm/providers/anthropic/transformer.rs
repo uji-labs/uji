@@ -38,6 +38,7 @@ impl From<&LlmRequest> for AnthropicRequest {
                     }
                     system.push_str(text);
                 }
+                Message::Error { .. } => {}
             }
         }
         Self {

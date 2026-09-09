@@ -30,6 +30,7 @@ impl From<&LlmRequest> for OllamaRequest {
                 Message::User { text } => ("user", text),
                 Message::Assistant { text } => ("assistant", text),
                 Message::System { text } => ("system", text),
+                Message::Error { .. } => continue,
             };
             messages.push(OllamaMessage {
                 role,

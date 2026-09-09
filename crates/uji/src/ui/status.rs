@@ -11,11 +11,15 @@ pub(crate) struct Status;
 
 impl Render for Status {
     fn render(&self, ctx: &Context<'_>, surface: &mut Surface<'_>) {
-        let status = ctx.state.status();
-        let text = if status.is_empty() {
+        let segments: Vec<&str> = ctx.state.footer().iter().map(String::as_str).collect();
+        let text = if segments.is_empty() {
             ctx.state.opts().footer_hint.clone()
         } else {
-            format!("{status} · {}", ctx.state.opts().footer_hint)
+            format!(
+                "{} · {}",
+                segments.join(" · "),
+                ctx.state.opts().footer_hint
+            )
         };
         surface.render_widget(Paragraph::new(Line::styled(
             text,

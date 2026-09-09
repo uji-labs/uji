@@ -1,4 +1,4 @@
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::Line;
 use ratatui::widgets::Paragraph;
 use uji_api::model::WindowSpec;
@@ -43,6 +43,13 @@ impl Render for Messages<'_> {
                     let muted = Style::default().fg(MUTED).add_modifier(Modifier::ITALIC);
                     for line in text.lines() {
                         lines.push(Line::from(format!(" {line}")).style(muted));
+                    }
+                }
+                Message::Error { text } => {
+                    lines.push(Line::from(""));
+                    let error = Style::default().fg(Color::Red);
+                    for line in text.lines() {
+                        lines.push(Line::from(format!(" {line}")).style(error));
                     }
                 }
             }

@@ -27,6 +27,8 @@ pub enum Message {
     Assistant { text: String },
     #[serde(rename = "system")]
     System { text: String },
+    #[serde(rename = "error")]
+    Error { text: String },
 }
 
 impl Message {
@@ -35,12 +37,16 @@ impl Message {
             Message::User { .. } => "user",
             Message::Assistant { .. } => "assistant",
             Message::System { .. } => "system",
+            Message::Error { .. } => "error",
         }
     }
 
     pub fn text(&self) -> &str {
         match self {
-            Message::User { text } | Message::Assistant { text } | Message::System { text } => text,
+            Message::User { text }
+            | Message::Assistant { text }
+            | Message::System { text }
+            | Message::Error { text } => text,
         }
     }
 }

@@ -46,6 +46,7 @@ impl From<&LlmRequest> for GeminiRequest {
                     }
                     system.push_str(text);
                 }
+                Message::Error { .. } => {}
             }
         }
         let system_instruction = if system.is_empty() {

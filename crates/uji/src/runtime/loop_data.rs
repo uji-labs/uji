@@ -92,6 +92,7 @@ impl LoopData {
             state.set_run_state(RunState::Working);
             state.set_turn_started(Some(Instant::now()));
         }
+        self.refresh_footer();
         self.inner.emit("status_changed", &[]);
         self.runtime.spawn(async move {
             let mut on_event = |event: StreamEvent| {
@@ -113,8 +114,7 @@ impl LoopData {
             }
             StreamEvent::Failed(err) => {
                 self.app.take_pending();
-                eprintln!("uji: llm: {err}");
-                self.dirty = true;
+                self.fail_assistant(&err);
                 self.stop_working();
             }
         }
@@ -127,7 +127,27 @@ impl LoopData {
             state.set_run_state(RunState::Idle);
             state.set_turn_started(None);
         }
+        self.refresh_footer();
         self.inner.emit("status_changed", &[]);
+    }
+
+    fn fail_assistant(&mut self, error: &str) {
+        let message = Message::Error {
+            text: error.to_string(),
+        };
+        match self.storage.append_message(&self.app.session().id, message) {
+            Ok(stored) => {
+                self.app.push_message(stored);
+                self.inner.emit(
+                    events::MESSAGE_APPENDED,
+                    &[("type", "error".into()), ("text", error.to_string())],
+                );
+            }
+            Err(err) => {
+                eprintln!("uji: failed to persist error: {err}");
+            }
+        }
+        self.dirty = true;
     }
 
     fn finish_assistant(&mut self, text: &str) {
@@ -158,9 +178,36 @@ impl LoopData {
         self.app.set_suggestions(pool);
     }
 
+    pub(crate) fn refresh_footer(&mut self) {
+        let state_rc = self.inner.state();
+        let segments = {
+            let state = state_rc.borrow();
+            if state.run_state() == RunState::Working {
+                let mut segments = Vec::new();
+                let frame = state.loader_frame();
+                if !frame.is_empty() {
+                    segments.push(frame);
+                }
+                segments.push(state.opts().waiting.text.clone());
+                if let Some(started) = state.turn_started() {
+                    segments.push(format!("({}s)", started.elapsed().as_secs()));
+                }
+                segments
+            } else {
+                match (state.current_provider(), state.current_model()) {
+                    (Some(provider), Some(model)) => vec![format!("{provider}/{model}")],
+                    (Some(provider), None) => vec![provider.to_string()],
+                    _ => Vec::new(),
+                }
+            }
+        };
+        state_rc.borrow_mut().set_footer(segments);
+    }
+
     pub(crate) fn on_timer(&mut self) {
         let working = self.inner.state().borrow().run_state() == RunState::Working;
         if working {
+            self.refresh_footer();
             self.inner.emit("tick", &[]);
             self.dirty = true;
         }
@@ -240,6 +287,7 @@ impl Context for LoopData {
 
     fn resolve_llm(&mut self) {
         self.inner.resolve_llm(&mut *self.storage);
+        self.refresh_footer();
         self.inner.emit("status_changed", &[]);
         self.dirty = true;
     }

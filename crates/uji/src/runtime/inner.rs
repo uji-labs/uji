@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use mlua::{Lua as LuaState, Table};
 use uji_api::Api;
-use uji_api::model::{Border, LoaderMode, Size, Split, WaitingOpts, WinOpts, WindowKind};
+use uji_api::model::WaitingOpts;
 use uji_api::state::UiState;
 
 use crate::config::{self, DEFAULT_LUA};
@@ -101,19 +101,7 @@ impl Inner {
             .ok()
             .and_then(|uji| uji.get::<Table>("ui").ok());
 
-        let messages_border = ui
-            .as_ref()
-            .and_then(|ui| ui.get::<Table>("messages").ok())
-            .and_then(|m| m.get::<Option<String>>("border").ok().flatten())
-            .and_then(|b| b.parse::<Border>().ok())
-            .unwrap_or(Border::None);
-
         let input = ui.as_ref().and_then(|ui| ui.get::<Table>("input").ok());
-        let input_height = input
-            .as_ref()
-            .and_then(|i| i.get::<Option<i64>>("height").ok().flatten())
-            .and_then(|n| u16::try_from(n).ok())
-            .unwrap_or(3);
         let cursor_blink = input
             .as_ref()
             .and_then(|i| i.get::<Option<bool>>("cursor_blink").ok().flatten())
@@ -142,11 +130,10 @@ impl Inner {
             .and_then(|w| w.get::<Option<String>>("text").ok().flatten())
             .unwrap_or_else(|| "Working".into());
         let loader = waiting.as_ref().and_then(|w| w.get::<Table>("loader").ok());
-        let loader_mode = loader
+        let loader_frames = loader
             .as_ref()
-            .and_then(|l| l.get::<Option<String>>("mode").ok().flatten())
-            .and_then(|m| m.parse::<LoaderMode>().ok())
-            .unwrap_or(LoaderMode::Braille);
+            .and_then(|l| l.get::<Option<Vec<String>>>("frames").ok().flatten())
+            .unwrap_or_default();
         let loader_interval_ms = loader
             .as_ref()
             .and_then(|l| l.get::<Option<i64>>("interval_ms").ok().flatten())
@@ -155,46 +142,13 @@ impl Inner {
 
         let state_rc = self.state();
         let mut state = state_rc.borrow_mut();
-        let _ = uji_api::window::open(
-            &mut state,
-            WindowKind::Messages,
-            Vec::new(),
-            WinOpts {
-                split: Split::Top,
-                size: Size::Fill,
-                border: messages_border,
-                title: None,
-            },
-        );
-        let _ = uji_api::window::open(
-            &mut state,
-            WindowKind::Status,
-            Vec::new(),
-            WinOpts {
-                split: Split::Bottom,
-                size: Size::Fixed(1),
-                border: Border::None,
-                title: None,
-            },
-        );
-        let _ = uji_api::window::open(
-            &mut state,
-            WindowKind::Input,
-            Vec::new(),
-            WinOpts {
-                split: Split::Bottom,
-                size: Size::Fixed(input_height),
-                border: Border::None,
-                title: None,
-            },
-        );
         state.set_cursor_blink(cursor_blink);
         state.set_footer_hint(footer_hint);
         state.set_suggest_enabled(suggest_enabled);
         state.set_suggest_max_height(suggest_max_height);
         state.set_waiting(WaitingOpts {
             text: waiting_text,
-            loader_mode,
+            loader_frames,
             loader_interval_ms,
         });
     }
