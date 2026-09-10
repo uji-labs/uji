@@ -8,6 +8,7 @@ pub mod schedule;
 pub mod scheduled;
 pub mod state;
 pub mod status;
+pub mod tools;
 pub mod window;
 
 use std::cell::RefCell;
@@ -20,12 +21,14 @@ use crate::state::UiState;
 
 use self::handlers::Handlers;
 use self::scheduled::Scheduled;
+use self::tools::LuaTool;
 
 pub struct Api {
     state: Rc<RefCell<UiState>>,
     scheduled: Scheduled,
     handlers: RefCell<Handlers>,
     commands: RefCell<HashMap<String, Function>>,
+    tools: RefCell<HashMap<String, LuaTool>>,
 }
 
 impl Api {
@@ -35,6 +38,7 @@ impl Api {
             scheduled: Scheduled::default(),
             handlers: RefCell::default(),
             commands: RefCell::default(),
+            tools: RefCell::default(),
         })
     }
 
@@ -48,6 +52,10 @@ impl Api {
 
     pub fn commands(&self) -> &RefCell<HashMap<String, Function>> {
         &self.commands
+    }
+
+    pub fn lua_tools(&self) -> &RefCell<HashMap<String, LuaTool>> {
+        &self.tools
     }
 
     pub(crate) fn handlers(&self) -> &RefCell<Handlers> {
@@ -94,6 +102,11 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     uji.set("emit", event::emit(lua, api)?)?;
     uji.set("notify", event::notify(lua)?)?;
     uji.set("command", command::command(lua, api)?)?;
+
+    let tool = lua.create_table()?;
+    tool.set("register", tools::register(lua, api)?)?;
+    tool.set("unregister", tools::unregister(lua, api)?)?;
+    uji.set("tool", tool)?;
 
     Ok(uji)
 }

@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 
-use crate::llm::{Llm, LlmConfig, LlmError, LlmRequest, response_lines, status_error};
+use crate::llm::{Llm, LlmConfig, LlmError, LlmRequest, LlmResponse, response_lines, status_error};
 
-use super::transformer::{AnthropicRequest, AnthropicResponse, AnthropicStreamEvent};
+use super::transformer::{
+    AnthropicRequest, AnthropicResponse, AnthropicStreamEvent, AnthropicToolAcc,
+};
 
 pub struct Anthropic {
     pub base_url: String,
@@ -53,7 +55,7 @@ impl Llm for Anthropic {
         &self,
         client: &reqwest::Client,
         request: &LlmRequest,
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let provider_request = AnthropicRequest::from(request);
         let response = self.post(client, &provider_request).await?;
         if !response.status().is_success() {
@@ -66,10 +68,11 @@ impl Llm for Anthropic {
         let parsed: AnthropicResponse =
             serde_json::from_str(&body).map_err(|err| LlmError::Provider(err.to_string()))?;
         let text = parsed.text();
-        if text.is_empty() {
+        if text.is_empty() && parsed.tool_calls().is_empty() {
             return Err(LlmError::Provider("empty response".into()));
         }
-        Ok(text)
+        let tool_calls = parsed.tool_calls();
+        Ok(LlmResponse { text, tool_calls })
     }
 
     async fn stream(
@@ -77,7 +80,7 @@ impl Llm for Anthropic {
         client: &reqwest::Client,
         request: &LlmRequest,
         on_delta: &mut (dyn FnMut(String) + Send),
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let mut provider_request = AnthropicRequest::from(request);
         provider_request.stream = true;
         let response = self.post(client, &provider_request).await?;
@@ -86,18 +89,24 @@ impl Llm for Anthropic {
         }
 
         let mut full = String::new();
+        let mut acc = AnthropicToolAcc::default();
         response_lines(response, |line| {
             let Some(data) = line.strip_prefix("data: ") else {
                 return;
             };
-            if let Ok(event) = serde_json::from_str::<AnthropicStreamEvent>(data)
-                && let Some(delta) = event.delta_text()
-            {
-                on_delta(delta.to_string());
-                full.push_str(delta);
+            if let Ok(event) = serde_json::from_str::<AnthropicStreamEvent>(data) {
+                if let Some(delta) = event.text_delta() {
+                    on_delta(delta.to_string());
+                    full.push_str(delta);
+                }
+                acc.apply(&event);
             }
         })
         .await?;
-        Ok(full)
+        let tool_calls = acc.finish();
+        Ok(LlmResponse {
+            text: full,
+            tool_calls,
+        })
     }
 }

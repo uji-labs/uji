@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 
-use crate::llm::{Auth, Llm, LlmConfig, LlmError, LlmRequest, response_lines, status_error};
+use crate::llm::{
+    Auth, Llm, LlmConfig, LlmError, LlmRequest, LlmResponse, response_lines, status_error,
+};
 
 use super::transformer::{OllamaChunk, OllamaRequest, OllamaResponse};
 
@@ -52,7 +54,7 @@ impl Llm for Ollama {
         &self,
         client: &reqwest::Client,
         request: &LlmRequest,
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let provider_request = OllamaRequest::from(request);
         let response = self.post(client, &provider_request).await?;
         if !response.status().is_success() {
@@ -68,7 +70,10 @@ impl Llm for Ollama {
         if text.is_empty() {
             return Err(LlmError::Provider("empty response".into()));
         }
-        Ok(text.to_string())
+        Ok(LlmResponse {
+            text: text.to_string(),
+            tool_calls: Vec::new(),
+        })
     }
 
     async fn stream(
@@ -76,7 +81,7 @@ impl Llm for Ollama {
         client: &reqwest::Client,
         request: &LlmRequest,
         on_delta: &mut (dyn FnMut(String) + Send),
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let mut provider_request = OllamaRequest::from(request);
         provider_request.stream = true;
         let response = self.post(client, &provider_request).await?;
@@ -97,6 +102,9 @@ impl Llm for Ollama {
             }
         })
         .await?;
-        Ok(full)
+        Ok(LlmResponse {
+            text: full,
+            tool_calls: Vec::new(),
+        })
     }
 }

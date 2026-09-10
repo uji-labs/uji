@@ -10,6 +10,8 @@ use uji_api::state::UiState;
 use crate::config::{self, DEFAULT_LUA};
 use crate::llm::{Llm, NotConfigured};
 use crate::session::store::SessionStorage;
+use crate::tools::policy::ToolPolicy;
+use crate::tools::policy_lua;
 
 pub(crate) struct Inner {
     pub(crate) lua: LuaState,
@@ -17,6 +19,7 @@ pub(crate) struct Inner {
     pub(crate) llm: RefCell<Arc<dyn Llm>>,
     pub(crate) llm_model: RefCell<String>,
     pub(crate) client: Arc<reqwest::Client>,
+    pub(crate) policy: RefCell<ToolPolicy>,
 }
 
 impl Inner {
@@ -27,7 +30,12 @@ impl Inner {
             llm: RefCell::new(Arc::new(NotConfigured)),
             llm_model: RefCell::default(),
             client: Arc::new(reqwest::Client::new()),
+            policy: RefCell::new(ToolPolicy::default()),
         })
+    }
+
+    pub(crate) fn compile_policy(&self) {
+        *self.policy.borrow_mut() = policy_lua::compile(&self.lua);
     }
 
     pub(crate) fn state(&self) -> Rc<RefCell<UiState>> {
@@ -48,6 +56,7 @@ impl Inner {
         self.state().borrow_mut().clear();
         self.run_init(None);
         self.load_plugins(None);
+        self.compile_policy();
     }
 
     pub(crate) fn run_init(&self, config_path: Option<PathBuf>) {

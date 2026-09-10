@@ -8,9 +8,10 @@ use uji_api::model::RunState;
 use crate::app::{self, App, KeyAction, SuggestItem};
 use crate::cmd::{Args, Context};
 use crate::credential;
-use crate::llm::{StreamEvent, stream_turn};
-use crate::session::model::Message;
+use crate::llm::{AgentConfig, LuaToolSpec, StreamEvent, ToolDecision, ToolSpec, run_agent};
+use crate::session::model::{Message, ToolCall};
 use crate::session::store::SessionStorage;
+use mlua::LuaSerdeExt;
 
 use super::Inner;
 use super::builtin::Builtin;
@@ -33,6 +34,7 @@ pub(crate) struct LoopData {
     pub(crate) runtime: tokio::runtime::Runtime,
     pub(crate) active: Option<Builtin>,
     pub(crate) action_done: bool,
+    pub(crate) pending_tool: Option<(ToolCall, tokio::sync::oneshot::Sender<ToolDecision>)>,
 }
 
 impl LoopData {
@@ -44,9 +46,21 @@ impl LoopData {
                     KeyAction::Quit => self.running = false,
                     KeyAction::Submit(text) => self.submit(&text),
                     KeyAction::Command(command) => self.on_command(&command),
-                    KeyAction::Selected(item) => self.on_modal(ModalInput::Select(item)),
+                    KeyAction::Selected(item) => {
+                        if self.pending_tool.is_some() {
+                            self.resolve_tool_confirmation(item == "allow");
+                        } else {
+                            self.on_modal(ModalInput::Select(item));
+                        }
+                    }
                     KeyAction::Prompted(value) => self.on_modal(ModalInput::Prompt(value)),
-                    KeyAction::Cancel => self.on_modal(ModalInput::Cancel),
+                    KeyAction::Cancel => {
+                        if self.pending_tool.is_some() {
+                            self.resolve_tool_confirmation(false);
+                        } else {
+                            self.on_modal(ModalInput::Cancel);
+                        }
+                    }
                     KeyAction::None => {}
                 }
                 self.dirty = true;
@@ -85,6 +99,17 @@ impl LoopData {
             .iter()
             .map(|stored| stored.message.clone())
             .collect();
+        let system = {
+            let state_rc = self.inner.state();
+            let state = state_rc.borrow();
+            crate::llm::system_prompt(
+                state.opts().agent_system_prompt.as_deref(),
+                &self.app.session().directory,
+            )
+        };
+        let policy = self.inner.policy.borrow().clone();
+        let lua_tools = self.gather_lua_tools();
+        let cwd = self.app.session().directory.clone();
         let sender = self.llm_tx.clone();
         {
             let state_rc = self.inner.state();
@@ -94,10 +119,21 @@ impl LoopData {
         }
         self.inner.emit("status_changed", &[]);
         self.runtime.spawn(async move {
+            let tools = crate::tools::builtin_registry();
+            let config = AgentConfig {
+                client: &client,
+                provider: provider.as_ref(),
+                model,
+                system: Some(system),
+                tools: &tools,
+                lua_tools: &lua_tools,
+                policy: &policy,
+                cwd: std::path::Path::new(&cwd),
+            };
             let mut on_event = |event: StreamEvent| {
                 let _ = sender.send(event);
             };
-            stream_turn(&client, provider.as_ref(), model, context, &mut on_event).await;
+            run_agent(&config, context, &mut on_event).await;
         });
     }
 
@@ -105,6 +141,32 @@ impl LoopData {
         match event {
             StreamEvent::Delta(delta) => {
                 self.app.append_pending(&delta);
+                self.dirty = true;
+            }
+            StreamEvent::AssistantStep { text, tool_calls } => {
+                self.app.take_pending();
+                self.persist_assistant_step(text, tool_calls);
+            }
+            StreamEvent::ToolResult {
+                tool_call_id,
+                name,
+                content,
+            } => {
+                self.persist_tool_result(tool_call_id, name, content);
+            }
+            StreamEvent::ToolDecisionRequest { tool, reply } => {
+                let body = format!("{} {}", tool.name, tool.arguments);
+                self.pending_tool = Some((tool, reply));
+                self.app.open_confirm("Allow tool call?".into(), body);
+                self.dirty = true;
+            }
+            StreamEvent::RunLuaTool {
+                name,
+                arguments,
+                reply,
+            } => {
+                let result = self.run_lua_tool(&name, &arguments);
+                let _ = reply.send(result);
                 self.dirty = true;
             }
             StreamEvent::Done(text) => {
@@ -116,6 +178,93 @@ impl LoopData {
                 self.fail_assistant(&err);
                 self.stop_working();
             }
+        }
+    }
+
+    fn persist_assistant_step(&mut self, text: String, tool_calls: Vec<ToolCall>) {
+        if !tool_calls.is_empty() {
+            let names = tool_calls
+                .iter()
+                .map(|call| call.name.as_str())
+                .collect::<Vec<_>>()
+                .join(",");
+            self.inner.emit(events::TOOL_STARTED, &[("tools", names)]);
+        }
+        let message = Message::Assistant { text, tool_calls };
+        match self.storage.append_message(&self.app.session().id, message) {
+            Ok(stored) => self.app.push_message(stored),
+            Err(err) => eprintln!("uji: failed to persist assistant step: {err}"),
+        }
+        self.dirty = true;
+    }
+
+    fn persist_tool_result(&mut self, tool_call_id: String, name: String, content: String) {
+        self.inner.emit(
+            events::TOOL_FINISHED,
+            &[("name", name.clone()), ("content", content.clone())],
+        );
+        let message = Message::Tool {
+            tool_call_id,
+            name,
+            content,
+        };
+        match self.storage.append_message(&self.app.session().id, message) {
+            Ok(stored) => self.app.push_message(stored),
+            Err(err) => eprintln!("uji: failed to persist tool result: {err}"),
+        }
+        self.dirty = true;
+    }
+
+    fn resolve_tool_confirmation(&mut self, allow: bool) {
+        if let Some((_, reply)) = self.pending_tool.take() {
+            let decision = if allow {
+                ToolDecision::Allow
+            } else {
+                ToolDecision::Deny {
+                    reason: String::from("user denied"),
+                }
+            };
+            let _ = reply.send(decision);
+        }
+        self.app.close_modal();
+        self.dirty = true;
+    }
+
+    fn gather_lua_tools(&self) -> Vec<LuaToolSpec> {
+        let mut tools = Vec::new();
+        for (name, tool) in self.inner.api.lua_tools().borrow().iter() {
+            let parameters: serde_json::Value = self
+                .inner
+                .lua
+                .from_value(tool.parameters.clone())
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+            tools.push(LuaToolSpec {
+                name: name.clone(),
+                spec: ToolSpec {
+                    name: name.clone(),
+                    description: tool.description.clone(),
+                    parameters,
+                },
+                subject: tool.subject.clone().unwrap_or_else(|| name.clone()),
+            });
+        }
+        tools
+    }
+
+    fn run_lua_tool(&self, name: &str, arguments: &str) -> String {
+        let args: serde_json::Value =
+            serde_json::from_str(arguments).unwrap_or(serde_json::Value::Null);
+        let Ok(args) = self.inner.lua.to_value(&args) else {
+            return String::from("error: failed to convert arguments");
+        };
+        let tools = self.inner.api.lua_tools();
+        let tools = tools.borrow();
+        let Some(tool) = tools.get(name) else {
+            return format!("error: unknown tool {name}");
+        };
+        match tool.run.call::<String>(args) {
+            Ok(text) => text,
+            Err(err) => format!("error: {err}"),
         }
     }
 
@@ -151,6 +300,7 @@ impl LoopData {
     fn finish_assistant(&mut self, text: &str) {
         let assistant = Message::Assistant {
             text: text.to_string(),
+            tool_calls: Vec::new(),
         };
         match self
             .storage

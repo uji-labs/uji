@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 
-use crate::llm::{Auth, Llm, LlmConfig, LlmError, LlmRequest, response_lines, status_error};
+use crate::llm::{
+    Auth, Llm, LlmConfig, LlmError, LlmRequest, LlmResponse, response_lines, status_error,
+};
 
-use super::transformer::{OpenAiChunk, OpenAiRequest, OpenAiResponse};
+use super::transformer::{OpenAiChunk, OpenAiRequest, OpenAiResponse, OpenAiToolAcc};
 
 pub struct OpenAi {
     pub base_url: String,
@@ -52,7 +54,7 @@ impl Llm for OpenAi {
         &self,
         client: &reqwest::Client,
         request: &LlmRequest,
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let provider_request = OpenAiRequest::from(request);
         let response = self.post(client, &provider_request).await?;
         if !response.status().is_success() {
@@ -64,10 +66,12 @@ impl Llm for OpenAi {
             .map_err(|err| LlmError::Http(err.to_string()))?;
         let parsed: OpenAiResponse =
             serde_json::from_str(&body).map_err(|err| LlmError::Provider(err.to_string()))?;
-        parsed
+        let text = parsed
             .text()
             .map(str::to_string)
-            .ok_or_else(|| LlmError::Provider("empty response".into()))
+            .ok_or_else(|| LlmError::Provider("empty response".into()))?;
+        let tool_calls = parsed.tool_calls();
+        Ok(LlmResponse { text, tool_calls })
     }
 
     async fn stream(
@@ -75,7 +79,7 @@ impl Llm for OpenAi {
         client: &reqwest::Client,
         request: &LlmRequest,
         on_delta: &mut (dyn FnMut(String) + Send),
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let mut provider_request = OpenAiRequest::from(request);
         provider_request.stream = true;
         let response = self.post(client, &provider_request).await?;
@@ -84,6 +88,7 @@ impl Llm for OpenAi {
         }
 
         let mut full = String::new();
+        let mut acc = OpenAiToolAcc::default();
         response_lines(response, |line| {
             let Some(data) = line.strip_prefix("data: ") else {
                 return;
@@ -91,14 +96,19 @@ impl Llm for OpenAi {
             if data == "[DONE]" {
                 return;
             }
-            if let Ok(chunk) = serde_json::from_str::<OpenAiChunk>(data)
-                && let Some(delta) = chunk.delta_text()
-            {
-                on_delta(delta.to_string());
-                full.push_str(delta);
+            if let Ok(chunk) = serde_json::from_str::<OpenAiChunk>(data) {
+                if let Some(delta) = chunk.delta_text() {
+                    on_delta(delta.to_string());
+                    full.push_str(delta);
+                }
+                acc.apply(&chunk);
             }
         })
         .await?;
-        Ok(full)
+        let tool_calls = acc.finish();
+        Ok(LlmResponse {
+            text: full,
+            tool_calls,
+        })
     }
 }

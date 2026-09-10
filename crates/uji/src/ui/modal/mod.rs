@@ -5,6 +5,7 @@ use crate::ui::Context;
 use crate::ui::Render;
 use crate::ui::Surface;
 
+mod confirm;
 mod menu;
 mod prompt;
 mod select;
@@ -47,6 +48,14 @@ impl Render for Modal {
                     items,
                     cursor: *cursor,
                     input_rect: self.input_rect,
+                }
+                .render(ctx, surface);
+            }
+            Mode::Confirm { title, body, allow } => {
+                confirm::Confirm {
+                    title,
+                    body,
+                    allow: *allow,
                 }
                 .render(ctx, surface);
             }

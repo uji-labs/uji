@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
-use crate::llm::{Llm, LlmConfig, LlmError, LlmRequest, response_lines, status_error};
+use crate::llm::{Llm, LlmConfig, LlmError, LlmRequest, LlmResponse, response_lines, status_error};
 
-use super::transformer::{GeminiRequest, GeminiResponse};
+use super::transformer::{GeminiRequest, GeminiResponse, GeminiToolAcc};
 
 pub struct Gemini {
     pub base_url: String,
@@ -61,7 +61,7 @@ impl Llm for Gemini {
         &self,
         client: &reqwest::Client,
         request: &LlmRequest,
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let provider_request = GeminiRequest::from(request);
         let response = self
             .post(client, &request.model, false, &provider_request)
@@ -76,10 +76,11 @@ impl Llm for Gemini {
         let parsed: GeminiResponse =
             serde_json::from_str(&body).map_err(|err| LlmError::Provider(err.to_string()))?;
         let text = parsed.text();
-        if text.is_empty() {
+        let tool_calls = parsed.tool_calls();
+        if text.is_empty() && tool_calls.is_empty() {
             return Err(LlmError::Provider("empty response".into()));
         }
-        Ok(text)
+        Ok(LlmResponse { text, tool_calls })
     }
 
     async fn stream(
@@ -87,7 +88,7 @@ impl Llm for Gemini {
         client: &reqwest::Client,
         request: &LlmRequest,
         on_delta: &mut (dyn FnMut(String) + Send),
-    ) -> Result<String, LlmError> {
+    ) -> Result<LlmResponse, LlmError> {
         let provider_request = GeminiRequest::from(request);
         let response = self
             .post(client, &request.model, true, &provider_request)
@@ -97,6 +98,7 @@ impl Llm for Gemini {
         }
 
         let mut full = String::new();
+        let mut acc = GeminiToolAcc::default();
         response_lines(response, |line| {
             let Some(data) = line.strip_prefix("data: ") else {
                 return;
@@ -107,9 +109,14 @@ impl Llm for Gemini {
                     on_delta(text.clone());
                     full.push_str(&text);
                 }
+                acc.apply(&parsed);
             }
         })
         .await?;
-        Ok(full)
+        let tool_calls = acc.finish();
+        Ok(LlmResponse {
+            text: full,
+            tool_calls,
+        })
     }
 }

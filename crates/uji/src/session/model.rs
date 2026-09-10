@@ -18,13 +18,30 @@ pub struct Session {
     pub time: Time,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Message {
     #[serde(rename = "user")]
     User { text: String },
     #[serde(rename = "assistant")]
-    Assistant { text: String },
+    Assistant {
+        text: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        tool_calls: Vec<ToolCall>,
+    },
+    #[serde(rename = "tool")]
+    Tool {
+        tool_call_id: String,
+        name: String,
+        content: String,
+    },
     #[serde(rename = "system")]
     System { text: String },
     #[serde(rename = "error")]
@@ -36,6 +53,7 @@ impl Message {
         match self {
             Message::User { .. } => "user",
             Message::Assistant { .. } => "assistant",
+            Message::Tool { .. } => "tool",
             Message::System { .. } => "system",
             Message::Error { .. } => "error",
         }
@@ -44,9 +62,10 @@ impl Message {
     pub fn text(&self) -> &str {
         match self {
             Message::User { text }
-            | Message::Assistant { text }
+            | Message::Assistant { text, .. }
             | Message::System { text }
             | Message::Error { text } => text,
+            Message::Tool { content, .. } => content,
         }
     }
 }

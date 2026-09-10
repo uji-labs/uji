@@ -28,9 +28,9 @@ impl From<&LlmRequest> for OllamaRequest {
         for message in &request.messages {
             let (role, content) = match message {
                 Message::User { text } => ("user", text),
-                Message::Assistant { text } => ("assistant", text),
+                Message::Assistant { text, .. } => ("assistant", text),
                 Message::System { text } => ("system", text),
-                Message::Error { .. } => continue,
+                Message::Error { .. } | Message::Tool { .. } => continue,
             };
             messages.push(OllamaMessage {
                 role,

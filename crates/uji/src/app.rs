@@ -47,6 +47,11 @@ pub enum Mode {
         items: Vec<SuggestItem>,
         cursor: usize,
     },
+    Confirm {
+        title: String,
+        body: String,
+        allow: bool,
+    },
 }
 
 pub struct App {
@@ -140,6 +145,14 @@ impl App {
         };
     }
 
+    pub fn open_confirm(&mut self, title: String, body: String) {
+        self.mode = Mode::Confirm {
+            title,
+            body,
+            allow: true,
+        };
+    }
+
     pub fn close_modal(&mut self) {
         self.mode = Mode::Normal;
     }
@@ -160,6 +173,9 @@ impl App {
         }
         if matches!(self.mode, Mode::Suggest { .. }) {
             return self.handle_suggest_key(key);
+        }
+        if matches!(self.mode, Mode::Confirm { .. }) {
+            return self.handle_confirm_key(key);
         }
         self.handle_normal_key(key)
     }
@@ -305,6 +321,23 @@ impl App {
                     self.cursor = prev;
                 }
                 self.after_input_change();
+                KeyAction::None
+            }
+            _ => KeyAction::None,
+        }
+    }
+
+    fn handle_confirm_key(&mut self, key: KeyEvent) -> KeyAction {
+        match key.code {
+            KeyCode::Esc => KeyAction::Cancel,
+            KeyCode::Enter => {
+                let allow = matches!(self.mode, Mode::Confirm { allow, .. } if allow);
+                KeyAction::Selected(if allow { "allow".into() } else { "deny".into() })
+            }
+            KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down | KeyCode::Tab => {
+                if let Mode::Confirm { allow, .. } = &mut self.mode {
+                    *allow = !*allow;
+                }
                 KeyAction::None
             }
             _ => KeyAction::None,

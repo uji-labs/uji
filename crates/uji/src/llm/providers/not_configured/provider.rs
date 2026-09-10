@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::llm::{Llm, LlmError, LlmRequest};
+use crate::llm::{Llm, LlmError, LlmRequest, LlmResponse};
 
 pub struct NotConfigured;
 
@@ -14,7 +14,10 @@ impl Llm for NotConfigured {
         &self,
         _client: &reqwest::Client,
         _request: &LlmRequest,
-    ) -> Result<String, LlmError> {
-        Ok("Please run /login to configure a provider".into())
+    ) -> Result<LlmResponse, LlmError> {
+        Ok(LlmResponse {
+            text: "Please run /login to configure a provider".into(),
+            tool_calls: Vec::new(),
+        })
     }
 }

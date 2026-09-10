@@ -6,4 +6,8 @@ pub const MESSAGE_SUBMITTED: &str = "MessageSubmitted";
 
 pub const MESSAGE_APPENDED: &str = "MessageAppended";
 
+pub const TOOL_STARTED: &str = "ToolStarted";
+
+pub const TOOL_FINISHED: &str = "ToolFinished";
+
 pub const QUIT: &str = "Quit";

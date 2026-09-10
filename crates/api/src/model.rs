@@ -198,6 +198,7 @@ pub struct GlobalOpts {
     pub suggest_max_height: u16,
     pub loader_frames: Vec<String>,
     pub loader_interval_ms: u64,
+    pub agent_system_prompt: Option<String>,
 }
 
 impl Default for GlobalOpts {
@@ -209,6 +210,7 @@ impl Default for GlobalOpts {
             suggest_max_height: 5,
             loader_frames: Vec::new(),
             loader_interval_ms: 80,
+            agent_system_prompt: None,
         }
     }
 }
@@ -219,6 +221,12 @@ pub struct UiConfig {
     pub input: InputConfig,
     pub suggest: SuggestConfig,
     pub waiting: WaitingConfig,
+    pub agent: AgentConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct AgentConfig {
+    pub system_prompt: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

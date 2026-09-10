@@ -62,7 +62,7 @@ impl Render for Menu<'_> {
     }
 }
 
-fn draw_border(buf: &mut ratatui::buffer::Buffer, area: Rect) {
+pub(crate) fn draw_border(buf: &mut ratatui::buffer::Buffer, area: Rect) {
     let w = area.width;
     let h = area.height;
     if w < 3 || h < 3 {

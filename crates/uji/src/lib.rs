@@ -7,6 +7,7 @@ pub mod memory;
 pub mod runtime;
 pub mod session;
 pub mod storage;
+pub mod tools;
 pub mod ui;
 
 pub use uji_api as api;

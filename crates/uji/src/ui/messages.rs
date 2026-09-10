@@ -31,11 +31,21 @@ impl Render for Messages<'_> {
                     }
                     lines.push(Line::from(fill.clone()).style(block_style));
                 }
-                Message::Assistant { text } => {
+                Message::Assistant { text, .. } => {
                     lines.push(Line::from(""));
                     let text_style = Style::default().fg(TEXT);
                     for line in text.lines() {
                         lines.push(Line::from(format!(" {line}")).style(text_style));
+                    }
+                    lines.push(Line::from(""));
+                }
+                Message::Tool { name, content, .. } => {
+                    lines.push(Line::from(""));
+                    let tool = Style::default().fg(Color::Cyan);
+                    lines.push(Line::from(format!(" ⏺ {name}")).style(tool));
+                    let muted = Style::default().fg(MUTED);
+                    for line in content.lines() {
+                        lines.push(Line::from(format!("   {line}")).style(muted));
                     }
                     lines.push(Line::from(""));
                 }

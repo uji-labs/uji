@@ -16,6 +16,12 @@ uji.ui.configure({
     },
 })
 
+uji.tool.policy = {
+    run_command = {
+        deny = { "/^rm -rf/", "/^git push/" },
+    },
+}
+
 local waiting_text = "Working"
 
 local function render_status()
