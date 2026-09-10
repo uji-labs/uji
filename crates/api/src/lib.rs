@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use mlua::{Function, Lua, Table};
+use mlua::{Function, Lua, Table, Value};
 
 use crate::state::UiState;
 
@@ -68,6 +68,17 @@ impl Api {
                 eprintln!("uji: handler error for {event}: {err}");
             }
         }
+    }
+
+    pub fn dispatch_tool(&self, event: &str, event_table: &Table) -> Option<Value> {
+        for handler in self.handlers.borrow().get(event) {
+            match handler.call::<Value>(event_table.clone()) {
+                Ok(value) if !value.is_nil() => return Some(value),
+                Ok(_) => {}
+                Err(err) => eprintln!("uji: {event} handler error: {err}"),
+            }
+        }
+        None
     }
 }
 

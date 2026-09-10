@@ -86,8 +86,8 @@ fn handle_resume(id: Option<String>) -> Result<(), Box<dyn Error>> {
 }
 
 fn handle_list() -> Result<(), Box<dyn Error>> {
-    let _ = open_storage()?.list_sessions()?;
-    Ok(())
+    let storage = open_storage()?;
+    uji::list::run(storage)
 }
 
 fn handle_delete(id: &str) -> Result<(), Box<dyn Error>> {

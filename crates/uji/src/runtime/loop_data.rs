@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crossterm::event::Event as TermEvent;
+use crossterm::event::{Event as TermEvent, MouseEventKind};
 use uji_api::model::RunState;
 
 use crate::app::{self, App, KeyAction, SuggestItem};
@@ -11,7 +11,8 @@ use crate::credential;
 use crate::llm::{AgentConfig, LuaToolSpec, StreamEvent, ToolDecision, ToolSpec, run_agent};
 use crate::session::model::{Message, ToolCall};
 use crate::session::store::SessionStorage;
-use mlua::LuaSerdeExt;
+use crate::tools::policy::Action;
+use mlua::{LuaSerdeExt, Value as LuaValue};
 
 use super::Inner;
 use super::builtin::Builtin;
@@ -21,6 +22,12 @@ enum ModalInput {
     Select(String),
     Prompt(String),
     Cancel,
+}
+
+enum ToolApproval {
+    Allow,
+    Deny { reason: String },
+    Ask { title: Option<String> },
 }
 
 pub(crate) struct LoopData {
@@ -34,7 +41,7 @@ pub(crate) struct LoopData {
     pub(crate) runtime: tokio::runtime::Runtime,
     pub(crate) active: Option<Builtin>,
     pub(crate) action_done: bool,
-    pub(crate) pending_tool: Option<(ToolCall, tokio::sync::oneshot::Sender<ToolDecision>)>,
+    pub(crate) pending_tool: Option<(String, tokio::sync::oneshot::Sender<ToolDecision>)>,
 }
 
 impl LoopData {
@@ -66,11 +73,20 @@ impl LoopData {
                 self.dirty = true;
             }
             TermEvent::Resize(..) => self.dirty = true,
+            TermEvent::Mouse(mouse) => {
+                match mouse.kind {
+                    MouseEventKind::ScrollUp => self.app.scroll_up(3),
+                    MouseEventKind::ScrollDown => self.app.scroll_down(3),
+                    _ => {}
+                }
+                self.dirty = true;
+            }
             _ => {}
         }
     }
 
     pub(crate) fn submit(&mut self, text: &str) {
+        self.app.reset_scroll();
         self.inner
             .emit(events::MESSAGE_SUBMITTED, &[("text", text.to_string())]);
 
@@ -107,7 +123,6 @@ impl LoopData {
                 &self.app.session().directory,
             )
         };
-        let policy = self.inner.policy.borrow().clone();
         let lua_tools = self.gather_lua_tools();
         let cwd = self.app.session().directory.clone();
         let sender = self.llm_tx.clone();
@@ -127,7 +142,6 @@ impl LoopData {
                 system: Some(system),
                 tools: &tools,
                 lua_tools: &lua_tools,
-                policy: &policy,
                 cwd: std::path::Path::new(&cwd),
             };
             let mut on_event = |event: StreamEvent| {
@@ -154,11 +168,12 @@ impl LoopData {
             } => {
                 self.persist_tool_result(tool_call_id, name, content);
             }
-            StreamEvent::ToolDecisionRequest { tool, reply } => {
-                let body = format!("{} {}", tool.name, tool.arguments);
-                self.pending_tool = Some((tool, reply));
-                self.app.open_confirm("Allow tool call?".into(), body);
-                self.dirty = true;
+            StreamEvent::ToolDecisionRequest {
+                tool,
+                subject,
+                reply,
+            } => {
+                self.handle_tool_decision(&tool, &subject, reply);
             }
             StreamEvent::RunLuaTool {
                 name,
@@ -216,9 +231,9 @@ impl LoopData {
     }
 
     fn resolve_tool_confirmation(&mut self, allow: bool) {
-        if let Some((_, reply)) = self.pending_tool.take() {
+        if let Some((arguments, reply)) = self.pending_tool.take() {
             let decision = if allow {
-                ToolDecision::Allow
+                ToolDecision::Allow { arguments }
             } else {
                 ToolDecision::Deny {
                     reason: String::from("user denied"),
@@ -228,6 +243,77 @@ impl LoopData {
         }
         self.app.close_modal();
         self.dirty = true;
+    }
+
+    fn handle_tool_decision(
+        &mut self,
+        tool: &ToolCall,
+        subject: &str,
+        reply: tokio::sync::oneshot::Sender<ToolDecision>,
+    ) {
+        let args_json: serde_json::Value =
+            serde_json::from_str(tool.arguments.as_str()).unwrap_or(serde_json::Value::Null);
+        let Ok(args_lua) = self.inner.lua.to_value(&args_json) else {
+            let _ = reply.send(ToolDecision::Deny {
+                reason: String::from("failed to decode arguments"),
+            });
+            return;
+        };
+        let LuaValue::Table(args_table) = args_lua else {
+            let _ = reply.send(ToolDecision::Deny {
+                reason: String::from("arguments must be an object"),
+            });
+            return;
+        };
+
+        let Ok(event) = self.inner.lua.create_table() else {
+            let _ = reply.send(ToolDecision::Deny {
+                reason: String::from("failed to build event"),
+            });
+            return;
+        };
+        let _ = event.set("name", tool.name.clone());
+        let _ = event.set("arguments", args_table.clone());
+
+        let decision = self.inner.api.dispatch_tool("tool_call", &event);
+        let approval = if let Some(approval) = parse_tool_decision(decision) {
+            approval
+        } else {
+            let policy = self.inner.policy.borrow();
+            match policy.evaluate(tool.name.as_str(), subject) {
+                Action::Allow => ToolApproval::Allow,
+                Action::Deny => ToolApproval::Deny {
+                    reason: String::from("denied by policy"),
+                },
+                Action::Ask => ToolApproval::Ask { title: None },
+            }
+        };
+
+        let final_args: serde_json::Value = self
+            .inner
+            .lua
+            .from_value(LuaValue::Table(args_table))
+            .unwrap_or(args_json);
+        let final_args = final_args.to_string();
+
+        match approval {
+            ToolApproval::Allow => {
+                let _ = reply.send(ToolDecision::Allow {
+                    arguments: final_args,
+                });
+            }
+            ToolApproval::Deny { reason } => {
+                let _ = reply.send(ToolDecision::Deny { reason });
+            }
+            ToolApproval::Ask { title } => {
+                let title = title
+                    .unwrap_or_else(|| self.inner.state().borrow().opts().confirm.title.clone());
+                let body = format!("{} {}", tool.name, final_args);
+                self.pending_tool = Some((final_args, reply));
+                self.app.open_confirm(title, body);
+                self.dirty = true;
+            }
+        }
     }
 
     fn gather_lua_tools(&self) -> Vec<LuaToolSpec> {
@@ -448,4 +534,24 @@ fn suggest_pool(data: &LoopData) -> Vec<SuggestItem> {
         .collect();
     items.append(&mut lua);
     items
+}
+
+fn parse_tool_decision(value: Option<LuaValue>) -> Option<ToolApproval> {
+    let value = value?;
+    let LuaValue::Table(table) = value else {
+        return None;
+    };
+    if let Ok(Some(reason)) = table.get::<Option<String>>("deny") {
+        return Some(ToolApproval::Deny { reason });
+    }
+    if let Ok(true) = table.get::<bool>("allow") {
+        return Some(ToolApproval::Allow);
+    }
+    if let Ok(Some(title)) = table.get::<Option<String>>("ask") {
+        return Some(ToolApproval::Ask { title: Some(title) });
+    }
+    if let Ok(true) = table.get::<bool>("ask") {
+        return Some(ToolApproval::Ask { title: None });
+    }
+    None
 }

@@ -1,6 +1,6 @@
 use ratatui::style::{Color as TColor, Modifier, Style};
 use ratatui::symbols;
-use ratatui::widgets::{Block, Borders};
+use ratatui::widgets::{Block, Borders, Padding};
 use uji_api::model::{Border, Color, Style as ApiStyle, WindowSpec};
 
 pub(crate) const USER_BG: TColor = TColor::Rgb(0x34, 0x35, 0x41);
@@ -72,16 +72,20 @@ pub(crate) fn border_fade(d: u16) -> Style {
 
 pub(crate) fn block_for(win: &WindowSpec) -> Option<Block<'static>> {
     let borders = match win.opts.border {
-        Border::None => return None,
+        Border::None => Borders::NONE,
         Border::Plain | Border::Rounded => Borders::ALL,
         Border::Horizontal => Borders::TOP | Borders::BOTTOM,
     };
+    if win.opts.border == Border::None && win.opts.padding == 0 {
+        return None;
+    }
     let mut block = match win.opts.border {
         Border::Rounded => Block::default()
             .borders(borders)
             .border_set(symbols::border::ROUNDED),
         _ => Block::default().borders(borders),
     };
+    block = block.padding(Padding::vertical(win.opts.padding));
     let border_style = win.opts.border_color.map_or_else(
         || Style::default().fg(MUTED),
         |color| Style::default().fg(color_of(color)),

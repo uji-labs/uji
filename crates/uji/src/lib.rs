@@ -2,6 +2,7 @@ pub mod app;
 pub mod cmd;
 pub mod config;
 pub mod credential;
+pub mod list;
 pub mod llm;
 pub mod memory;
 pub mod runtime;

@@ -15,7 +15,6 @@ use tokio::sync::oneshot;
 use crate::credential;
 use crate::session::model::{Message, ToolCall};
 use crate::session::store::SessionStorage;
-use crate::tools::policy::{Action, ToolPolicy};
 use crate::tools::{Tool, ToolRegistry};
 
 pub use providers::anthropic::Anthropic;
@@ -182,7 +181,7 @@ pub fn resolve(config: &LlmConfig) -> Arc<dyn Llm> {
 }
 
 pub enum ToolDecision {
-    Allow,
+    Allow { arguments: String },
     Deny { reason: String },
 }
 
@@ -199,6 +198,7 @@ pub enum StreamEvent {
     },
     ToolDecisionRequest {
         tool: ToolCall,
+        subject: String,
         reply: oneshot::Sender<ToolDecision>,
     },
     RunLuaTool {
@@ -229,7 +229,6 @@ pub struct AgentConfig<'a> {
     pub system: Option<String>,
     pub tools: &'a ToolRegistry,
     pub lua_tools: &'a [LuaToolSpec],
-    pub policy: &'a ToolPolicy,
     pub cwd: &'a Path,
 }
 
@@ -286,7 +285,6 @@ pub async fn run_agent(
                 tool_call,
                 config.tools,
                 config.lua_tools,
-                config.policy,
                 config.cwd,
                 on_event,
             )
@@ -310,38 +308,34 @@ async fn execute_tool(
     tool_call: &ToolCall,
     tools: &ToolRegistry,
     lua_tools: &[LuaToolSpec],
-    policy: &ToolPolicy,
     cwd: &Path,
     on_event: &mut (dyn FnMut(StreamEvent) + Send),
 ) -> String {
     let args: Value = serde_json::from_str(&tool_call.arguments).unwrap_or(Value::Null);
     let subject = match tools.get(&tool_call.name) {
         Some(tool) => tool.subject(&args),
-        None => match lua_tools.iter().find(|tool| tool.name == tool_call.name) {
-            Some(tool) => tool.subject.clone(),
-            None => return format!("unknown tool: {}", tool_call.name),
-        },
+        None => lua_tools
+            .iter()
+            .find(|tool| tool.name == tool_call.name)
+            .map_or_else(|| tool_call.name.clone(), |tool| tool.subject.clone()),
     };
-    match policy.evaluate(&tool_call.name, &subject) {
-        Action::Allow => {
+    let (reply, receiver) = oneshot::channel();
+    on_event(StreamEvent::ToolDecisionRequest {
+        tool: tool_call.clone(),
+        subject,
+        reply,
+    });
+    let decision = match tokio::time::timeout(Duration::from_secs(300), receiver).await {
+        Ok(Ok(decision)) => decision,
+        Ok(Err(_)) => return String::from("denied: no decision"),
+        Err(_) => return String::from("denied: timed out waiting for confirmation"),
+    };
+    match decision {
+        ToolDecision::Allow { arguments } => {
+            let args: Value = serde_json::from_str(&arguments).unwrap_or(Value::Null);
             run_named_tool(&tool_call.name, &args, tools, lua_tools, cwd, on_event).await
         }
-        Action::Deny => String::from("denied by policy"),
-        Action::Ask => {
-            let (reply, receiver) = oneshot::channel();
-            on_event(StreamEvent::ToolDecisionRequest {
-                tool: tool_call.clone(),
-                reply,
-            });
-            match tokio::time::timeout(Duration::from_secs(300), receiver).await {
-                Ok(Ok(ToolDecision::Allow)) => {
-                    run_named_tool(&tool_call.name, &args, tools, lua_tools, cwd, on_event).await
-                }
-                Ok(Ok(ToolDecision::Deny { reason })) => format!("denied: {reason}"),
-                Ok(Err(_)) => String::from("denied: no decision"),
-                Err(_) => String::from("denied: timed out waiting for confirmation"),
-            }
-        }
+        ToolDecision::Deny { reason } => format!("denied: {reason}"),
     }
 }
 

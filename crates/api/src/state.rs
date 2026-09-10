@@ -1,7 +1,8 @@
 use std::time::Instant;
 
 use crate::model::{
-    Builtin, Color, GlobalOpts, Line, RunState, Size, UiConfig, UiModel, WinOpts, WindowSpec,
+    Builtin, Color, ConfirmConfig, ConfirmOpts, GlobalOpts, Line, RunState, Size, UiConfig,
+    UiModel, WinOpts, WindowSpec,
 };
 
 #[derive(Debug, Default)]
@@ -98,6 +99,24 @@ impl UiState {
         self.opts.agent_system_prompt = prompt;
     }
 
+    pub fn set_confirm(&mut self, config: &ConfirmConfig) {
+        let mut confirm = ConfirmOpts::default();
+        if let Some(title) = &config.title {
+            confirm.title.clone_from(title);
+        }
+        if let Some(yes) = &config.yes {
+            confirm.yes.clone_from(yes);
+        }
+        if let Some(no) = &config.no {
+            confirm.no.clone_from(no);
+        }
+        confirm.selected = parse_color(config.selected.as_deref());
+        confirm.unselected = parse_color(config.unselected.as_deref());
+        confirm.title_color = parse_color(config.title_color.as_deref());
+        confirm.body_color = parse_color(config.body_color.as_deref());
+        self.opts.confirm = confirm;
+    }
+
     pub fn apply_config(&mut self, config: &UiConfig) {
         if let Some(cursor_blink) = config.input.cursor_blink {
             self.set_cursor_blink(cursor_blink);
@@ -117,6 +136,7 @@ impl UiState {
         if let Some(prompt) = config.agent.system_prompt.as_deref() {
             self.set_agent_system_prompt(Some(prompt.to_string()));
         }
+        self.set_confirm(&config.confirm);
         if let Some(loader) = &config.waiting.loader {
             if let Some(frames) = &loader.frames {
                 self.opts.loader_frames.clone_from(frames);
@@ -187,5 +207,18 @@ impl UiState {
             windows: self.windows.clone(),
             opts: self.opts.clone(),
         }
+    }
+}
+
+fn parse_color(value: Option<&str>) -> Option<Color> {
+    match value {
+        Some(value) => match value.parse::<Color>() {
+            Ok(color) => Some(color),
+            Err(err) => {
+                eprintln!("uji: {err}");
+                None
+            }
+        },
+        None => None,
     }
 }

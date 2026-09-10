@@ -5,7 +5,6 @@ use crate::ui::Context;
 use crate::ui::Render;
 use crate::ui::Surface;
 
-mod confirm;
 mod menu;
 mod prompt;
 mod select;
@@ -18,7 +17,7 @@ pub(crate) struct Modal {
 impl Render for Modal {
     fn render(&self, ctx: &Context<'_>, surface: &mut Surface<'_>) {
         match ctx.app.mode() {
-            Mode::Normal => {}
+            Mode::Normal | Mode::Confirm { .. } => {}
             Mode::Select {
                 title,
                 items,
@@ -48,14 +47,6 @@ impl Render for Modal {
                     items,
                     cursor: *cursor,
                     input_rect: self.input_rect,
-                }
-                .render(ctx, surface);
-            }
-            Mode::Confirm { title, body, allow } => {
-                confirm::Confirm {
-                    title,
-                    body,
-                    allow: *allow,
                 }
                 .render(ctx, surface);
             }

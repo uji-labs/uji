@@ -1,9 +1,9 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::io::{self, Stdout};
 use std::rc::Rc;
 
 use crossterm::{
-    event::{KeyCode, KeyEvent, KeyModifiers},
+    event::{DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -64,6 +64,9 @@ pub struct App {
     pending: Option<String>,
     mode: Mode,
     suggest_pool: Vec<SuggestItem>,
+    scroll: Cell<usize>,
+    viewport: Cell<usize>,
+    last_max: Cell<usize>,
 }
 
 impl App {
@@ -82,6 +85,9 @@ impl App {
             pending: None,
             mode: Mode::Normal,
             suggest_pool: Vec::new(),
+            scroll: Cell::new(usize::MAX),
+            viewport: Cell::new(0),
+            last_max: Cell::new(0),
         }
     }
 
@@ -115,6 +121,50 @@ impl App {
 
     pub fn pending(&self) -> Option<&str> {
         self.pending.as_deref()
+    }
+
+    pub fn scroll(&self) -> usize {
+        self.scroll.get()
+    }
+
+    pub fn set_scroll(&self, offset: usize) {
+        self.scroll.set(offset);
+    }
+
+    pub fn viewport(&self) -> usize {
+        self.viewport.get()
+    }
+
+    pub fn set_viewport(&self, height: usize) {
+        self.viewport.set(height);
+    }
+
+    pub fn last_max(&self) -> usize {
+        self.last_max.get()
+    }
+
+    pub fn set_last_max(&self, max_scroll: usize) {
+        self.last_max.set(max_scroll);
+    }
+
+    pub fn reset_scroll(&self) {
+        self.scroll.set(usize::MAX);
+    }
+
+    pub fn scroll_up(&self, lines: usize) {
+        self.scroll.set(self.scroll.get().saturating_sub(lines));
+    }
+
+    pub fn scroll_down(&self, lines: usize) {
+        self.scroll.set(self.scroll.get().saturating_add(lines));
+    }
+
+    pub fn jump_top(&self) {
+        self.scroll.set(0);
+    }
+
+    pub fn jump_bottom(&self) {
+        self.scroll.set(usize::MAX);
     }
 
     pub fn append_pending(&mut self, delta: &str) {
@@ -205,6 +255,30 @@ impl App {
             }
             KeyCode::Right => {
                 self.cursor = next_char_boundary(&self.input, self.cursor);
+                KeyAction::None
+            }
+            KeyCode::Up => {
+                self.scroll_up(1);
+                KeyAction::None
+            }
+            KeyCode::Down => {
+                self.scroll_down(1);
+                KeyAction::None
+            }
+            KeyCode::PageUp => {
+                self.scroll_up(self.viewport().max(1));
+                KeyAction::None
+            }
+            KeyCode::PageDown => {
+                self.scroll_down(self.viewport().max(1));
+                KeyAction::None
+            }
+            KeyCode::Home => {
+                self.jump_top();
+                KeyAction::None
+            }
+            KeyCode::End => {
+                self.jump_bottom();
                 KeyAction::None
             }
             KeyCode::Enter => self.take_submit(),
@@ -397,14 +471,18 @@ pub type Term = Terminal<CrosstermBackend<Stdout>>;
 pub fn setup() -> io::Result<Term> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     Terminal::new(backend)
 }
 
 pub fn restore(terminal: &mut Term) -> io::Result<()> {
     disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     terminal.show_cursor()
 }
 

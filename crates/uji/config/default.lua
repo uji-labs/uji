@@ -3,7 +3,7 @@
 uji.ui.open_win({ view = "messages", split = "top", size = "fill", wrap = true })
 local status = uji.ui.open_win({ split = "bottom", size = 1 })
 uji.ui.open_win({ view = "input", split = "bottom", size = 3, border = "horizontal" })
-local activity = uji.ui.open_win({ split = "bottom", size = 0 })
+local activity = uji.ui.open_win({ split = "bottom", size = 0, padding = 1 })
 
 uji.ui.configure({
     input = { cursor_blink = true },
@@ -16,11 +16,17 @@ uji.ui.configure({
     },
 })
 
-uji.tool.policy = {
-    run_command = {
-        deny = { "/^rm -rf/", "/^git push/" },
-    },
-}
+uji.on("tool_call", function(event)
+    if event.name == "run_command" then
+        local cmd = event.arguments.command or ""
+        if string.match(cmd, "^rm %-rf") then
+            return { deny = "Refusing to run rm -rf" }
+        end
+        return { ask = true }
+    end
+    -- reads and writes fall through to the default policy (allow / ask)
+    return nil
+end)
 
 local waiting_text = "Working"
 
@@ -36,7 +42,7 @@ end
 
 local function render_activity()
     if uji.status.state() == "working" then
-        uji.ui.set_size(activity, 1)
+        uji.ui.set_size(activity, 3)
         local elapsed = math.floor(uji.status.elapsed() or 0)
         uji.ui.set_lines(activity, {
             {

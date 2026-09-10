@@ -167,6 +167,7 @@ pub struct WinOpts {
     pub title: Option<String>,
     pub wrap: bool,
     pub border_color: Option<Color>,
+    pub padding: u16,
 }
 
 impl Default for WinOpts {
@@ -178,6 +179,7 @@ impl Default for WinOpts {
             title: None,
             wrap: false,
             border_color: None,
+            padding: 0,
         }
     }
 }
@@ -199,6 +201,7 @@ pub struct GlobalOpts {
     pub loader_frames: Vec<String>,
     pub loader_interval_ms: u64,
     pub agent_system_prompt: Option<String>,
+    pub confirm: ConfirmOpts,
 }
 
 impl Default for GlobalOpts {
@@ -211,6 +214,32 @@ impl Default for GlobalOpts {
             loader_frames: Vec::new(),
             loader_interval_ms: 80,
             agent_system_prompt: None,
+            confirm: ConfirmOpts::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConfirmOpts {
+    pub title: String,
+    pub yes: String,
+    pub no: String,
+    pub selected: Option<Color>,
+    pub unselected: Option<Color>,
+    pub title_color: Option<Color>,
+    pub body_color: Option<Color>,
+}
+
+impl Default for ConfirmOpts {
+    fn default() -> Self {
+        Self {
+            title: String::from("Allow tool call?"),
+            yes: String::from("Yes"),
+            no: String::from("No"),
+            selected: None,
+            unselected: None,
+            title_color: None,
+            body_color: None,
         }
     }
 }
@@ -222,6 +251,18 @@ pub struct UiConfig {
     pub suggest: SuggestConfig,
     pub waiting: WaitingConfig,
     pub agent: AgentConfig,
+    pub confirm: ConfirmConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfirmConfig {
+    pub title: Option<String>,
+    pub yes: Option<String>,
+    pub no: Option<String>,
+    pub selected: Option<String>,
+    pub unselected: Option<String>,
+    pub title_color: Option<String>,
+    pub body_color: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

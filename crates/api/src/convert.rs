@@ -41,6 +41,7 @@ impl FromLuaValue for WinOpts {
         }
         opts.title = table.get::<Option<String>>("title")?;
         opts.wrap = table.get::<Option<bool>>("wrap")?.unwrap_or(false);
+        opts.padding = table.get::<Option<u16>>("padding")?.unwrap_or(0);
         if let Some(color) = table.get::<Option<String>>("border_color")? {
             opts.border_color = Some(
                 color
