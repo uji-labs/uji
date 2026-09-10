@@ -55,7 +55,9 @@ impl From<&LlmRequest> for AnthropicRequest {
                     role: "user",
                     content: vec![AnthropicBlock::Text { text: text.clone() }],
                 }),
-                Message::Assistant { text, tool_calls } => {
+                Message::Assistant {
+                    text, tool_calls, ..
+                } => {
                     let mut blocks = Vec::new();
                     if !text.is_empty() {
                         blocks.push(AnthropicBlock::Text { text: text.clone() });

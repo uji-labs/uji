@@ -44,6 +44,15 @@ impl OpenAi {
     }
 }
 
+fn truncated(finish_reason: Option<&str>) -> Result<(), LlmError> {
+    if finish_reason == Some("length") {
+        return Err(LlmError::Provider(
+            "response hit the model's output limit and was cut off".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl Llm for OpenAi {
     fn id(&self) -> &'static str {
@@ -66,12 +75,20 @@ impl Llm for OpenAi {
             .map_err(|err| LlmError::Http(err.to_string()))?;
         let parsed: OpenAiResponse =
             serde_json::from_str(&body).map_err(|err| LlmError::Provider(err.to_string()))?;
-        let text = parsed
-            .text()
-            .map(str::to_string)
-            .ok_or_else(|| LlmError::Provider("empty response".into()))?;
+        let text = parsed.text().unwrap_or_default().to_string();
         let tool_calls = parsed.tool_calls();
-        Ok(LlmResponse { text, tool_calls })
+        if tool_calls.is_empty() {
+            truncated(parsed.finish_reason())?;
+            if text.is_empty() {
+                return Err(LlmError::Provider("empty response".into()));
+            }
+        }
+        let reasoning_content = parsed.reasoning_content().map(str::to_string);
+        Ok(LlmResponse {
+            text,
+            tool_calls,
+            reasoning_content,
+        })
     }
 
     async fn stream(
@@ -88,6 +105,8 @@ impl Llm for OpenAi {
         }
 
         let mut full = String::new();
+        let mut reasoning = String::new();
+        let mut finish_reason = None;
         let mut acc = OpenAiToolAcc::default();
         response_lines(response, |line| {
             let Some(data) = line.strip_prefix("data: ") else {
@@ -101,14 +120,27 @@ impl Llm for OpenAi {
                     on_delta(delta.to_string());
                     full.push_str(delta);
                 }
+                if let Some(delta) = chunk.delta_reasoning() {
+                    reasoning.push_str(delta);
+                }
+                if let Some(reason) = chunk.finish_reason() {
+                    finish_reason = Some(reason.to_string());
+                }
                 acc.apply(&chunk);
             }
         })
         .await?;
         let tool_calls = acc.finish();
+        if tool_calls.is_empty() {
+            truncated(finish_reason.as_deref())?;
+            if full.is_empty() {
+                return Err(LlmError::Provider("empty response".into()));
+            }
+        }
         Ok(LlmResponse {
             text: full,
             tool_calls,
+            reasoning_content: (!reasoning.is_empty()).then_some(reasoning),
         })
     }
 }

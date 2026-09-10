@@ -74,7 +74,9 @@ impl From<&LlmRequest> for GeminiRequest {
                     role: "user",
                     parts: vec![GeminiPart::Text { text: text.clone() }],
                 }),
-                Message::Assistant { text, tool_calls } => {
+                Message::Assistant {
+                    text, tool_calls, ..
+                } => {
                     let mut parts = Vec::new();
                     if !text.is_empty() {
                         parts.push(GeminiPart::Text { text: text.clone() });

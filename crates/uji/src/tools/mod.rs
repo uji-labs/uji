@@ -2,7 +2,7 @@ pub mod builtin;
 pub mod policy;
 pub mod policy_lua;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ pub trait Tool: Send + Sync {
 
 #[derive(Default)]
 pub struct ToolRegistry {
-    tools: HashMap<String, Arc<dyn Tool>>,
+    tools: BTreeMap<String, Arc<dyn Tool>>,
 }
 
 impl ToolRegistry {
@@ -40,6 +40,7 @@ impl ToolRegistry {
 pub fn builtin_registry() -> ToolRegistry {
     let mut registry = ToolRegistry::default();
     registry.register(Arc::new(builtin::ReadFile));
+    registry.register(Arc::new(builtin::EditFile));
     registry.register(Arc::new(builtin::WriteFile));
     registry.register(Arc::new(builtin::ListDir));
     registry.register(Arc::new(builtin::Grep));

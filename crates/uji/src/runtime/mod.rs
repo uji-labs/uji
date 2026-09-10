@@ -10,6 +10,7 @@ pub(crate) use inner::Inner;
 pub(crate) use loop_data::LoopData;
 
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::io;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -104,6 +105,8 @@ impl Runtime {
             active: None,
             action_done: false,
             pending_tool: None,
+            queued: VecDeque::new(),
+            cancel: None,
             runtime,
         };
 

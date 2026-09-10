@@ -72,7 +72,11 @@ impl Llm for Anthropic {
             return Err(LlmError::Provider("empty response".into()));
         }
         let tool_calls = parsed.tool_calls();
-        Ok(LlmResponse { text, tool_calls })
+        Ok(LlmResponse {
+            text,
+            tool_calls,
+            reasoning_content: None,
+        })
     }
 
     async fn stream(
@@ -107,6 +111,7 @@ impl Llm for Anthropic {
         Ok(LlmResponse {
             text: full,
             tool_calls,
+            reasoning_content: None,
         })
     }
 }

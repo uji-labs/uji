@@ -61,3 +61,18 @@ uji.on("status_changed", function()
 end)
 uji.on("tick", render_activity)
 render_status()
+
+-- Keybindings. Every key is remappable per mode: normal, suggest, select,
+-- prompt, confirm. A binding is either a builtin action name, a slash command
+-- via { command = "models" }, or nil to unbind the key entirely.
+--
+-- Actions: quit, interrupt, submit, clear_input, backspace, cursor_left,
+-- cursor_right, cursor_start, cursor_end, scroll_up, scroll_down, page_up,
+-- page_down, scroll_top, scroll_bottom, modal_up, modal_down, modal_accept,
+-- modal_cancel, suggest_complete, confirm_allow, confirm_deny, confirm_toggle,
+-- nothing.
+--
+-- uji.keymap.set("normal", "<C-p>", { command = "models" })
+-- uji.keymap.set("normal", "<C-u>", "clear_input")
+-- uji.keymap.set("normal", "<C-c>", nil)
+-- uji.keymap.list()

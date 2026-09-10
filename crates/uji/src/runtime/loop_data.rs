@@ -1,14 +1,18 @@
+use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crossterm::event::{Event as TermEvent, MouseEventKind};
+use crossterm::event::{Event as TermEvent, KeyCode, KeyEvent, KeyModifiers};
+use uji_api::keymap::{Binding, Chord, Key};
 use uji_api::model::RunState;
 
-use crate::app::{self, App, KeyAction, SuggestItem};
+use crate::app::{self, Action as KeyBinding, App, KeyAction, SuggestItem};
 use crate::cmd::{Args, Context};
 use crate::credential;
-use crate::llm::{AgentConfig, LuaToolSpec, StreamEvent, ToolDecision, ToolSpec, run_agent};
+use crate::llm::{
+    AgentConfig, CancelToken, LuaToolSpec, StreamEvent, ToolDecision, ToolSpec, run_agent,
+};
 use crate::session::model::{Message, ToolCall};
 use crate::session::store::SessionStorage;
 use crate::tools::policy::Action;
@@ -42,13 +46,18 @@ pub(crate) struct LoopData {
     pub(crate) active: Option<Builtin>,
     pub(crate) action_done: bool,
     pub(crate) pending_tool: Option<(String, tokio::sync::oneshot::Sender<ToolDecision>)>,
+    pub(crate) queued: VecDeque<String>,
+    pub(crate) cancel: Option<CancelToken>,
 }
 
 impl LoopData {
     pub(crate) fn on_term_event(&mut self, event: &TermEvent) {
         match event {
             TermEvent::Key(key) => {
-                let action = self.app.handle_key(*key);
+                let Some(action) = self.dispatch_key(*key) else {
+                    self.dirty = true;
+                    return;
+                };
                 match action {
                     KeyAction::Quit => self.running = false,
                     KeyAction::Submit(text) => self.submit(&text),
@@ -68,24 +77,47 @@ impl LoopData {
                             self.on_modal(ModalInput::Cancel);
                         }
                     }
+                    KeyAction::Interrupt => {
+                        if !self.interrupt() {
+                            self.running = false;
+                        }
+                    }
                     KeyAction::None => {}
                 }
                 self.dirty = true;
             }
             TermEvent::Resize(..) => self.dirty = true,
-            TermEvent::Mouse(mouse) => {
-                match mouse.kind {
-                    MouseEventKind::ScrollUp => self.app.scroll_up(3),
-                    MouseEventKind::ScrollDown => self.app.scroll_down(3),
-                    _ => {}
-                }
-                self.dirty = true;
-            }
             _ => {}
         }
     }
 
+    fn dispatch_key(&mut self, key: KeyEvent) -> Option<KeyAction> {
+        let mode = self.app.keymap_mode();
+        let binding = chord_of(key)
+            .and_then(|chord| self.inner.api.keymap().borrow().get(mode, chord).cloned());
+        match binding {
+            Some(Binding::Unbound) => None,
+            Some(Binding::Command(command)) => {
+                self.on_command(&command);
+                None
+            }
+            Some(Binding::Action(name)) => {
+                if let Some(action) = KeyBinding::parse(&name) {
+                    Some(self.app.apply(action))
+                } else {
+                    eprintln!("uji: unknown keymap action: {name}");
+                    None
+                }
+            }
+            None => Some(self.app.handle_key(key)),
+        }
+    }
+
     pub(crate) fn submit(&mut self, text: &str) {
+        if self.inner.state().borrow().run_state() == RunState::Working {
+            self.queued.push_back(text.to_string());
+            return;
+        }
         self.app.reset_scroll();
         self.inner
             .emit(events::MESSAGE_SUBMITTED, &[("text", text.to_string())]);
@@ -115,6 +147,7 @@ impl LoopData {
             .iter()
             .map(|stored| stored.message.clone())
             .collect();
+        let context = sanitize_context(&context);
         let system = {
             let state_rc = self.inner.state();
             let state = state_rc.borrow();
@@ -126,6 +159,8 @@ impl LoopData {
         let lua_tools = self.gather_lua_tools();
         let cwd = self.app.session().directory.clone();
         let sender = self.llm_tx.clone();
+        let cancel = CancelToken::new();
+        self.cancel = Some(cancel.clone());
         {
             let state_rc = self.inner.state();
             let mut state = state_rc.borrow_mut();
@@ -143,6 +178,7 @@ impl LoopData {
                 tools: &tools,
                 lua_tools: &lua_tools,
                 cwd: std::path::Path::new(&cwd),
+                cancel,
             };
             let mut on_event = |event: StreamEvent| {
                 let _ = sender.send(event);
@@ -157,9 +193,13 @@ impl LoopData {
                 self.app.append_pending(&delta);
                 self.dirty = true;
             }
-            StreamEvent::AssistantStep { text, tool_calls } => {
+            StreamEvent::AssistantStep {
+                text,
+                tool_calls,
+                reasoning_content,
+            } => {
                 self.app.take_pending();
-                self.persist_assistant_step(text, tool_calls);
+                self.persist_assistant_step(text, tool_calls, reasoning_content);
             }
             StreamEvent::ToolResult {
                 tool_call_id,
@@ -184,19 +224,46 @@ impl LoopData {
                 let _ = reply.send(result);
                 self.dirty = true;
             }
-            StreamEvent::Done(text) => {
-                self.finish_assistant(&text);
+            StreamEvent::Done {
+                text,
+                reasoning_content,
+            } => {
+                self.finish_assistant(&text, reasoning_content);
                 self.stop_working();
+                self.maybe_submit_queued();
+            }
+            StreamEvent::Cancelled => {
+                self.app.take_pending();
+                self.fail_assistant("interrupted");
+                self.stop_working();
+                self.queued.clear();
             }
             StreamEvent::Failed(err) => {
                 self.app.take_pending();
                 self.fail_assistant(&err);
                 self.stop_working();
+                self.maybe_submit_queued();
             }
         }
     }
 
-    fn persist_assistant_step(&mut self, text: String, tool_calls: Vec<ToolCall>) {
+    pub(crate) fn interrupt(&mut self) -> bool {
+        if self.inner.state().borrow().run_state() != RunState::Working {
+            return false;
+        }
+        if let Some(cancel) = &self.cancel {
+            cancel.cancel();
+        }
+        self.dirty = true;
+        true
+    }
+
+    fn persist_assistant_step(
+        &mut self,
+        text: String,
+        tool_calls: Vec<ToolCall>,
+        reasoning_content: Option<String>,
+    ) {
         if !tool_calls.is_empty() {
             let names = tool_calls
                 .iter()
@@ -205,7 +272,11 @@ impl LoopData {
                 .join(",");
             self.inner.emit(events::TOOL_STARTED, &[("tools", names)]);
         }
-        let message = Message::Assistant { text, tool_calls };
+        let message = Message::Assistant {
+            text,
+            tool_calls,
+            reasoning_content,
+        };
         match self.storage.append_message(&self.app.session().id, message) {
             Ok(stored) => self.app.push_message(stored),
             Err(err) => eprintln!("uji: failed to persist assistant step: {err}"),
@@ -306,9 +377,8 @@ impl LoopData {
                 let _ = reply.send(ToolDecision::Deny { reason });
             }
             ToolApproval::Ask { title } => {
-                let title = title
-                    .unwrap_or_else(|| self.inner.state().borrow().opts().confirm.title.clone());
-                let body = format!("{} {}", tool.name, final_args);
+                let (question, body) = format_tool_call(&tool.name, &final_args);
+                let title = title.unwrap_or(question);
                 self.pending_tool = Some((final_args, reply));
                 self.app.open_confirm(title, body);
                 self.dirty = true;
@@ -355,6 +425,7 @@ impl LoopData {
     }
 
     fn stop_working(&mut self) {
+        self.cancel = None;
         {
             let state_rc = self.inner.state();
             let mut state = state_rc.borrow_mut();
@@ -362,6 +433,12 @@ impl LoopData {
             state.set_turn_started(None);
         }
         self.inner.emit("status_changed", &[]);
+    }
+
+    fn maybe_submit_queued(&mut self) {
+        if let Some(text) = self.queued.pop_front() {
+            self.submit(&text);
+        }
     }
 
     fn fail_assistant(&mut self, error: &str) {
@@ -383,10 +460,11 @@ impl LoopData {
         self.dirty = true;
     }
 
-    fn finish_assistant(&mut self, text: &str) {
+    fn finish_assistant(&mut self, text: &str, reasoning_content: Option<String>) {
         let assistant = Message::Assistant {
             text: text.to_string(),
             tool_calls: Vec::new(),
+            reasoning_content,
         };
         match self
             .storage
@@ -513,6 +591,35 @@ impl Context for LoopData {
     }
 }
 
+fn chord_of(key: KeyEvent) -> Option<Chord> {
+    let mapped = match key.code {
+        KeyCode::Char(c) => Key::Char(c),
+        KeyCode::Enter => Key::Enter,
+        KeyCode::Esc => Key::Escape,
+        KeyCode::Backspace => Key::Backspace,
+        KeyCode::Delete => Key::Delete,
+        KeyCode::Tab => Key::Tab,
+        KeyCode::BackTab => Key::BackTab,
+        KeyCode::Left => Key::Left,
+        KeyCode::Right => Key::Right,
+        KeyCode::Up => Key::Up,
+        KeyCode::Down => Key::Down,
+        KeyCode::Home => Key::Home,
+        KeyCode::End => Key::End,
+        KeyCode::PageUp => Key::PageUp,
+        KeyCode::PageDown => Key::PageDown,
+        KeyCode::Insert => Key::Insert,
+        KeyCode::F(number) => Key::F(number),
+        _ => return None,
+    };
+    Some(Chord::new(
+        mapped,
+        key.modifiers.contains(KeyModifiers::CONTROL),
+        key.modifiers.contains(KeyModifiers::ALT),
+        key.modifiers.contains(KeyModifiers::SHIFT),
+    ))
+}
+
 fn suggest_pool(data: &LoopData) -> Vec<SuggestItem> {
     let mut items: Vec<SuggestItem> = Builtin::ALL
         .iter()
@@ -534,6 +641,103 @@ fn suggest_pool(data: &LoopData) -> Vec<SuggestItem> {
         .collect();
     items.append(&mut lua);
     items
+}
+
+fn sanitize_context(messages: &[Message]) -> Vec<Message> {
+    let mut answered: HashSet<&str> = HashSet::new();
+    for message in messages {
+        if let Message::Tool { tool_call_id, .. } = message {
+            answered.insert(tool_call_id.as_str());
+        }
+    }
+
+    let mut kept: HashSet<String> = HashSet::new();
+    let mut out = Vec::with_capacity(messages.len());
+    for message in messages {
+        match message {
+            Message::Assistant {
+                text,
+                tool_calls,
+                reasoning_content,
+            } if !tool_calls.is_empty() => {
+                let complete = tool_calls
+                    .iter()
+                    .all(|call| answered.contains(call.id.as_str()));
+                if complete {
+                    for call in tool_calls {
+                        kept.insert(call.id.clone());
+                    }
+                    out.push(message.clone());
+                } else if !text.is_empty() {
+                    out.push(Message::Assistant {
+                        text: text.clone(),
+                        tool_calls: Vec::new(),
+                        reasoning_content: reasoning_content.clone(),
+                    });
+                }
+            }
+            Message::Tool { tool_call_id, .. } => {
+                if kept.contains(tool_call_id.as_str()) {
+                    out.push(message.clone());
+                }
+            }
+            _ => out.push(message.clone()),
+        }
+    }
+    out
+}
+
+fn format_tool_call(name: &str, arguments: &str) -> (String, String) {
+    let args = serde_json::from_str::<serde_json::Value>(arguments).unwrap_or_default();
+    let map = match &args {
+        serde_json::Value::Object(map) => map.clone(),
+        _ => serde_json::Map::new(),
+    };
+    let field = |key: &str| {
+        map.get(key)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+
+    match name {
+        "run_command" => (
+            "Would you like to run the following command?".into(),
+            format!("$ {}", field("command")),
+        ),
+        "edit_file" => (
+            "Would you like to make the following edit?".into(),
+            format!("Destination: {}", field("path")),
+        ),
+        "write_file" => (
+            "Would you like to write the following file?".into(),
+            format!("Destination: {}", field("path")),
+        ),
+        "read_file" | "list_dir" => (
+            format!("Would you like to allow uji to `{name}`?"),
+            format!("Path: {}", field("path")),
+        ),
+        "grep" => (
+            "Would you like to allow uji to search the workspace?".into(),
+            format!("Pattern: {}", field("pattern")),
+        ),
+        _ => {
+            let detail = if map.is_empty() {
+                arguments.to_string()
+            } else {
+                map.iter()
+                    .map(|(key, value)| {
+                        let value = value
+                            .as_str()
+                            .map_or_else(|| value.to_string(), str::to_string);
+                        format!("{key}: {value}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            };
+            (format!("Would you like to run `{name}`?"), detail)
+        }
+    }
 }
 
 fn parse_tool_decision(value: Option<LuaValue>) -> Option<ToolApproval> {

@@ -3,7 +3,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::text::Line as TLine;
 use ratatui::widgets::{Paragraph, Widget};
-use uji_api::model::{Builtin, WindowSpec};
+use uji_api::model::{Builtin, Size, WindowSpec};
 use uji_api::state::UiState;
 
 use crate::app::App;
@@ -14,6 +14,7 @@ pub(crate) mod layout;
 pub(crate) mod messages;
 pub(crate) mod modal;
 pub(crate) mod style;
+pub(crate) mod wrap;
 
 pub struct Context<'a> {
     pub app: &'a App,
@@ -53,6 +54,10 @@ pub trait Render {
 
 pub fn render(frame: &mut Frame<'_>, app: &App) {
     let state = app.state();
+    let fit = input_fit(frame.area(), &state.borrow(), app.input());
+    if let Some((id, height)) = fit {
+        state.borrow_mut().set_window_size(id, Size::Fixed(height));
+    }
     let rects = {
         let s = state.borrow();
         layout::layout(frame.area(), s.windows())
@@ -79,6 +84,31 @@ pub fn render(frame: &mut Frame<'_>, app: &App) {
     }
     let mut surface = Surface::new(frame.area(), frame.buffer_mut());
     modal::Modal { input_rect }.render(&ctx, &mut surface);
+}
+
+const MAX_INPUT_ROWS: u16 = 10;
+
+fn input_fit(area: Rect, state: &UiState, input: &str) -> Option<(u32, u16)> {
+    let rects = layout::layout(area, state.windows());
+    let (window, rect) = state
+        .windows()
+        .iter()
+        .zip(rects)
+        .find(|(window, _)| window.builtin == Some(Builtin::Input))?;
+    let Size::Fixed(current) = window.opts.size else {
+        return None;
+    };
+    let inner = style::block_for(window).map_or(rect, |block| block.inner(rect));
+    if inner.width == 0 {
+        return None;
+    }
+    let rows = input::rows_needed(input, usize::from(inner.width));
+    let rows = u16::try_from(rows)
+        .unwrap_or(MAX_INPUT_ROWS)
+        .clamp(1, MAX_INPUT_ROWS);
+    let border = rect.height.saturating_sub(inner.height);
+    let wanted = rows.saturating_add(border);
+    (wanted != current).then_some((window.id, wanted))
 }
 
 fn blit(surface: &mut Surface<'_>, window: &WindowSpec) {

@@ -1,5 +1,7 @@
 use std::io;
 
+use chrono::Duration;
+use chrono_humanize::HumanTime;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
@@ -204,22 +206,5 @@ fn visible_start(cursor: usize, len: usize, available: usize) -> usize {
 
 fn format_when(updated: i64) -> String {
     let delta = now_millis().saturating_sub(updated);
-    let seconds = delta / 1000;
-
-    if seconds < 60 {
-        "just now".into()
-    } else if seconds < 3_600 {
-        format!("{}m ago", seconds / 60)
-    } else if seconds < 86_400 {
-        format!("{}h ago", seconds / 3_600)
-    } else if seconds < 7 * 86_400 {
-        format!("{}d ago", seconds / 86_400)
-    } else {
-        let days = seconds / 86_400;
-        if days < 365 {
-            format!("{days}d ago")
-        } else {
-            format!("{}y ago", days / 365)
-        }
-    }
+    HumanTime::from(-Duration::milliseconds(delta)).to_string()
 }

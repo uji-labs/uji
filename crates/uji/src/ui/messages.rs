@@ -1,5 +1,5 @@
 use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use uji_api::model::WindowSpec;
 
@@ -8,6 +8,7 @@ use crate::ui::Context;
 use crate::ui::Render;
 use crate::ui::Surface;
 use crate::ui::style::{MUTED, TEXT, USER_BG, block_for};
+use crate::ui::wrap::text as wrap_text;
 
 pub(crate) struct Messages<'a> {
     pub(crate) window: &'a WindowSpec,
@@ -25,11 +26,14 @@ impl Render for Messages<'_> {
         let mut lines = Vec::new();
         let mut first = true;
 
+        let mut in_tool_group = false;
         for stored in ctx.app.messages() {
-            if !first {
+            let grouped = in_tool_group && matches!(stored.message, Message::Tool { .. });
+            if !first && !grouped {
                 lines.push(Line::from(""));
             }
             first = false;
+            in_tool_group = false;
             match &stored.message {
                 Message::User { text } => {
                     let style = Style::default().bg(USER_BG).fg(TEXT);
@@ -37,22 +41,24 @@ impl Render for Messages<'_> {
                     push_wrapped(&mut lines, text, width.saturating_sub(2), style, " ", true);
                     lines.push(Line::from(fill.clone()).style(style));
                 }
-                Message::Assistant { text, .. } => {
+                Message::Assistant {
+                    text, tool_calls, ..
+                } => {
                     let style = Style::default().fg(TEXT);
-                    push_wrapped(&mut lines, text, width.saturating_sub(1), style, " ", false);
+                    if !text.is_empty() {
+                        push_wrapped(&mut lines, text, width.saturating_sub(1), style, " ", false);
+                    }
+                    for call in tool_calls {
+                        if !text.is_empty() {
+                            lines.push(Line::from(""));
+                        }
+                        push_tool_header(&mut lines, &call.name, &call.arguments, width);
+                    }
+                    in_tool_group = !tool_calls.is_empty();
                 }
-                Message::Tool { name, content, .. } => {
-                    lines.push(
-                        Line::from(format!(" ⏺ {name}")).style(Style::default().fg(Color::Cyan)),
-                    );
-                    push_wrapped(
-                        &mut lines,
-                        content,
-                        width.saturating_sub(3),
-                        Style::default().fg(MUTED),
-                        "   ",
-                        false,
-                    );
+                Message::Tool { content, .. } => {
+                    push_tool_output(&mut lines, content, width);
+                    in_tool_group = true;
                 }
                 Message::System { text } => {
                     let style = Style::default().fg(MUTED).add_modifier(Modifier::ITALIC);
@@ -119,41 +125,83 @@ fn push_wrapped(
     }
 }
 
-fn wrap_text(text: &str, width: usize) -> Vec<String> {
-    if width == 0 {
-        return text.lines().map(str::to_string).collect();
+const MAX_TOOL_PREVIEW_LINES: usize = 8;
+
+fn tool_verb(name: &str) -> &'static str {
+    match name {
+        "read_file" => "Read",
+        "edit_file" => "Edited",
+        "write_file" => "Wrote",
+        "list_dir" => "Listed",
+        "grep" => "Searched",
+        "run_command" => "Ran",
+        _ => "Called",
     }
-    let mut out = Vec::new();
-    for line in text.lines() {
-        if line.chars().count() <= width {
-            out.push(line.to_string());
-            continue;
-        }
-        let mut current = String::new();
-        for word in line.split_whitespace() {
-            let word_len = word.chars().count();
-            if word_len > width {
-                if !current.is_empty() {
-                    out.push(std::mem::take(&mut current));
-                }
-                for ch in word.chars() {
-                    if current.chars().count() == width {
-                        out.push(std::mem::take(&mut current));
-                    }
-                    current.push(ch);
-                }
-                continue;
-            }
-            if current.chars().count() + 1 + word_len > width {
-                out.push(std::mem::take(&mut current));
-            } else if !current.is_empty() {
-                current.push(' ');
-            }
-            current.push_str(word);
-        }
-        if !current.is_empty() {
-            out.push(current);
-        }
+}
+
+fn tool_detail(name: &str, arguments: &str) -> String {
+    let args = serde_json::from_str::<serde_json::Value>(arguments).unwrap_or_default();
+    let field = |key: &str| {
+        args.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+    };
+    let detail = match name {
+        "run_command" => field("command"),
+        "grep" => field("pattern"),
+        _ => field("path"),
+    };
+    detail.unwrap_or_else(|| arguments.chars().take(200).collect())
+}
+
+fn push_tool_header(lines: &mut Vec<Line<'static>>, name: &str, arguments: &str, width: usize) {
+    let verb = tool_verb(name);
+    let detail = tool_detail(name, arguments);
+    let detail = detail.replace('\n', " ");
+    let head = if verb == "Called" {
+        format!("{verb} {name} {detail}")
+    } else {
+        format!("{verb} {detail}")
+    };
+    let available = width.saturating_sub(4).max(1);
+    let mut chunks = wrap_text(&head, available).into_iter();
+    let first = chunks.next().unwrap_or_default();
+    lines.push(Line::from(vec![
+        Span::styled(" • ", Style::default().fg(MUTED)),
+        Span::styled(
+            first,
+            Style::default().fg(TEXT).add_modifier(Modifier::BOLD),
+        ),
+    ]));
+    for chunk in chunks {
+        lines.push(Line::from(Span::styled(
+            format!("   {chunk}"),
+            Style::default().fg(TEXT),
+        )));
     }
-    out
+}
+
+fn push_tool_output(lines: &mut Vec<Line<'static>>, content: &str, width: usize) {
+    let failed = content.starts_with("error:") || content.starts_with("denied:");
+    let style = if failed {
+        Style::default().fg(Color::Red)
+    } else {
+        Style::default().fg(MUTED)
+    };
+    let available = width.saturating_sub(5).max(1);
+    let mut wrapped: Vec<String> = Vec::new();
+    for raw in content.lines() {
+        wrapped.extend(wrap_text(raw, available));
+    }
+    let omitted = wrapped.len().saturating_sub(MAX_TOOL_PREVIEW_LINES);
+    for (index, chunk) in wrapped.iter().take(MAX_TOOL_PREVIEW_LINES).enumerate() {
+        let prefix = if index == 0 { "   └ " } else { "     " };
+        lines.push(Line::from(Span::styled(format!("{prefix}{chunk}"), style)));
+    }
+    if omitted > 0 {
+        lines.push(Line::from(Span::styled(
+            format!("     … +{omitted} lines"),
+            Style::default().fg(MUTED).add_modifier(Modifier::DIM),
+        )));
+    }
 }

@@ -3,11 +3,12 @@ use std::io::{self, Stdout};
 use std::rc::Rc;
 
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEvent, KeyModifiers},
+    event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+use uji_api::keymap;
 use uji_api::state::UiState;
 
 use crate::session::model::{Session, StoredMessage};
@@ -22,6 +23,68 @@ pub enum KeyAction {
     Selected(String),
     Prompted(String),
     Cancel,
+    Interrupt,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Nothing,
+    Quit,
+    Interrupt,
+    Submit,
+    ClearInput,
+    Backspace,
+    CursorLeft,
+    CursorRight,
+    CursorStart,
+    CursorEnd,
+    ScrollUp,
+    ScrollDown,
+    PageUp,
+    PageDown,
+    ScrollTop,
+    ScrollBottom,
+    ModalUp,
+    ModalDown,
+    ModalAccept,
+    ModalCancel,
+    SuggestComplete,
+    ConfirmAllow,
+    ConfirmDeny,
+    ConfirmToggle,
+}
+
+impl Action {
+    pub fn parse(name: &str) -> Option<Self> {
+        let action = match name {
+            "nothing" | "noop" => Self::Nothing,
+            "quit" => Self::Quit,
+            "interrupt" => Self::Interrupt,
+            "submit" => Self::Submit,
+            "clear_input" => Self::ClearInput,
+            "backspace" => Self::Backspace,
+            "cursor_left" => Self::CursorLeft,
+            "cursor_right" => Self::CursorRight,
+            "cursor_start" => Self::CursorStart,
+            "cursor_end" => Self::CursorEnd,
+            "scroll_up" => Self::ScrollUp,
+            "scroll_down" => Self::ScrollDown,
+            "page_up" => Self::PageUp,
+            "page_down" => Self::PageDown,
+            "scroll_top" => Self::ScrollTop,
+            "scroll_bottom" => Self::ScrollBottom,
+            "modal_up" => Self::ModalUp,
+            "modal_down" => Self::ModalDown,
+            "modal_accept" => Self::ModalAccept,
+            "modal_cancel" => Self::ModalCancel,
+            "suggest_complete" => Self::SuggestComplete,
+            "confirm_allow" => Self::ConfirmAllow,
+            "confirm_deny" => Self::ConfirmDeny,
+            "confirm_toggle" => Self::ConfirmToggle,
+            _ => return None,
+        };
+        Some(action)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -211,6 +274,174 @@ impl App {
         self.suggest_pool = items;
     }
 
+    pub fn keymap_mode(&self) -> keymap::Mode {
+        match self.mode {
+            Mode::Normal => keymap::Mode::Normal,
+            Mode::Select { .. } => keymap::Mode::Select,
+            Mode::Prompt { .. } => keymap::Mode::Prompt,
+            Mode::Suggest { .. } => keymap::Mode::Suggest,
+            Mode::Confirm { .. } => keymap::Mode::Confirm,
+        }
+    }
+
+    #[allow(clippy::too_many_lines)]
+    pub fn apply(&mut self, action: Action) -> KeyAction {
+        match action {
+            Action::Quit => self.quit(),
+            Action::Interrupt => KeyAction::Interrupt,
+            Action::Nothing => KeyAction::None,
+            Action::Submit => self.take_submit(),
+            Action::ClearInput => {
+                self.input.clear();
+                self.cursor = 0;
+                self.after_input_change();
+                KeyAction::None
+            }
+            Action::Backspace => {
+                if self.cursor > 0 {
+                    let prev = prev_char_boundary(&self.input, self.cursor);
+                    self.input.remove(prev);
+                    self.cursor = prev;
+                }
+                self.after_input_change();
+                KeyAction::None
+            }
+            Action::CursorLeft => {
+                self.cursor = prev_char_boundary(&self.input, self.cursor);
+                KeyAction::None
+            }
+            Action::CursorRight => {
+                self.cursor = next_char_boundary(&self.input, self.cursor);
+                KeyAction::None
+            }
+            Action::CursorStart => {
+                self.cursor = 0;
+                KeyAction::None
+            }
+            Action::CursorEnd => {
+                self.cursor = self.input.len();
+                KeyAction::None
+            }
+            Action::ScrollUp => {
+                self.scroll_up(1);
+                KeyAction::None
+            }
+            Action::ScrollDown => {
+                self.scroll_down(1);
+                KeyAction::None
+            }
+            Action::PageUp => {
+                self.scroll_up(self.viewport().max(1));
+                KeyAction::None
+            }
+            Action::PageDown => {
+                self.scroll_down(self.viewport().max(1));
+                KeyAction::None
+            }
+            Action::ScrollTop => {
+                self.jump_top();
+                KeyAction::None
+            }
+            Action::ScrollBottom => {
+                self.jump_bottom();
+                KeyAction::None
+            }
+            Action::ModalUp => {
+                match &mut self.mode {
+                    Mode::Select { cursor, .. } | Mode::Suggest { cursor, .. } => {
+                        *cursor = cursor.saturating_sub(1);
+                    }
+                    Mode::Confirm { allow, .. } => *allow = true,
+                    _ => {}
+                }
+                KeyAction::None
+            }
+            Action::ModalDown => {
+                match &mut self.mode {
+                    Mode::Select { items, cursor, .. } => {
+                        *cursor = cursor.saturating_add(1).min(items.len().saturating_sub(1));
+                    }
+                    Mode::Suggest { items, cursor } => {
+                        *cursor = cursor.saturating_add(1).min(items.len().saturating_sub(1));
+                    }
+                    Mode::Confirm { allow, .. } => *allow = false,
+                    _ => {}
+                }
+                KeyAction::None
+            }
+            Action::ModalAccept => self.modal_accept(),
+            Action::ModalCancel => self.modal_cancel(),
+            Action::SuggestComplete => {
+                if let Some(name) = self.highlighted_suggest() {
+                    self.input = format!("/{name} ");
+                    self.cursor = self.input.len();
+                    self.mode = Mode::Normal;
+                }
+                KeyAction::None
+            }
+            Action::ConfirmAllow => {
+                self.mode = Mode::Normal;
+                KeyAction::Selected("allow".into())
+            }
+            Action::ConfirmDeny => {
+                self.mode = Mode::Normal;
+                KeyAction::Selected("deny".into())
+            }
+            Action::ConfirmToggle => {
+                if let Mode::Confirm { allow, .. } = &mut self.mode {
+                    *allow = !*allow;
+                }
+                KeyAction::None
+            }
+        }
+    }
+
+    fn modal_accept(&mut self) -> KeyAction {
+        match &self.mode {
+            Mode::Select { items, cursor, .. } => {
+                let item = items.get(*cursor).cloned();
+                self.mode = Mode::Normal;
+                item.map_or(KeyAction::None, KeyAction::Selected)
+            }
+            Mode::Prompt { value, .. } => {
+                let value = value.clone();
+                self.mode = Mode::Normal;
+                KeyAction::Prompted(value)
+            }
+            Mode::Suggest { .. } => {
+                if let Some(name) = self.highlighted_suggest() {
+                    self.input = format!("/{name}");
+                    self.cursor = self.input.len();
+                }
+                self.mode = Mode::Normal;
+                self.take_submit()
+            }
+            Mode::Confirm { allow, .. } => {
+                let allow = *allow;
+                self.mode = Mode::Normal;
+                KeyAction::Selected(if allow { "allow".into() } else { "deny".into() })
+            }
+            Mode::Normal => self.take_submit(),
+        }
+    }
+
+    fn modal_cancel(&mut self) -> KeyAction {
+        match self.mode {
+            Mode::Suggest { .. } => {
+                self.input.clear();
+                self.cursor = 0;
+                self.mode = Mode::Normal;
+                KeyAction::None
+            }
+            Mode::Confirm { .. } => KeyAction::Cancel,
+            Mode::Normal => KeyAction::Interrupt,
+            _ => {
+                self.mode = Mode::Normal;
+                KeyAction::Cancel
+            }
+        }
+    }
+
     pub fn handle_key(&mut self, key: KeyEvent) -> KeyAction {
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return self.quit();
@@ -232,8 +463,16 @@ impl App {
 
     fn handle_normal_key(&mut self, key: KeyEvent) -> KeyAction {
         match key.code {
-            KeyCode::Esc => self.quit(),
-            KeyCode::Char('q') if key.modifiers == KeyModifiers::NONE => self.quit(),
+            KeyCode::Esc => {
+                if self.input.is_empty() {
+                    KeyAction::Interrupt
+                } else {
+                    self.input.clear();
+                    self.cursor = 0;
+                    self.after_input_change();
+                    KeyAction::None
+                }
+            }
             KeyCode::Char(c) => {
                 self.input.insert(self.cursor, c);
                 self.cursor += c.len_utf8();
@@ -303,6 +542,46 @@ impl App {
                     *cursor = cursor.saturating_add(1).min(items.len().saturating_sub(1));
                 }
                 KeyAction::None
+            }
+            KeyCode::PageUp => {
+                if let Mode::Select { cursor, .. } = &mut self.mode {
+                    *cursor = cursor.saturating_sub(10);
+                }
+                KeyAction::None
+            }
+            KeyCode::PageDown => {
+                if let Mode::Select { items, cursor, .. } = &mut self.mode {
+                    *cursor = cursor.saturating_add(10).min(items.len().saturating_sub(1));
+                }
+                KeyAction::None
+            }
+            KeyCode::Home => {
+                if let Mode::Select { cursor, .. } = &mut self.mode {
+                    *cursor = 0;
+                }
+                KeyAction::None
+            }
+            KeyCode::End => {
+                if let Mode::Select { items, cursor, .. } = &mut self.mode {
+                    *cursor = items.len().saturating_sub(1);
+                }
+                KeyAction::None
+            }
+            KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
+                let Some(index) = c.to_digit(10).and_then(|d| usize::try_from(d - 1).ok()) else {
+                    return KeyAction::None;
+                };
+                let item = match &self.mode {
+                    Mode::Select { items, .. } => items.get(index).cloned(),
+                    _ => None,
+                };
+                match item {
+                    Some(item) => {
+                        self.mode = Mode::Normal;
+                        KeyAction::Selected(item)
+                    }
+                    None => KeyAction::None,
+                }
             }
             KeyCode::Enter => {
                 let item = match &self.mode {
@@ -404,11 +683,25 @@ impl App {
     fn handle_confirm_key(&mut self, key: KeyEvent) -> KeyAction {
         match key.code {
             KeyCode::Esc => KeyAction::Cancel,
+            KeyCode::Char('y' | 'Y' | '1') => KeyAction::Selected("allow".into()),
+            KeyCode::Char('n' | 'N' | '2') => KeyAction::Selected("deny".into()),
             KeyCode::Enter => {
                 let allow = matches!(self.mode, Mode::Confirm { allow, .. } if allow);
                 KeyAction::Selected(if allow { "allow".into() } else { "deny".into() })
             }
-            KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down | KeyCode::Tab => {
+            KeyCode::Up => {
+                if let Mode::Confirm { allow, .. } = &mut self.mode {
+                    *allow = true;
+                }
+                KeyAction::None
+            }
+            KeyCode::Down => {
+                if let Mode::Confirm { allow, .. } = &mut self.mode {
+                    *allow = false;
+                }
+                KeyAction::None
+            }
+            KeyCode::Left | KeyCode::Right | KeyCode::Tab => {
                 if let Mode::Confirm { allow, .. } = &mut self.mode {
                     *allow = !*allow;
                 }
@@ -471,18 +764,14 @@ pub type Term = Terminal<CrosstermBackend<Stdout>>;
 pub fn setup() -> io::Result<Term> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout);
     Terminal::new(backend)
 }
 
 pub fn restore(terminal: &mut Term) -> io::Result<()> {
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()
 }
 

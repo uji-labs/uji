@@ -2,6 +2,7 @@ pub mod command;
 mod convert;
 pub mod event;
 pub mod handlers;
+pub mod keymap;
 pub mod llm;
 pub mod model;
 pub mod schedule;
@@ -20,6 +21,7 @@ use mlua::{Function, Lua, Table, Value};
 use crate::state::UiState;
 
 use self::handlers::Handlers;
+use self::keymap::Keymap;
 use self::scheduled::Scheduled;
 use self::tools::LuaTool;
 
@@ -29,6 +31,7 @@ pub struct Api {
     handlers: RefCell<Handlers>,
     commands: RefCell<HashMap<String, Function>>,
     tools: RefCell<HashMap<String, LuaTool>>,
+    keymap: RefCell<Keymap>,
 }
 
 impl Api {
@@ -39,6 +42,7 @@ impl Api {
             handlers: RefCell::default(),
             commands: RefCell::default(),
             tools: RefCell::default(),
+            keymap: RefCell::default(),
         })
     }
 
@@ -56,6 +60,10 @@ impl Api {
 
     pub fn lua_tools(&self) -> &RefCell<HashMap<String, LuaTool>> {
         &self.tools
+    }
+
+    pub fn keymap(&self) -> &RefCell<Keymap> {
+        &self.keymap
     }
 
     pub(crate) fn handlers(&self) -> &RefCell<Handlers> {
@@ -118,6 +126,8 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     tool.set("register", tools::register(lua, api)?)?;
     tool.set("unregister", tools::unregister(lua, api)?)?;
     uji.set("tool", tool)?;
+
+    uji.set("keymap", keymap::register(lua, api)?)?;
 
     Ok(uji)
 }

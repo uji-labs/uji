@@ -80,7 +80,11 @@ impl Llm for Gemini {
         if text.is_empty() && tool_calls.is_empty() {
             return Err(LlmError::Provider("empty response".into()));
         }
-        Ok(LlmResponse { text, tool_calls })
+        Ok(LlmResponse {
+            text,
+            tool_calls,
+            reasoning_content: None,
+        })
     }
 
     async fn stream(
@@ -117,6 +121,7 @@ impl Llm for Gemini {
         Ok(LlmResponse {
             text: full,
             tool_calls,
+            reasoning_content: None,
         })
     }
 }

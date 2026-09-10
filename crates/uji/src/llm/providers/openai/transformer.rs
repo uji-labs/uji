@@ -10,8 +10,6 @@ pub struct OpenAiRequest {
     pub stream: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<OpenAiTool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_choice: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -31,7 +29,6 @@ pub struct OpenAiToolFunction {
 #[derive(Serialize)]
 pub struct OpenAiMessage {
     pub role: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<OpenAiCall>,
@@ -71,7 +68,9 @@ impl From<&LlmRequest> for OpenAiRequest {
         for item in &request.messages {
             match item {
                 Message::User { text } => messages.push(message("user", Some(text.clone()))),
-                Message::Assistant { text, tool_calls } => messages.push(OpenAiMessage {
+                Message::Assistant {
+                    text, tool_calls, ..
+                } => messages.push(OpenAiMessage {
                     role: "assistant",
                     content: if text.is_empty() {
                         None
@@ -122,7 +121,6 @@ impl From<&LlmRequest> for OpenAiRequest {
             messages,
             stream: false,
             tools,
-            tool_choice: (!request.tools.is_empty()).then_some("auto"),
         }
     }
 }
@@ -135,6 +133,8 @@ pub struct OpenAiResponse {
 #[derive(Deserialize)]
 pub struct OpenAiChoice {
     pub message: OpenAiMessageOut,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -143,6 +143,8 @@ pub struct OpenAiMessageOut {
     pub content: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<OpenAiCall>,
+    #[serde(default)]
+    pub reasoning_content: Option<String>,
 }
 
 impl OpenAiResponse {
@@ -150,6 +152,18 @@ impl OpenAiResponse {
         self.choices
             .first()
             .and_then(|choice| choice.message.content.as_deref())
+    }
+
+    pub fn reasoning_content(&self) -> Option<&str> {
+        self.choices
+            .first()
+            .and_then(|choice| choice.message.reasoning_content.as_deref())
+    }
+
+    pub fn finish_reason(&self) -> Option<&str> {
+        self.choices
+            .first()
+            .and_then(|choice| choice.finish_reason.as_deref())
     }
 
     pub fn tool_calls(&self) -> Vec<ToolCall> {
@@ -176,12 +190,16 @@ pub struct OpenAiChunk {
 #[derive(Deserialize)]
 pub struct OpenAiDelta {
     pub delta: OpenAiDeltaContent,
+    #[serde(default)]
+    pub finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
 pub struct OpenAiDeltaContent {
     #[serde(default)]
     pub content: Option<String>,
+    #[serde(default)]
+    pub reasoning_content: Option<String>,
     #[serde(default)]
     pub tool_calls: Vec<OpenAiDeltaToolCall>,
 }
@@ -208,6 +226,18 @@ impl OpenAiChunk {
         self.choices
             .first()
             .and_then(|choice| choice.delta.content.as_deref())
+    }
+
+    pub fn delta_reasoning(&self) -> Option<&str> {
+        self.choices
+            .first()
+            .and_then(|choice| choice.delta.reasoning_content.as_deref())
+    }
+
+    pub fn finish_reason(&self) -> Option<&str> {
+        self.choices
+            .first()
+            .and_then(|choice| choice.finish_reason.as_deref())
     }
 }
 

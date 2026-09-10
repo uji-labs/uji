@@ -18,6 +18,7 @@ impl Llm for NotConfigured {
         Ok(LlmResponse {
             text: "Please run /login to configure a provider".into(),
             tool_calls: Vec::new(),
+            reasoning_content: None,
         })
     }
 }
