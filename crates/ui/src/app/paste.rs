@@ -55,6 +55,15 @@ impl Pastes {
         self.entries.remove(&id);
     }
 
+    /// Drop every marker the text no longer carries whole.
+    ///
+    /// Any edit can cut through a marker — a kill, a word delete, a recall — and
+    /// a marker that is no longer intact must stop standing for its text, or
+    /// submitting would expand a fragment the user cannot see.
+    pub fn prune(&mut self, text: &str) {
+        self.entries.retain(|_, entry| text.contains(&entry.marker));
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
         self.counter = 0;

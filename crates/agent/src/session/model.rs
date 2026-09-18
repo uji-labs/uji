@@ -57,6 +57,16 @@ pub enum Message {
     },
     #[serde(rename = "system")]
     System { text: String },
+    /// A command the user ran from the composer with `!`, and what it printed.
+    ///
+    /// It is the user's output, not the model's: it is shown in the transcript
+    /// and kept with the session, but never sent to the model.
+    #[serde(rename = "shell")]
+    Shell {
+        command: String,
+        output: String,
+        code: i32,
+    },
     #[serde(rename = "error")]
     Error { text: String },
     #[serde(rename = "compaction")]
@@ -75,6 +85,7 @@ impl Message {
             Message::Assistant { .. } => "assistant",
             Message::Tool { .. } => "tool",
             Message::System { .. } => "system",
+            Message::Shell { .. } => "shell",
             Message::Error { .. } => "error",
             Message::Compaction { .. } => "compaction",
         }
@@ -87,6 +98,7 @@ impl Message {
             | Message::System { text }
             | Message::Error { text } => text,
             Message::Tool { content, .. } => content,
+            Message::Shell { output, .. } => output,
             Message::Compaction { summary, .. } => summary,
         }
     }

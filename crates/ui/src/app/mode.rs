@@ -1,3 +1,4 @@
+use super::line::Line;
 use crate::model::Builtin;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SuggestItem {
@@ -17,7 +18,7 @@ pub enum Mode {
     Select {
         title: String,
         items: Vec<String>,
-        query: String,
+        query: Line,
         cursor: usize,
         matches: Vec<usize>,
     },
@@ -25,7 +26,7 @@ pub enum Mode {
     Pick {
         title: String,
         items: Vec<String>,
-        query: String,
+        query: Line,
         cursor: usize,
         matches: Vec<usize>,
         /// Lines for the highlighted item, and which match they belong to.
@@ -36,7 +37,7 @@ pub enum Mode {
     },
     Prompt {
         title: String,
-        value: String,
+        value: Line,
         echo: Echo,
     },
     Suggest {

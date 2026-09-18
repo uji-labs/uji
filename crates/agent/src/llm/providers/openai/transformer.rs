@@ -139,7 +139,9 @@ impl<'a> Request<'a> {
                 session::Message::System { text } => {
                     messages.push(message("system", Some(text.as_str())));
                 }
-                session::Message::Error { .. } | session::Message::Compaction { .. } => {}
+                session::Message::Shell { .. }
+                | session::Message::Error { .. }
+                | session::Message::Compaction { .. } => {}
             }
         }
         let tools = request

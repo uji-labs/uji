@@ -53,15 +53,23 @@ pub struct Chord {
 }
 
 impl Chord {
-    pub fn plain(key: Key) -> Self {
+    pub const fn plain(key: Key) -> Self {
         Self::new(key, false, false, false)
     }
 
-    pub fn ctrl(key: Key) -> Self {
+    pub const fn ctrl(key: Key) -> Self {
         Self::new(key, true, false, false)
     }
 
-    pub fn new(key: Key, ctrl: bool, alt: bool, shift: bool) -> Self {
+    pub const fn alt(key: Key) -> Self {
+        Self::new(key, false, true, false)
+    }
+
+    pub const fn shift(key: Key) -> Self {
+        Self::new(key, false, false, true)
+    }
+
+    pub const fn new(key: Key, ctrl: bool, alt: bool, shift: bool) -> Self {
         let shift = match key {
             Key::BackTab => true,
             _ => shift,
@@ -168,7 +176,56 @@ pub enum Binding {
     Unbound,
 }
 
-const DEFAULTS: &[(Key, &str)] = &[(Key::Char('c'), "quit")];
+/// Every mode.
+const ALL: &[Mode] = &[
+    Mode::Normal,
+    Mode::Confirm,
+    Mode::Select,
+    Mode::Prompt,
+    Mode::Suggest,
+];
+/// The modes with a line to edit: the composer, a prompt's value, a picker's
+/// query. Confirm has no text, so it is left out.
+const EDIT: &[Mode] = &[Mode::Normal, Mode::Suggest, Mode::Prompt, Mode::Select];
+/// The modes showing a list to walk.
+const LIST: &[Mode] = &[Mode::Select, Mode::Suggest, Mode::Confirm];
+/// Only the composer: a prompt and a query are one line by definition.
+const COMPOSE: &[Mode] = &[Mode::Normal];
+
+/// The bindings every session starts with.
+///
+/// These are readline's, because that is what a terminal input is expected to
+/// answer to. They are ordinary bindings, so `uji.keymap.set` overrides any of
+/// them and `uji.keymap.del` takes one away.
+const DEFAULTS: &[(&[Mode], Chord, &str)] = &[
+    (ALL, Chord::ctrl(Key::Char('c')), "quit"),
+    (EDIT, Chord::ctrl(Key::Char('a')), "cursor_start"),
+    (EDIT, Chord::ctrl(Key::Char('e')), "cursor_end"),
+    (EDIT, Chord::ctrl(Key::Char('b')), "cursor_left"),
+    (EDIT, Chord::ctrl(Key::Char('f')), "cursor_right"),
+    (EDIT, Chord::alt(Key::Char('b')), "word_left"),
+    (EDIT, Chord::alt(Key::Char('f')), "word_right"),
+    (EDIT, Chord::ctrl(Key::Char('h')), "backspace"),
+    (EDIT, Chord::ctrl(Key::Char('d')), "delete_forward"),
+    (EDIT, Chord::ctrl(Key::Char('w')), "delete_word_back"),
+    (EDIT, Chord::alt(Key::Backspace), "delete_word_back"),
+    (EDIT, Chord::alt(Key::Char('d')), "delete_word_forward"),
+    (EDIT, Chord::ctrl(Key::Char('u')), "delete_to_start"),
+    (EDIT, Chord::ctrl(Key::Char('k')), "delete_to_end"),
+    (EDIT, Chord::ctrl(Key::Char('y')), "yank"),
+    (EDIT, Chord::ctrl(Key::Char('t')), "transpose"),
+    (COMPOSE, Chord::ctrl(Key::Char('p')), "history_prev"),
+    (COMPOSE, Chord::ctrl(Key::Char('n')), "history_next"),
+    (LIST, Chord::ctrl(Key::Char('p')), "modal_up"),
+    (LIST, Chord::ctrl(Key::Char('n')), "modal_down"),
+    (LIST, Chord::ctrl(Key::Char('g')), "modal_cancel"),
+    // Shift+enter only arrives as its own chord on terminals that speak the
+    // kitty keyboard protocol; alt+enter and ctrl+j cover the rest, and a
+    // trailing backslash covers what neither does.
+    (COMPOSE, Chord::shift(Key::Enter), "insert_newline"),
+    (COMPOSE, Chord::alt(Key::Enter), "insert_newline"),
+    (COMPOSE, Chord::ctrl(Key::Char('j')), "insert_newline"),
+];
 
 #[derive(Debug)]
 pub struct Keymap {
@@ -196,10 +253,9 @@ impl Keymap {
 
     pub fn reset(&mut self) {
         self.map.clear();
-        for (key, action) in DEFAULTS {
-            let chord = Chord::ctrl(*key);
-            for mode in Mode::VARIANTS.iter().copied() {
-                self.set(mode, chord, Binding::Action((*action).to_string()));
+        for (modes, chord, action) in DEFAULTS {
+            for mode in modes.iter().copied() {
+                self.set(mode, *chord, Binding::Action((*action).to_string()));
             }
         }
     }
@@ -248,4 +304,99 @@ pub fn describe(chord: Chord) -> String {
     out.push_str(&name);
     out.push('>');
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Binding, Chord, Key, Keymap, Mode, describe};
+
+    fn action(keymap: &Keymap, mode: Mode, spec: &str) -> Option<String> {
+        let chord = Chord::parse(spec)?;
+        match keymap.get(mode, chord)? {
+            Binding::Action(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn readline_defaults_are_bound_where_there_is_text() {
+        let keymap = Keymap::default();
+        assert_eq!(
+            action(&keymap, Mode::Normal, "<C-w>").as_deref(),
+            Some("delete_word_back")
+        );
+        assert_eq!(
+            action(&keymap, Mode::Prompt, "<C-a>").as_deref(),
+            Some("cursor_start")
+        );
+        assert_eq!(
+            action(&keymap, Mode::Select, "<C-u>").as_deref(),
+            Some("delete_to_start")
+        );
+        assert!(action(&keymap, Mode::Confirm, "<C-w>").is_none());
+    }
+
+    /// Up and down mean the list in a modal and the history in the composer.
+    #[test]
+    fn previous_and_next_follow_the_mode() {
+        let keymap = Keymap::default();
+        assert_eq!(
+            action(&keymap, Mode::Normal, "<C-p>").as_deref(),
+            Some("history_prev")
+        );
+        assert_eq!(
+            action(&keymap, Mode::Select, "<C-p>").as_deref(),
+            Some("modal_up")
+        );
+        assert_eq!(
+            action(&keymap, Mode::Suggest, "<C-n>").as_deref(),
+            Some("modal_down")
+        );
+    }
+
+    #[test]
+    fn every_way_to_ask_for_a_newline_is_bound() {
+        let keymap = Keymap::default();
+        for spec in ["<S-CR>", "<A-CR>", "<C-j>"] {
+            assert_eq!(
+                action(&keymap, Mode::Normal, spec).as_deref(),
+                Some("insert_newline"),
+                "{spec} should insert a newline"
+            );
+        }
+    }
+
+    #[test]
+    fn quit_is_bound_in_every_mode() {
+        let keymap = Keymap::default();
+        for mode in [
+            Mode::Normal,
+            Mode::Confirm,
+            Mode::Select,
+            Mode::Prompt,
+            Mode::Suggest,
+        ] {
+            assert_eq!(action(&keymap, mode, "<C-c>").as_deref(), Some("quit"));
+        }
+    }
+
+    #[test]
+    fn a_binding_names_a_key_not_a_character() {
+        let keymap = Keymap::default();
+        let upper = Chord::new(Key::Char('W'), true, false, true);
+        assert!(matches!(
+            keymap.get(Mode::Normal, upper),
+            Some(Binding::Action(name)) if name == "delete_word_back"
+        ));
+    }
+
+    #[test]
+    fn describing_a_chord_round_trips() {
+        for spec in ["<C-w>", "<A-CR>", "<S-CR>", "<C-a>", "x"] {
+            let chord = Chord::parse(spec);
+            assert!(chord.is_some(), "{spec} should parse");
+            let described = chord.map(describe).unwrap_or_default();
+            assert_eq!(Chord::parse(&described), chord, "{spec} → {described}");
+        }
+    }
 }

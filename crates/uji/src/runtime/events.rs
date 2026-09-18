@@ -10,6 +10,8 @@ pub enum Event {
     QueueChanged,
     MessageAppended,
     RenderMessage,
+    ShellStarted,
+    ShellFinished,
     ToolCall,
     ToolStarted,
     ToolFinished,

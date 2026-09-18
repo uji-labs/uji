@@ -194,6 +194,30 @@ pub(crate) fn push_message(
             }
         }
         Message::Tool { content, .. } => push_tool_output(lines, content, width, palette),
+        Message::Shell {
+            command,
+            output,
+            code,
+        } => {
+            let header = if *code == 0 {
+                format!("! {command}")
+            } else {
+                format!("! {command}  (exit {code})")
+            };
+            push_wrapped(
+                lines,
+                &header,
+                width,
+                Style::default()
+                    .fg(palette.accent)
+                    .add_modifier(Modifier::BOLD),
+                " ",
+                Fill::Line,
+            );
+            if !output.is_empty() {
+                push_tool_output(lines, output, width, palette);
+            }
+        }
         Message::System { text } => {
             let style = Style::default()
                 .fg(palette.muted)

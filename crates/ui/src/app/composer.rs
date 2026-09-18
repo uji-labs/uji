@@ -1,8 +1,8 @@
+use super::line::Line;
+
 #[derive(Debug, Default)]
 pub struct Composer {
-    text: String,
-    cursor: usize,
-    revision: u64,
+    line: Line,
     recall: Recall,
     pastes: crate::app::paste::Pastes,
 }
@@ -19,28 +19,34 @@ enum Recall {
 
 impl Composer {
     pub fn text(&self) -> &str {
-        &self.text
+        self.line.text()
     }
 
     pub fn cursor(&self) -> usize {
-        self.cursor
+        self.line.cursor()
     }
 
     pub fn revision(&self) -> u64 {
-        self.revision
+        self.line.revision()
     }
 
-    fn edit(&mut self, change: impl FnOnce(&mut String, &mut usize)) {
+    pub fn line(&self) -> &Line {
+        &self.line
+    }
+
+    /// Run one edit against the composed line.
+    ///
+    /// Editing leaves history recall, and any paste marker the edit removed part
+    /// of stops standing for its text, so a half-deleted marker cannot expand on
+    /// submit.
+    pub fn edit(&mut self, change: impl FnOnce(&mut Line)) {
         self.recall = Recall::Editing;
-        self.revision = self.revision.wrapping_add(1);
-        change(&mut self.text, &mut self.cursor);
+        change(&mut self.line);
+        self.pastes.prune(self.line.text());
     }
 
     pub fn insert(&mut self, c: char) {
-        self.edit(|text, cursor| {
-            text.insert(*cursor, c);
-            *cursor = cursor.saturating_add(c.len_utf8());
-        });
+        self.edit(|line| line.insert(c));
     }
 
     pub fn paste(&mut self, text: &str) {
@@ -49,82 +55,73 @@ impl Composer {
             return;
         }
         let inserted = self.pastes.stash(&cleaned);
-        self.edit(move |text, cursor| {
-            text.insert_str(*cursor, &inserted);
-            *cursor = cursor.saturating_add(inserted.len());
-        });
+        self.edit(move |line| line.insert_str(&inserted));
     }
 
+    /// Backspace, except that it swallows a whole paste marker at once: the
+    /// marker stands for text the user never typed, so rubbing out its last
+    /// bracket alone would leave a stub that expands into nothing.
     pub fn backspace(&mut self) {
         if self.drop_marker() {
             return;
         }
-        self.edit(|text, cursor| {
-            if *cursor > 0 {
-                let prev = prev_boundary(text, *cursor);
-                text.remove(prev);
-                *cursor = prev;
-            }
-        });
+        self.edit(Line::backspace);
     }
 
     fn drop_marker(&mut self) -> bool {
+        let cursor = self.line.cursor();
         let Some((id, width)) = self
-            .text
-            .get(..self.cursor)
+            .line
+            .text()
+            .get(..cursor)
             .and_then(|before| self.pastes.marker_ending_at(before))
         else {
             return false;
         };
         self.pastes.forget(id);
-        self.edit(move |text, cursor| {
-            let from = cursor.saturating_sub(width);
-            text.replace_range(from..*cursor, "");
-            *cursor = from;
-        });
+        self.edit(move |line| line.delete_before(width));
         true
     }
 
     pub fn clear(&mut self) {
         self.pastes.clear();
-        self.edit(|text, cursor| {
-            text.clear();
-            *cursor = 0;
-        });
+        self.edit(Line::clear);
     }
 
     pub fn set(&mut self, next: String) {
-        self.edit(move |text, cursor| {
-            *cursor = next.len();
-            *text = next;
-        });
+        self.edit(move |line| line.set(next));
     }
 
     pub fn take(&mut self) -> String {
-        let mut taken = String::new();
-        self.edit(|text, cursor| {
-            taken = std::mem::take(text);
-            *cursor = 0;
-        });
+        self.recall = Recall::Editing;
+        let taken = self.line.take();
         let expanded = self.pastes.expand(&taken);
         self.pastes.clear();
         expanded
     }
 
-    pub fn left(&mut self) {
-        self.cursor = prev_boundary(&self.text, self.cursor);
+    /// A trailing backslash means "keep typing": swap it for a newline instead
+    /// of sending. It is the only way to compose a multi-line message on a
+    /// terminal that cannot report shift+enter.
+    pub fn continue_line(&mut self) -> bool {
+        if !self.line.text().ends_with('\\') || self.line.cursor() != self.line.text().len() {
+            return false;
+        }
+        self.edit(|line| {
+            line.backspace();
+            line.insert('\n');
+        });
+        true
     }
 
-    pub fn right(&mut self) {
-        self.cursor = next_boundary(&self.text, self.cursor);
+    /// Move a line within the draft, if there is one to move to. Browsing
+    /// history is left alone: walking a recalled message is not editing it.
+    pub fn up(&mut self) -> bool {
+        self.line.up()
     }
 
-    pub fn home(&mut self) {
-        self.cursor = 0;
-    }
-
-    pub fn end(&mut self) {
-        self.cursor = self.text.len();
+    pub fn down(&mut self) -> bool {
+        self.line.down()
     }
 
     pub fn recall_prev(&mut self, lookup: impl Fn(usize) -> Option<String>) -> bool {
@@ -138,10 +135,10 @@ impl Composer {
         if let Recall::Browsing { at: browsing, .. } = &mut self.recall {
             *browsing = at;
         } else {
-            let draft = std::mem::take(&mut self.text);
+            let draft = self.line.take();
             self.recall = Recall::Browsing { at, draft };
         }
-        self.place(text);
+        self.line.set(text);
         true
     }
 
@@ -154,7 +151,7 @@ impl Composer {
             let Recall::Browsing { draft, .. } = std::mem::take(&mut self.recall) else {
                 return false;
             };
-            self.place(draft);
+            self.line.set(draft);
             return true;
         };
         let Some(text) = lookup(newer) else {
@@ -163,34 +160,74 @@ impl Composer {
         if let Recall::Browsing { at, .. } = &mut self.recall {
             *at = newer;
         }
-        self.place(text);
+        self.line.set(text);
         true
     }
-
-    fn place(&mut self, text: String) {
-        self.cursor = text.len();
-        self.text = text;
-    }
 }
 
-fn prev_boundary(text: &str, index: usize) -> usize {
-    if index == 0 {
-        return 0;
-    }
-    let mut at = index - 1;
-    while at > 0 && !text.is_char_boundary(at) {
-        at -= 1;
-    }
-    at
-}
+#[cfg(test)]
+mod tests {
+    use super::Composer;
+    use crate::app::line::Line;
 
-fn next_boundary(text: &str, index: usize) -> usize {
-    if index >= text.len() {
-        return text.len();
+    fn pasted(lines: usize) -> String {
+        (0..lines)
+            .map(|at| format!("line {at}"))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
-    let mut at = index + 1;
-    while at < text.len() && !text.is_char_boundary(at) {
-        at += 1;
+
+    #[test]
+    fn a_marker_expands_on_submit() {
+        let mut composer = Composer::default();
+        composer.paste(&pasted(5));
+        assert!(composer.text().starts_with("[paste #1"));
+        assert_eq!(composer.take(), pasted(5));
     }
-    at
+
+    #[test]
+    fn backspace_drops_the_whole_marker() {
+        let mut composer = Composer::default();
+        composer.paste(&pasted(5));
+        composer.backspace();
+        assert_eq!(composer.text(), "");
+    }
+
+    /// A kill that eats part of a marker must not leave the rest expanding.
+    #[test]
+    fn a_kill_across_a_marker_forgets_it() {
+        let mut composer = Composer::default();
+        composer.insert('x');
+        composer.paste(&pasted(5));
+        composer.edit(Line::delete_word_back);
+        let taken = composer.take();
+        assert!(!taken.contains("line 0"), "expanded a half-deleted marker");
+    }
+
+    #[test]
+    fn a_trailing_backslash_becomes_a_newline() {
+        let mut composer = Composer::default();
+        composer.set(String::from("first \\"));
+        assert!(composer.continue_line());
+        assert_eq!(composer.text(), "first \n");
+        assert!(!composer.continue_line());
+    }
+
+    #[test]
+    fn recall_browses_and_comes_back_to_the_draft() {
+        let mut composer = Composer::default();
+        composer.set(String::from("draft"));
+        let history = |back: usize| {
+            ["newest", "older"]
+                .get(back)
+                .map(|text| (*text).to_string())
+        };
+        assert!(composer.recall_prev(history));
+        assert_eq!(composer.text(), "newest");
+        assert!(composer.recall_prev(history));
+        assert_eq!(composer.text(), "older");
+        assert!(composer.recall_next(history));
+        assert!(composer.recall_next(history));
+        assert_eq!(composer.text(), "draft");
+    }
 }

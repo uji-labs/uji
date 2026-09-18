@@ -3,14 +3,14 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph};
 
-use crate::app::Echo;
+use crate::app::{Echo, Line as Typed};
 use crate::render::Context;
 use crate::render::Render;
 use crate::render::Surface;
 
 pub(crate) struct Prompt<'a> {
     pub(crate) title: &'a str,
-    pub(crate) value: &'a str,
+    pub(crate) value: &'a Typed,
     pub(crate) echo: Echo,
 }
 
@@ -22,11 +22,13 @@ impl Render for Prompt<'_> {
         if area.height == 0 {
             return;
         }
-        let shown = if self.echo == Echo::Hidden {
-            "\u{2022}".repeat(self.value.chars().count())
-        } else {
-            self.value.to_string()
-        };
+        let mut typed = vec![Span::styled("  > ", ctx.palette.accent_style())];
+        typed.extend(super::typed(
+            self.value,
+            self.echo == Echo::Hidden,
+            Style::default().fg(ctx.palette.text),
+            Style::default().fg(ctx.palette.muted),
+        ));
 
         let lines = vec![
             Line::from(""),
@@ -37,11 +39,7 @@ impl Render for Prompt<'_> {
                     .add_modifier(Modifier::BOLD),
             )),
             Line::from(""),
-            Line::from(vec![
-                Span::styled("  > ", ctx.palette.accent_style()),
-                Span::styled(shown, Style::default().fg(ctx.palette.text)),
-                Span::styled("\u{2588}", Style::default().fg(ctx.palette.muted)),
-            ]),
+            Line::from(typed),
         ];
 
         let height = ROWS.min(area.height);

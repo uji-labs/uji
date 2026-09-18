@@ -3,6 +3,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Clear, Paragraph};
 
+use crate::app::Line as Typed;
 use crate::render::Context;
 use crate::render::Render;
 use crate::render::Surface;
@@ -12,7 +13,7 @@ pub(crate) const MAX_ROWS: usize = 12;
 pub(crate) struct Select<'a> {
     pub(crate) title: &'a str,
     pub(crate) items: &'a [String],
-    pub(crate) query: &'a str,
+    pub(crate) query: &'a Typed,
     pub(crate) cursor: usize,
     pub(crate) matches: &'a [usize],
 }
@@ -51,14 +52,14 @@ impl Render for Select<'_> {
         )));
         lines.push(Line::from(""));
 
-        lines.push(Line::from(vec![
-            Span::styled("  > ", ctx.palette.accent_style()),
-            Span::styled(
-                self.query.to_string(),
-                Style::default().fg(ctx.palette.text),
-            ),
-            Span::styled("\u{2588}", Style::default().fg(ctx.palette.muted)),
-        ]));
+        let mut typed = vec![Span::styled("  > ", ctx.palette.accent_style())];
+        typed.extend(super::typed(
+            self.query,
+            false,
+            Style::default().fg(ctx.palette.text),
+            Style::default().fg(ctx.palette.muted),
+        ));
+        lines.push(Line::from(typed));
         for (offset, item) in matches[start..start + visible].iter().enumerate() {
             let index = start + offset;
             let active = index == self.cursor;

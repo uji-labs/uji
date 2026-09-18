@@ -105,6 +105,9 @@ impl LoopData {
     }
 
     pub(crate) fn interrupt(&mut self) -> bool {
+        if self.cancel_shell() {
+            return true;
+        }
         let Some(cancel) = self.cancel.take() else {
             return false;
         };

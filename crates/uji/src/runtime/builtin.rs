@@ -1,4 +1,4 @@
-use crate::cmd::{Action, Compact, EffortPick, Help, Login, Models, Reload, Sync, Thinking};
+use crate::cmd::{Action, Compact, EffortPick, Help, Login, Models, Quit, Reload, Sync, Thinking};
 
 pub(crate) struct Builtin {
     pub(crate) name: &'static str,
@@ -41,6 +41,16 @@ pub(crate) const BUILTINS: &[Builtin] = &[
         name: "sync",
         desc: "update installed packs",
         make: || Box::new(Sync),
+    },
+    Builtin {
+        name: "quit",
+        desc: "leave uji",
+        make: || Box::new(Quit),
+    },
+    Builtin {
+        name: "exit",
+        desc: "leave uji",
+        make: || Box::new(Quit),
     },
     Builtin {
         name: "help",

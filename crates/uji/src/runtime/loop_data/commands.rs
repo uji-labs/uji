@@ -144,6 +144,10 @@ impl Context for LoopData {
         self.control = Control::Reload;
     }
 
+    fn quit(&mut self) {
+        self.control = Control::Quit;
+    }
+
     fn toggle_thinking(&mut self) {
         self.app.toggle_thinking();
         self.dirty = true;

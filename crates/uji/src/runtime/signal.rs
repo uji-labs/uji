@@ -7,6 +7,7 @@ use super::job::JobEvent;
 pub(crate) enum Signal {
     Llm(StreamEvent),
     Job(JobEvent),
+    Shell(JobEvent),
     Auth(AuthEvent),
     Title(TitleEvent),
     Compacted(CompactEvent),

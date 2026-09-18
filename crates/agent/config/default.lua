@@ -45,4 +45,5 @@ end
 uji.on("status_changed", render_activity)
 uji.on("tick", render_activity)
 
-uji.keymap.set("normal", "<C-e>", { command = "effort" })
+-- <C-e> is end-of-line now that the defaults are readline's.
+uji.keymap.set("normal", "<A-e>", { command = "effort" })

@@ -1,6 +1,7 @@
 pub mod action;
 pub mod composer;
 pub mod keys;
+pub mod line;
 pub mod mode;
 pub mod overlay;
 pub mod paste;
@@ -11,6 +12,7 @@ pub mod stream;
 
 pub use action::{Action, KeyAction, rank_items};
 pub use composer::Composer;
+pub use line::Line;
 pub use mode::{Echo, Mode, SuggestItem};
 pub use scroll::Scroll;
 pub use stream::Stream;
@@ -118,11 +120,11 @@ impl App {
     pub fn paste(&mut self, text: &str) {
         match &mut self.mode {
             Mode::Prompt { value, .. } => {
-                value.push_str(&paste::single_line(text));
+                value.insert_str(&paste::single_line(text));
                 return;
             }
             Mode::Select { query, cursor, .. } | Mode::Pick { query, cursor, .. } => {
-                query.push_str(&paste::single_line(text));
+                query.insert_str(&paste::single_line(text));
                 *cursor = 0;
             }
             Mode::Confirm { .. } => return,
@@ -209,7 +211,7 @@ impl App {
         self.mode = Mode::Select {
             title,
             items,
-            query: String::new(),
+            query: Line::default(),
             cursor: 0,
             matches,
         };
@@ -220,7 +222,7 @@ impl App {
         self.mode = Mode::Pick {
             title,
             items,
-            query: String::new(),
+            query: Line::default(),
             cursor: 0,
             matches,
             preview: Vec::new(),
@@ -249,7 +251,7 @@ impl App {
     /// The query of an open live picker, if it has one.
     pub fn live_query(&self) -> Option<&str> {
         match &self.mode {
-            Mode::Pick { query, live, .. } if *live => Some(query.as_str()),
+            Mode::Pick { query, live, .. } if *live => Some(query.text()),
             _ => None,
         }
     }
@@ -289,7 +291,13 @@ impl App {
     }
 
     pub fn open_prompt(&mut self, title: String, value: String, echo: Echo) {
-        self.mode = Mode::Prompt { title, value, echo };
+        let mut line = Line::default();
+        line.set(value);
+        self.mode = Mode::Prompt {
+            title,
+            value: line,
+            echo,
+        };
     }
 
     pub fn open_confirm(&mut self, title: String, body: String) {

@@ -3,6 +3,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
+use crate::app::Line as Typed;
 use crate::render::{Context, Render, Surface};
 
 /// Results on the left, a preview of the highlighted one on the right, and the
@@ -10,7 +11,7 @@ use crate::render::{Context, Render, Surface};
 pub(crate) struct Pick<'a> {
     pub(crate) title: &'a str,
     pub(crate) items: &'a [String],
-    pub(crate) query: &'a str,
+    pub(crate) query: &'a Typed,
     pub(crate) cursor: usize,
     pub(crate) matches: &'a [usize],
     pub(crate) preview: &'a [String],
@@ -126,20 +127,19 @@ impl Pick<'_> {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(ctx.palette.muted));
-        let line = Line::from(vec![
-            Span::styled("> ", ctx.palette.accent_style()),
-            Span::styled(
-                self.query.to_string(),
-                Style::default().fg(ctx.palette.text),
-            ),
-            Span::styled("\u{2588}", Style::default().fg(ctx.palette.muted)),
-            Span::styled(
-                format!("   {}/{}", self.matches.len(), self.items.len()),
-                Style::default()
-                    .fg(ctx.palette.muted)
-                    .add_modifier(Modifier::DIM),
-            ),
-        ]);
-        surface.render_at(area, Paragraph::new(line).block(block));
+        let mut spans = vec![Span::styled("> ", ctx.palette.accent_style())];
+        spans.extend(super::typed(
+            self.query,
+            false,
+            Style::default().fg(ctx.palette.text),
+            Style::default().fg(ctx.palette.muted),
+        ));
+        spans.push(Span::styled(
+            format!("   {}/{}", self.matches.len(), self.items.len()),
+            Style::default()
+                .fg(ctx.palette.muted)
+                .add_modifier(Modifier::DIM),
+        ));
+        surface.render_at(area, Paragraph::new(Line::from(spans)).block(block));
     }
 }

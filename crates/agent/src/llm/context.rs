@@ -144,7 +144,8 @@ pub fn sanitize(stored: &[StoredMessage]) -> Vec<Message> {
                     out.push(message.clone());
                 }
             }
-            Message::Compaction { .. } => {}
+            // The user ran it, not the model: it stays out of the context.
+            Message::Shell { .. } | Message::Compaction { .. } => {}
             _ => out.push(message.clone()),
         }
     }

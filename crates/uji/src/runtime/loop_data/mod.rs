@@ -13,6 +13,7 @@ mod picker;
 
 pub(crate) use picker::LiveQuery;
 mod queue;
+mod shell;
 
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -77,6 +78,7 @@ pub(crate) struct LoopData {
     pub(crate) queued: VecDeque<String>,
     pub(crate) live_query: LiveQuery,
     pub(crate) cancel: Option<CancelToken>,
+    pub(crate) shell: Option<shell::Running>,
     pub(crate) deferred: VecDeque<StreamEvent>,
     pub(crate) last_reveal: Instant,
     pub(crate) config_dir: Option<PathBuf>,

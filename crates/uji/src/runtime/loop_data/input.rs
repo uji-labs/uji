@@ -27,6 +27,7 @@ impl LoopData {
             KeyAction::Quit => self.control = Control::Quit,
             KeyAction::Submit(text) => self.submit(&text),
             KeyAction::Command(command) => self.on_command(&command),
+            KeyAction::Shell(command) => self.run_shell(&command),
             KeyAction::Confirmed(allow) => self.resolve_tool_confirmation(allow),
             KeyAction::Selected(item) => self.on_modal(ModalInput::Select(item)),
             KeyAction::Prompted(value) => self.on_modal(ModalInput::Prompt(value)),

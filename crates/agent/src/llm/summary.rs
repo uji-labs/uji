@@ -95,6 +95,8 @@ fn transcript(messages: &[&Message]) -> String {
             Message::Assistant { .. } => "assistant",
             Message::Tool { name, .. } => name.as_str(),
             Message::System { .. } => "system",
+            // Never reached the model, so it has nothing to do with the summary.
+            Message::Shell { .. } => continue,
             Message::Error { .. } => "error",
             Message::Compaction { .. } => "earlier summary",
         };

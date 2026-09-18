@@ -131,6 +131,8 @@ pub(crate) fn rows_needed(app: &crate::app::App, width: usize) -> usize {
     typed.rows.len()
 }
 
+/// Newlines are row breaks, not glyphs: the row they end already exists, so
+/// drawing them would only push the rest of the row off by a cell.
 fn collect(chars: &[char]) -> String {
-    chars.iter().collect()
+    chars.iter().filter(|c| **c != '\n').collect()
 }

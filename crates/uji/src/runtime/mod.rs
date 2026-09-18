@@ -124,6 +124,7 @@ impl Runtime {
             queued: VecDeque::new(),
             live_query: loop_data::LiveQuery::default(),
             cancel: None,
+            shell: None,
             deferred: VecDeque::new(),
             last_reveal: std::time::Instant::now(),
             config_dir,

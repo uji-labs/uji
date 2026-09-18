@@ -11,6 +11,7 @@ impl LoopData {
         match signal {
             Signal::Llm(event) => self.on_llm_event(event),
             Signal::Job(event) => self.on_job_event(&event),
+            Signal::Shell(event) => self.on_shell_event(&event),
             Signal::Auth(event) => self.on_auth_event(event),
             Signal::Title(event) => self.on_title_event(event),
             Signal::Compacted(event) => self.on_compacted(event),

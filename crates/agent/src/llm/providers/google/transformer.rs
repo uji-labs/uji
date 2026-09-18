@@ -133,7 +133,9 @@ impl<'a> From<&'a LlmRequest<'a>> for Request<'a> {
                     }
                     system.push_str(text);
                 }
-                session::Message::Error { .. } | session::Message::Compaction { .. } => {}
+                session::Message::Shell { .. }
+                | session::Message::Error { .. }
+                | session::Message::Compaction { .. } => {}
             }
         }
         let system_instruction = if system.is_empty() {
