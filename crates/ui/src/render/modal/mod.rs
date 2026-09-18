@@ -187,6 +187,95 @@ mod tests {
 
     /// The whole prompt modal, not just its line: an empty draw would leave the
     /// user typing into nothing.
+    fn harness() -> (App, UiState) {
+        let session = Session {
+            id: SessionId::new(),
+            parent_id: None,
+            title: String::new(),
+            directory: String::from("."),
+            time: Time {
+                created: 0,
+                updated: 0,
+            },
+        };
+        let app = App::new(
+            session,
+            Conversation::shared(),
+            Rc::new(RefCell::new(UiState::new())),
+        );
+        (app, UiState::new())
+    }
+
+    /// Draw a modal into a buffer and read back what it put on screen.
+    fn screen(
+        width: u16,
+        height: u16,
+        draw: impl FnOnce(&Context<'_>, &mut Surface<'_>),
+    ) -> String {
+        let (app, state) = harness();
+        let ctx = Context {
+            app: &app,
+            state: &state,
+            palette: Palette::default(),
+        };
+        let area = Rect::new(0, 0, width, height);
+        let mut buffer = Buffer::empty(area);
+        let mut surface = Surface::new(area, &mut buffer);
+        draw(&ctx, &mut surface);
+        buffer
+            .content()
+            .iter()
+            .map(ratatui::buffer::Cell::symbol)
+            .collect()
+    }
+
+    #[test]
+    fn the_select_modal_draws_its_items() {
+        let items = vec![String::from("alpha"), String::from("beta")];
+        let query = line("al", 2);
+        let text = screen(40, 10, |ctx, surface| {
+            super::select::Select {
+                title: "pick one",
+                items: &items,
+                query: &query,
+                cursor: 0,
+                matches: &[0],
+            }
+            .render(ctx, surface);
+        });
+        assert!(text.contains("pick one"), "title missing");
+        assert!(text.contains("alpha"), "the matching item is missing");
+        assert!(
+            text.contains("al\u{2588}"),
+            "the query and cursor are missing"
+        );
+    }
+
+    #[test]
+    fn the_picker_draws_its_query_and_counts() {
+        let items = vec![String::from("one"), String::from("two")];
+        let preview = vec![String::from("a preview line")];
+        let query = line("on", 2);
+        let text = screen(60, 12, |ctx, surface| {
+            super::pick::Pick {
+                title: "files",
+                items: &items,
+                query: &query,
+                cursor: 0,
+                matches: &[0],
+                preview: &preview,
+            }
+            .render(ctx, surface);
+        });
+        assert!(text.contains("files"), "title missing");
+        assert!(
+            text.contains("on\u{2588}"),
+            "the query and cursor are missing"
+        );
+        assert!(text.contains("1/2"), "the match counts are missing");
+        assert!(text.contains("a preview line"), "the preview is missing");
+    }
+
     #[test]
     fn the_prompt_modal_draws_its_title_and_value() {
         let session = Session {
