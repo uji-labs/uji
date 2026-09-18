@@ -1,4 +1,7 @@
-![uji. A coding agent you can shape with Lua.](design/joinery/readme-cover.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/joinery/readme-header-dark.png">
+  <img src="design/joinery/readme-header-light.png" width="640" alt="uji. A coding agent you can shape with Lua.">
+</picture>
 
 uji is a terminal coding agent for people who already keep an `init.lua`. The core is one Rust binary that gives the model six tools. MCP, plan mode, skills, web search, the fuzzy finder and the status line are Lua plugins, and the MCP client is 612 lines.
 
@@ -29,6 +32,7 @@ Every coding agent ends up with opinions about plan mode, permissions and what t
 **Permissions are in the core.** This is the one place we don't trust plugins. A plugin that fails to load shouldn't leave the shell open, so approval prompts, the allow and deny rules, and file confinement are Rust.
 
 uji is two weeks old. There is no installer, no Homebrew tap and no release, and the Lua API still changes between commits.
+
 ## Install
 
 You need Rust 1.88 or newer and the SQLite development library. macOS ships SQLite. On Debian or Ubuntu, install `libsqlite3-dev`.

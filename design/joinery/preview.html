@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>uji / Joinery</title>
+  <link rel="icon" href="mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="palette.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--uji-paper); color: var(--uji-ink); font: 16px/1.6 var(--uji-font); }
+    a { color: inherit; text-underline-offset: .22em; }
+    a:focus-visible { outline: 3px solid var(--uji-vermilion); outline-offset: 5px; }
+    .masthead { padding: 22px 5.5%; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #26372e33; }
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 24px; font-weight: 800; text-decoration: none; }
+    .brand img { width: 34px; height: 34px; }
+    .label { font: 11px/1.5 var(--uji-mono); text-transform: uppercase; letter-spacing: .12em; }
+    main { max-width: 1600px; margin: auto; }
+    .hero { position: relative; isolation: isolate; min-height: 570px; aspect-ratio: 1672 / 941; display: flex; align-items: center; }
+    .hero-art { position: absolute; z-index: -1; width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+    .hero-copy { width: 42%; padding: 0 0 0 5.5%; }
+    h1 { font-size: clamp(70px, 12vw, 176px); letter-spacing: -.095em; line-height: .95; margin: 20px 0 30px; font-weight: 900; }
+    .tagline { font-size: clamp(24px, 2.75vw, 40px); letter-spacing: -.045em; line-height: 1.14; margin: 0 0 24px; max-width: 420px; }
+    .intro { font-size: 15px; line-height: 1.65; max-width: 325px; margin: 0; }
+    .links { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 26px; font-size: 12px; font-family: var(--uji-mono); }
+    .sample { padding: 54px 5.5%; background: var(--uji-ink); color: var(--uji-paper); display: grid; grid-template-columns: 1fr 1fr; gap: 64px; }
+    h2 { font-size: clamp(24px, 3vw, 38px); font-weight: 500; line-height: 1.15; letter-spacing: -.045em; margin: 16px 0; }
+    .sample p { max-width: 350px; font-size: 15px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.85 var(--uji-mono); margin: 20px 0 0; }
+    .code-note { color: #bec5b4; }
+    .str { color: #d6c5a0; }
+    .rule { border: 0; border-top: 1px solid #f3efdf33; margin: 24px 0 0; }
+    .specimen { padding: 60px 5.5%; }
+    .specimen-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; margin-bottom: 30px; }
+    .specimen-heading h2 { margin: 0; }
+    .system { display: grid; grid-template-columns: 1fr 2fr; gap: 40px; }
+    .marks { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #26372e33; min-height: 160px; }
+    .mark-sample { display: grid; place-items: center; }
+    .mark-sample img { width: 72px; height: 72px; }
+    .mark-sample.dark { background: var(--uji-ink); }
+    .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+    .swatch-color { height: 110px; border: 1px solid #26372e33; margin-bottom: 10px; }
+    .swatch { font: 10px/1.7 var(--uji-mono); }
+    .cover { display: block; width: 100%; height: auto; margin-top: 30px; border: 1px solid #26372e33; }
+    footer { border-top: 1px solid #26372e33; padding: 24px 5.5%; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font: 11px/1.5 var(--uji-mono); }
+    @media (min-width: 1600px) { .hero-copy { padding-left: 88px; } }
+    @media (max-width: 760px) {
+      .masthead { padding: 18px 7%; }
+      .hero { display: flex; flex-direction: column; min-height: 0; aspect-ratio: auto; }
+      .hero-copy { width: 100%; padding: 48px 7% 12px; }
+      h1 { font-size: 112px; margin: 18px 0 24px; }
+      .tagline { font-size: 34px; max-width: 360px; }
+      .intro { max-width: 380px; }
+      .hero-art { position: relative; order: 2; height: auto; aspect-ratio: 1.08; object-fit: cover; object-position: right center; }
+      .sample { grid-template-columns: 1fr; padding: 40px 7%; gap: 16px; }
+      .sample p { max-width: none; }
+      .specimen { padding: 40px 7%; }
+      .specimen-heading { display: block; }
+      .specimen-heading .label { display: block; margin-top: 12px; }
+      .system { grid-template-columns: 1fr; gap: 24px; }
+      .swatches { gap: 6px; }
+      .swatch-color { height: 74px; }
+      .swatch { font-size: 9px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="#top"><img src="mark.svg" alt="">uji</a>
+    <span class="label">Joinery / visual identity</span>
+  </header>
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <img class="hero-art" src="website-art.png" width="1672" height="941" alt="An engraved wooden U with exposed joints and a floating vermilion key.">
+      <div class="hero-copy">
+        <span class="label">A programmable terminal agent</span>
+        <h1 id="hero-title">uji</h1>
+        <p class="tagline">A coding agent you can shape with Lua.</p>
+        <p class="intro">Change the tools, commands, keybindings and terminal layout. Embed the Rust engine in your own application.</p>
+        <div class="links"><a href="README.md">Read the art direction</a><a href="#readme">See the README cover</a></div>
+      </div>
+    </section>
+    <section class="sample" aria-labelledby="lua-title">
+      <div>
+        <span class="label">Fitted to your workflow</span>
+        <h2 id="lua-title">Start with your own commands.</h2>
+        <p>Define a command in Lua, then bind a key to it. The same API lets you add tools and arrange the terminal.</p>
+      </div>
+      <div>
+        <span class="label">init.lua / configuration example</span>
+        <hr class="rule">
+        <pre><code><span class="code-note">-- Add a command and a keybinding.</span>
+uji.command(<span class="str">"hello"</span>, function()
+  uji.notify(<span class="str">"Hello from your config."</span>)
+end)
+
+uji.keymap.set(<span class="str">"normal"</span>, <span class="str">"&lt;A-h&gt;"</span>, {
+  command = <span class="str">"hello"</span>,
+})</code></pre>
+      </div>
+    </section>
+    <section class="specimen" aria-labelledby="system-title">
+      <div class="specimen-heading"><h2 id="system-title">The mark and the materials.</h2><span class="label">Flat mark / print illustration</span></div>
+      <div class="system">
+        <div class="marks"><div class="mark-sample"><img src="mark.svg" alt="Green uji mark on paper."></div><div class="mark-sample dark"><img src="mark-on-dark.svg" alt="Ivory uji mark on green."></div></div>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch-color" style="background:#f3efdf"></div>Paper<br>#F3EFDF</div>
+          <div class="swatch"><div class="swatch-color" style="background:#26372e"></div>Ink<br>#26372E</div>
+          <div class="swatch"><div class="swatch-color" style="background:#8b9475"></div>Olive<br>#8B9475</div>
+          <div class="swatch"><div class="swatch-color" style="background:#c8ba96"></div>Wood<br>#C8BA96</div>
+          <div class="swatch"><div class="swatch-color" style="background:#c65036"></div>Vermilion<br>#C65036</div>
+        </div>
+      </div>
+    </section>
+    <section class="specimen" id="readme" aria-labelledby="readme-title">
+      <div class="specimen-heading"><h2 id="readme-title">A cover for the README.</h2><a class="label" href="readme-cover.png">Open original image</a></div>
+      <img class="cover" src="readme-cover.png" width="1672" height="941" alt="uji. A coding agent you can shape with Lua. An engraved wooden U with exposed joints and a floating red key." loading="lazy">
+    </section>
+  </main>
+  <footer><span>uji / Joinery</span><a href="generation-prompt.md">Image prompts and generation method</a></footer>
+</body>
+</html>
