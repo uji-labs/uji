@@ -1,6 +1,6 @@
-# uji
+![uji. A coding agent you can shape with Lua.](design/joinery/readme-cover.png)
 
-uji is a terminal coding agent for people who configure their tools in Lua, the way Neovim users do. The core is one Rust binary with six tools. MCP, plan mode, skills, web search, the fuzzy finder and the status line are all Lua plugins, and the MCP client is 612 lines.
+uji is a terminal coding agent for people who already keep an `init.lua`. The core is one Rust binary that gives the model six tools. MCP, plan mode, skills, web search, the fuzzy finder and the status line are Lua plugins, and the MCP client is 612 lines.
 
 ```lua
 -- ~/.config/uji/init.lua
@@ -18,8 +18,17 @@ uji.tool.policy = {
 uji.keymap.set("normal", "<A-e>", { command = "effort" })
 ```
 
-uji is two weeks old. The Lua API still changes between commits, and there are no releases yet.
+Every coding agent ends up with opinions about plan mode, permissions and what the footer shows. We'd rather not have that argument with you, so those opinions live in files you can edit.
 
+**No MCP in the core.** Grep the Rust for "mcp" and you get nothing. The client is a plugin that speaks stdio and HTTP and handles OAuth.
+
+**No plan mode in the core.** It is 154 lines of Lua that veto writes through the same `tool_call` event your own config gets. If you dislike how it works, fork the file.
+
+**No fixed screen.** The message list, the input box and the "Working (12s)" spinner are windows that a 49-line Lua file opens at startup. Move them, restyle them, or delete the spinner.
+
+**Permissions are in the core.** This is the one place we don't trust plugins. A plugin that fails to load shouldn't leave the shell open, so approval prompts, the allow and deny rules, and file confinement are Rust.
+
+uji is two weeks old. There is no installer, no Homebrew tap and no release, and the Lua API still changes between commits.
 ## Install
 
 You need Rust 1.88 or newer and the SQLite development library. macOS ships SQLite. On Debian or Ubuntu, install `libsqlite3-dev`.
@@ -139,7 +148,7 @@ uji.pack.add({
 
 uji clones packs into `~/.local/share/uji/site/` and records each commit in `uji-lock.json`, so a second machine gets the same revisions. `/sync` pulls updates.
 
-## What's not in the core
+## Plugins
 
 | Plugin | What you get |
 |---|---|
@@ -151,9 +160,11 @@ uji clones packs into `~/.local/share/uji/site/` and records each commit in `uji
 | `statusline` | the footer |
 | `readonly` | lets the agent read sibling repos without editing them |
 
-They live in [uji-plugins](https://github.com/uji-labs/uji-plugins). Each one uses the same `uji.*` functions your `init.lua` can call. If you dislike how plan mode works, the file is 154 lines. Fork it.
+They live in [uji-plugins](https://github.com/uji-labs/uji-plugins), and each one uses the same `uji.*` functions your `init.lua` can call.
 
-[pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) takes the same position with TypeScript extensions, and its README argues the case well. uji differs in three ways. It is one binary with no Node runtime. Permission prompts and file confinement are in the core, because a plugin that forgets to load shouldn't leave the shell open. The screen layout is config too.
+## Prior art
+
+[pi](https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent) takes the same position with TypeScript extensions, and its README argues the case well. Read it. uji makes the same bet in Rust and Lua, ships as one binary with no Node runtime, keeps permissions in the core where pi leaves them out, and hands you the screen layout as well. The config model is Neovim's, down to `init.lua`, `plugin/`, `lua/` and `<C-x>` key notation. If you have a Neovim config, you already know where things go.
 
 ## Layout
 
