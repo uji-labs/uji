@@ -1,7 +1,7 @@
 use ratatui::style::Style;
 use ratatui::text::Span;
 
-use crate::app::{Line, Mode};
+use crate::app::{Echo, Line, Mode};
 use crate::render::Context;
 use crate::render::Render;
 use crate::render::Surface;
@@ -21,12 +21,12 @@ const CURSOR: &str = "\u{2588}";
 /// Prompts and queries are edited with the same keys as the composer, so they
 /// have to show the same thing the composer shows: a cursor that can sit in the
 /// middle of the text.
-pub(crate) fn typed(line: &Line, hidden: bool, text: Style, cursor: Style) -> Vec<Span<'static>> {
+pub(crate) fn typed(line: &Line, echo: Echo, text: Style, cursor: Style) -> Vec<Span<'static>> {
     let at = line
         .text()
         .get(..line.cursor())
         .map_or(0, |before| before.chars().count());
-    let shown: Vec<char> = if hidden {
+    let shown: Vec<char> = if echo == Echo::Hidden {
         std::iter::repeat_n('\u{2022}', line.text().chars().count()).collect()
     } else {
         line.text().chars().collect()

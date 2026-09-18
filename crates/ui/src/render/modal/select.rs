@@ -55,7 +55,7 @@ impl Render for Select<'_> {
         let mut typed = vec![Span::styled("  > ", ctx.palette.accent_style())];
         typed.extend(super::typed(
             self.query,
-            false,
+            crate::app::Echo::Plain,
             Style::default().fg(ctx.palette.text),
             Style::default().fg(ctx.palette.muted),
         ));

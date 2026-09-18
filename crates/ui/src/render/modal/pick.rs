@@ -130,7 +130,7 @@ impl Pick<'_> {
         let mut spans = vec![Span::styled("> ", ctx.palette.accent_style())];
         spans.extend(super::typed(
             self.query,
-            false,
+            crate::app::Echo::Plain,
             Style::default().fg(ctx.palette.text),
             Style::default().fg(ctx.palette.muted),
         ));

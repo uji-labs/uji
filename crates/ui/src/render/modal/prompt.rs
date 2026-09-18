@@ -25,7 +25,7 @@ impl Render for Prompt<'_> {
         let mut typed = vec![Span::styled("  > ", ctx.palette.accent_style())];
         typed.extend(super::typed(
             self.value,
-            self.echo == Echo::Hidden,
+            self.echo,
             Style::default().fg(ctx.palette.text),
             Style::default().fg(ctx.palette.muted),
         ));
