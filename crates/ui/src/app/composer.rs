@@ -45,10 +45,6 @@ impl Composer {
         self.pastes.prune(self.line.text());
     }
 
-    pub fn insert(&mut self, c: char) {
-        self.edit(|line| line.insert(c));
-    }
-
     pub fn paste(&mut self, text: &str) {
         let cleaned = crate::app::paste::clean(text);
         if cleaned.is_empty() {
@@ -197,7 +193,7 @@ mod tests {
     #[test]
     fn a_kill_across_a_marker_forgets_it() {
         let mut composer = Composer::default();
-        composer.insert('x');
+        composer.edit(|line| line.insert('x'));
         composer.paste(&pasted(5));
         composer.edit(Line::delete_word_back);
         let taken = composer.take();

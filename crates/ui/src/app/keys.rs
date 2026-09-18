@@ -564,6 +564,92 @@ mod tests {
         assert_eq!(app.cursor_offset(), 11);
     }
 
+    fn query(app: &App) -> String {
+        match app.mode() {
+            Mode::Select { query, .. } | Mode::Pick { query, .. } => query.text().to_string(),
+            _ => String::new(),
+        }
+    }
+
+    fn press(app: &mut App, key: Key) {
+        app.handle_key(Chord::plain(key));
+    }
+
+    /// The same guard as the composer: a modal query is text, not a command
+    /// line, so a chord must not leave its letter in it.
+    #[test]
+    fn a_modified_key_never_types_into_a_modal() {
+        let mut select = app();
+        select.open_select(String::from("pick"), vec![String::from("one")]);
+        typing(&mut select, "ab");
+        select.handle_key(Chord::ctrl(Key::Char('w')));
+        select.handle_key(Chord::alt(Key::Char('d')));
+        assert_eq!(query(&select), "ab");
+
+        let mut prompt = app();
+        prompt.open_prompt(String::from("key"), String::new(), crate::app::Echo::Plain);
+        typing(&mut prompt, "ab");
+        prompt.handle_key(Chord::ctrl(Key::Char('y')));
+        assert_eq!(
+            prompt.handle_key(Chord::plain(Key::Enter)),
+            KeyAction::Prompted(String::from("ab"))
+        );
+    }
+
+    #[test]
+    fn a_confirm_answers_the_letter_but_not_the_chord() {
+        let mut app = app();
+        app.open_confirm(String::from("run?"), String::from("ls"));
+        assert_eq!(app.handle_key(Chord::ctrl(Key::Char('y'))), KeyAction::None);
+        assert_eq!(
+            app.handle_key(Chord::plain(Key::Char('y'))),
+            KeyAction::Confirmed(true)
+        );
+    }
+
+    #[test]
+    fn a_modal_query_has_a_cursor_to_move() {
+        let mut app = app();
+        app.open_select(String::from("pick"), vec![String::from("one")]);
+        typing(&mut app, "abc");
+        press(&mut app, Key::Left);
+        typing(&mut app, "X");
+        assert_eq!(query(&app), "abXc");
+        press(&mut app, Key::Home);
+        typing(&mut app, "^");
+        press(&mut app, Key::End);
+        typing(&mut app, "$");
+        assert_eq!(query(&app), "^abXc$");
+        press(&mut app, Key::Backspace);
+        assert_eq!(query(&app), "^abXc");
+    }
+
+    #[test]
+    fn a_prompt_edits_the_same_way() {
+        let mut app = app();
+        app.open_prompt(String::from("key"), String::new(), crate::app::Echo::Plain);
+        typing(&mut app, "sekret");
+        press(&mut app, Key::Left);
+        press(&mut app, Key::Backspace);
+        assert_eq!(
+            app.handle_key(Chord::plain(Key::Enter)),
+            KeyAction::Prompted(String::from("sekrt"))
+        );
+    }
+
+    #[test]
+    fn a_paste_lands_where_the_cursor_is() {
+        let mut app = app();
+        typing(&mut app, "ab");
+        press(&mut app, Key::Left);
+        app.paste("XY");
+        assert_eq!(app.input(), "aXYb");
+
+        app.open_select(String::from("pick"), vec![String::from("one")]);
+        app.paste("query");
+        assert_eq!(query(&app), "query");
+    }
+
     #[test]
     fn readline_edits_reach_a_modal_query() {
         let mut app = app();
