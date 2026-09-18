@@ -324,6 +324,17 @@ mod tests {
         assert_eq!(line.cursor(), 4);
     }
 
+    /// Going left skips the run of separators first, then the word: from the end
+    /// of "  ...one" the cursor lands on the `o`, not on the last dot.
+    #[test]
+    fn word_left_skips_separators_before_the_word() {
+        let mut line = at("one ... two", 11);
+        line.word_left();
+        assert_eq!(line.cursor(), 8);
+        line.word_left();
+        assert_eq!(line.cursor(), 0);
+    }
+
     #[test]
     fn delete_forward_takes_the_character_under_the_cursor() {
         let mut line = at("abc", 1);
@@ -361,11 +372,15 @@ mod tests {
         assert_eq!(line.cursor(), 0);
     }
 
+    /// The byte count is a width in the text, not in characters, so it can land
+    /// inside one: `é` is two bytes. Rounding the wrong way would split it and
+    /// panic on the replace.
     #[test]
     fn delete_before_rounds_out_to_a_character() {
-        let mut line = at("héllo", "héllo".len());
-        line.delete_before(2);
-        assert_eq!(line.text(), "hél");
+        let mut line = at("héllo", 3);
+        line.delete_before(1);
+        assert_eq!(line.text(), "hllo");
+        assert_eq!(line.cursor(), 1);
     }
 
     #[test]

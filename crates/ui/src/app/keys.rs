@@ -452,9 +452,36 @@ mod tests {
     use uji_agent::session::id::SessionId;
     use uji_agent::session::model::{Session, Time};
 
-    use crate::app::{Action, App, KeyAction, Mode};
+    use super::SELECT_PAGE;
+    use crate::app::{Action, App, KeyAction, Mode, SuggestItem};
     use crate::keymap::{Chord, Key};
     use crate::state::UiState;
+
+    fn with_state() -> (App, Rc<RefCell<UiState>>) {
+        let state = Rc::new(RefCell::new(UiState::new()));
+        let session = Session {
+            id: SessionId::new(),
+            parent_id: None,
+            title: String::new(),
+            directory: String::from("."),
+            time: Time {
+                created: 0,
+                updated: 0,
+            },
+        };
+        let app = App::new(session, Conversation::shared(), Rc::clone(&state));
+        (app, state)
+    }
+
+    fn suggesting() -> App {
+        let (mut app, state) = with_state();
+        state.borrow_mut().set_suggest_enabled(true);
+        app.set_suggestions(vec![SuggestItem {
+            name: String::from("models"),
+            desc: String::from("pick the default model"),
+        }]);
+        app
+    }
 
     fn app() -> App {
         let session = Session {
@@ -575,6 +602,20 @@ mod tests {
         app.handle_key(Chord::plain(key));
     }
 
+    fn matches_len(app: &App) -> usize {
+        match app.mode() {
+            Mode::Select { matches, .. } | Mode::Pick { matches, .. } => matches.len(),
+            _ => 0,
+        }
+    }
+
+    fn cursor_at(app: &App) -> usize {
+        match app.mode() {
+            Mode::Select { cursor, .. } | Mode::Pick { cursor, .. } => *cursor,
+            _ => 0,
+        }
+    }
+
     /// The same guard as the composer: a modal query is text, not a command
     /// line, so a chord must not leave its letter in it.
     #[test]
@@ -598,12 +639,95 @@ mod tests {
 
     #[test]
     fn a_confirm_answers_the_letter_but_not_the_chord() {
-        let mut app = app();
-        app.open_confirm(String::from("run?"), String::from("ls"));
-        assert_eq!(app.handle_key(Chord::ctrl(Key::Char('y'))), KeyAction::None);
+        let mut allowing = app();
+        allowing.open_confirm(String::from("run?"), String::from("ls"));
         assert_eq!(
-            app.handle_key(Chord::plain(Key::Char('y'))),
+            allowing.handle_key(Chord::ctrl(Key::Char('y'))),
+            KeyAction::None
+        );
+        assert_eq!(
+            allowing.handle_key(Chord::plain(Key::Char('y'))),
             KeyAction::Confirmed(true)
+        );
+
+        // <C-n> walks the list; denying is what a bare n means.
+        let mut denying = app();
+        denying.open_confirm(String::from("run?"), String::from("ls"));
+        assert_eq!(
+            denying.handle_key(Chord::ctrl(Key::Char('n'))),
+            KeyAction::None
+        );
+        assert_eq!(
+            denying.handle_key(Chord::plain(Key::Char('n'))),
+            KeyAction::Confirmed(false)
+        );
+    }
+
+    #[test]
+    fn a_suggestion_completes_on_tab_and_ignores_chords() {
+        let mut app = suggesting();
+        typing(&mut app, "/mod");
+        assert!(matches!(app.mode(), Mode::Suggest { .. }));
+        app.handle_key(Chord::ctrl(Key::Char('w')));
+        assert_eq!(
+            app.input(),
+            "/mod",
+            "a chord must not type into the composer"
+        );
+        press(&mut app, Key::Tab);
+        assert_eq!(app.input(), "/models ");
+    }
+
+    /// Editing the query has to rerank, or the list shows matches for text that
+    /// is no longer there.
+    #[test]
+    fn typing_in_a_picker_reranks_the_list() {
+        let mut app = app();
+        app.open_select(
+            String::from("pick"),
+            vec![String::from("alpha"), String::from("beta")],
+        );
+        assert_eq!(matches_len(&app), 2);
+        typing(&mut app, "alp");
+        assert_eq!(matches_len(&app), 1);
+        press(&mut app, Key::Backspace);
+        press(&mut app, Key::Backspace);
+        press(&mut app, Key::Backspace);
+        assert_eq!(matches_len(&app), 2);
+    }
+
+    #[test]
+    fn a_page_key_walks_a_long_list() {
+        let items: Vec<String> = (0..30).map(|at| format!("item {at}")).collect();
+        let mut app = app();
+        app.open_select(String::from("pick"), items);
+        press(&mut app, Key::PageDown);
+        assert_eq!(cursor_at(&app), SELECT_PAGE.unsigned_abs());
+        press(&mut app, Key::PageUp);
+        assert_eq!(cursor_at(&app), 0);
+    }
+
+    /// Backspace over a paste marker takes the whole marker, and it must keep
+    /// doing that when the composer is the focused line.
+    #[test]
+    fn backspace_takes_a_whole_paste_marker() {
+        let mut app = app();
+        app.paste("one\ntwo\nthree");
+        assert!(app.input().starts_with("[paste #1"));
+        press(&mut app, Key::Backspace);
+        assert_eq!(app.input(), "");
+    }
+
+    #[test]
+    fn escape_clears_a_draft() {
+        let mut app = app();
+        typing(&mut app, "half written");
+        assert_eq!(app.handle_key(Chord::plain(Key::Escape)), KeyAction::None);
+        assert_eq!(app.input(), "");
+        // An empty composer has nothing to clear, so escape interrupts instead.
+        assert_eq!(
+            app.handle_key(Chord::plain(Key::Escape)),
+            KeyAction::Interrupt
         );
     }
 
@@ -617,11 +741,14 @@ mod tests {
         assert_eq!(query(&app), "abXc");
         press(&mut app, Key::Home);
         typing(&mut app, "^");
+        press(&mut app, Key::Right);
+        typing(&mut app, "-");
+        assert_eq!(query(&app), "^a-bXc");
         press(&mut app, Key::End);
         typing(&mut app, "$");
-        assert_eq!(query(&app), "^abXc$");
+        assert_eq!(query(&app), "^a-bXc$");
         press(&mut app, Key::Backspace);
-        assert_eq!(query(&app), "^abXc");
+        assert_eq!(query(&app), "^a-bXc");
     }
 
     #[test]
@@ -631,9 +758,15 @@ mod tests {
         typing(&mut app, "sekret");
         press(&mut app, Key::Left);
         press(&mut app, Key::Backspace);
+        press(&mut app, Key::Right);
+        typing(&mut app, "!");
+        press(&mut app, Key::Home);
+        typing(&mut app, "^");
+        press(&mut app, Key::End);
+        typing(&mut app, "$");
         assert_eq!(
             app.handle_key(Chord::plain(Key::Enter)),
-            KeyAction::Prompted(String::from("sekrt"))
+            KeyAction::Prompted(String::from("^sekrt!$"))
         );
     }
 
