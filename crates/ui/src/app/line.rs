@@ -325,6 +325,50 @@ mod tests {
     }
 
     #[test]
+    fn delete_forward_takes_the_character_under_the_cursor() {
+        let mut line = at("abc", 1);
+        line.delete_forward();
+        assert_eq!(line.text(), "ac");
+        assert_eq!(line.cursor(), 1);
+        line.end();
+        line.delete_forward();
+        assert_eq!(line.text(), "ac", "nothing to delete at the end");
+    }
+
+    #[test]
+    fn delete_word_forward_leaves_the_cursor_put() {
+        let mut line = at("cargo run --release", 6);
+        line.delete_word_forward();
+        assert_eq!(line.text(), "cargo  --release");
+        assert_eq!(line.cursor(), 6);
+    }
+
+    #[test]
+    fn right_walks_forward_and_stops_at_the_end() {
+        let mut line = at("ab", 0);
+        line.right();
+        assert_eq!(line.cursor(), 1);
+        line.right();
+        line.right();
+        assert_eq!(line.cursor(), 2);
+    }
+
+    #[test]
+    fn clear_empties_the_line_and_the_cursor() {
+        let mut line = at("something typed", 5);
+        line.clear();
+        assert!(line.is_empty());
+        assert_eq!(line.cursor(), 0);
+    }
+
+    #[test]
+    fn delete_before_rounds_out_to_a_character() {
+        let mut line = at("héllo", "héllo".len());
+        line.delete_before(2);
+        assert_eq!(line.text(), "hél");
+    }
+
+    #[test]
     fn kill_and_yank_round_trip() {
         let mut line = at("hello world", 5);
         line.delete_to_start();
