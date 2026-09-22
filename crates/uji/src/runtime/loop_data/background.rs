@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use super::LoopData;
 use crate::runtime::auth::AuthEvent;
+use uji_agent::llm::Origin;
+
 use crate::runtime::background::{self, ModelsEvent, TitleEvent};
 use crate::runtime::events;
 use crate::runtime::signal::Signal;
@@ -85,20 +87,22 @@ impl LoopData {
 
 impl LoopData {
     pub(super) fn discover_model_windows(&mut self) {
-        let custom: Vec<_> = self
+        let registered: Vec<_> = self
             .inner
             .api
             .providers()
             .borrow()
             .all()
             .iter()
-            .filter(|provider| provider.custom && !provider.base_url.is_empty())
+            .filter(|provider| {
+                provider.origin == Origin::Registered && !provider.base_url.is_empty()
+            })
             .cloned()
             .collect();
-        if custom.is_empty() {
+        if registered.is_empty() {
             return;
         }
-        background::model_windows(&self.runtime, &self.inner.client, custom, &self.signals);
+        background::model_windows(&self.runtime, &self.inner.client, registered, &self.signals);
     }
 
     pub(super) fn on_models(&mut self, event: &ModelsEvent) {

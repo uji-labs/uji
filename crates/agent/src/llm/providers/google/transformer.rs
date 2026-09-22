@@ -260,21 +260,24 @@ impl Response {
 }
 
 impl Response {
-    pub fn accumulate(&self, acc: &mut ToolAcc) {
+    pub fn accumulate(&self, acc: &mut ToolAcc) -> bool {
         let Some(content) = self
             .candidates
             .first()
             .and_then(|candidate| candidate.content.as_ref())
         else {
-            return;
+            return false;
         };
+        let mut took = false;
         for (index, part) in content.parts.iter().enumerate() {
             if let Part::FunctionCall { function_call } = part {
                 let entry = acc.entry(index);
                 entry.name = function_call.name.to_string();
                 entry.id.clone_from(&entry.name);
                 entry.arguments = function_call.args.to_string();
+                took = true;
             }
         }
+        took
     }
 }

@@ -84,7 +84,6 @@ pub struct Capture {
 struct Spill {
     path: PathBuf,
     file: std::io::BufWriter<std::fs::File>,
-    failed: bool,
 }
 
 impl Capture {
@@ -103,17 +102,15 @@ impl Capture {
         self.spill = std::fs::File::create(&path).ok().map(|file| Spill {
             path,
             file: std::io::BufWriter::new(file),
-            failed: false,
         });
         self
     }
 
     pub fn push(&mut self, line: &str) {
         if let Some(spill) = self.spill.as_mut()
-            && !spill.failed
             && writeln!(spill.file, "{line}").is_err()
         {
-            spill.failed = true;
+            self.spill = None;
         }
         self.bytes = self.bytes.saturating_add(line.len()).saturating_add(1);
         self.lines.push_back(line.to_string());
@@ -127,10 +124,10 @@ impl Capture {
     }
 
     pub fn finish(mut self) -> String {
-        let spilled = self.spill.take().and_then(|mut spill| {
-            let usable = !spill.failed && spill.file.flush().is_ok();
-            usable.then_some(spill.path)
-        });
+        let spilled = self
+            .spill
+            .take()
+            .and_then(|mut spill| spill.file.flush().ok().map(|()| spill.path));
         let mut text = String::new();
         if self.dropped > 0 {
             let _ = write!(text, "… {} earlier lines dropped", self.dropped);

@@ -33,22 +33,19 @@ pub async fn windows(
     client: &reqwest::Client,
     provider: &Provider,
     key: Option<&str>,
-) -> Vec<Windows> {
+) -> Option<Vec<Windows>> {
     let url = format!("{}/model/info", provider.base_url.trim_end_matches('/'));
     let mut request = client.get(url);
     if let Some(key) = key {
         request = request.bearer_auth(key);
     }
-    let Ok(response) = request.send().await else {
-        return Vec::new();
-    };
+    let response = request.send().await.ok()?;
     if !response.status().is_success() {
-        return Vec::new();
+        return None;
     }
-    let Ok(info) = response.json::<Info>().await else {
-        return Vec::new();
-    };
-    info.data
+    let info = response.json::<Info>().await.ok()?;
+    let found = info
+        .data
         .into_iter()
         .filter(|entry| {
             entry.model_info.max_input_tokens.is_some()
@@ -59,5 +56,6 @@ pub async fn windows(
             context: entry.model_info.max_input_tokens,
             output: entry.model_info.max_output_tokens,
         })
-        .collect()
+        .collect();
+    Some(found)
 }

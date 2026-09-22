@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use crate::llm::Progress;
 use crate::llm::providers::stream::{Api, Parts, stream};
 use tokio::sync::Mutex;
 
@@ -115,22 +116,29 @@ impl Api for Anthropic {
         event: StreamEvent,
         parts: &mut Parts,
         on_delta: &mut (dyn FnMut(String) + Send),
-    ) {
+    ) -> Progress {
+        let mut moved = false;
         if let Some(delta) = event.text_delta() {
             on_delta(delta.to_string());
             parts.text.push_str(delta);
+            moved = true;
         }
         if let Some(input) = event.input_usage() {
             parts.usage.input = input.input;
             parts.usage.cache_read = input.cache_read;
             parts.usage.cache_write = input.cache_write;
+            moved = true;
         }
         if let Some(output) = event.output_tokens() {
             parts.usage.output = output;
+            moved = true;
         }
+        let stopped = event.kind == "message_stop";
         parts.hit_limit |= event.truncated();
-        parts.complete |= event.kind == "message_stop";
-        event.accumulate(&mut parts.acc);
+        parts.complete |= stopped;
+        moved |= stopped;
+        moved |= event.accumulate(&mut parts.acc);
+        Progress::from(moved)
     }
 }
 

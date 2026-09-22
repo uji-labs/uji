@@ -348,10 +348,11 @@ impl Chunk {
 }
 
 impl Chunk {
-    pub fn accumulate(&self, acc: &mut ToolAcc) {
+    pub fn accumulate(&self, acc: &mut ToolAcc) -> bool {
         let Some(choice) = self.choices.first() else {
-            return;
+            return false;
         };
+        let took = !choice.delta.tool_calls.is_empty();
         for call in &choice.delta.tool_calls {
             let entry = acc.entry(call.index);
             if let Some(id) = &call.id {
@@ -367,5 +368,6 @@ impl Chunk {
                 entry.arguments.push_str(arguments);
             }
         }
+        took
     }
 }

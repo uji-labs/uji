@@ -20,18 +20,6 @@ pub struct Parts {
     pub acc: ToolAcc,
 }
 
-impl Parts {
-    fn written(&self) -> usize {
-        self.text.len()
-            + self.reasoning.len()
-            + self.acc.written()
-            + usize::from(self.complete)
-            + usize::from(self.hit_limit)
-            + usize::from(self.finish_reason.is_some())
-            + usize::try_from(self.usage.total()).unwrap_or(usize::MAX)
-    }
-}
-
 #[async_trait]
 pub trait Api: Send + Sync {
     type Event: DeserializeOwned;
@@ -47,7 +35,7 @@ pub trait Api: Send + Sync {
         event: Self::Event,
         parts: &mut Parts,
         on_delta: &mut (dyn FnMut(String) + Send),
-    );
+    ) -> Progress;
 
     fn finished(&self, parts: &Parts) -> Result<(), LlmError> {
         if parts.complete {
@@ -85,15 +73,9 @@ pub async fn stream<A: Api>(
             parts.complete = true;
             return Progress::Made;
         }
-        let Ok(event) = serde_json::from_str::<A::Event>(data) else {
-            return Progress::Keepalive;
-        };
-        let before = parts.written();
-        api.read(event, &mut parts, on_delta);
-        if parts.written() == before {
-            Progress::Keepalive
-        } else {
-            Progress::Made
+        match serde_json::from_str::<A::Event>(data) {
+            Ok(event) => api.read(event, &mut parts, on_delta),
+            Err(_) => Progress::Keepalive,
         }
     })
     .await?;

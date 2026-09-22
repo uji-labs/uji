@@ -37,13 +37,6 @@ impl ToolAcc {
         &mut self.calls[position]
     }
 
-    pub fn written(&self) -> usize {
-        self.calls
-            .iter()
-            .map(|call| call.id.len() + call.name.len() + call.arguments.len())
-            .sum()
-    }
-
     pub fn finish(self) -> Result<Vec<ToolCall>, LlmError> {
         let mut calls = self.calls;
         calls.sort_by_key(|call| call.index);

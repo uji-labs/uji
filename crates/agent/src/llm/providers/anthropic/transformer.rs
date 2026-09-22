@@ -395,29 +395,34 @@ impl StreamEvent {
 }
 
 impl StreamEvent {
-    pub fn accumulate(&self, acc: &mut ToolAcc) {
+    pub fn accumulate(&self, acc: &mut ToolAcc) -> bool {
         let Some(index) = self.index else {
-            return;
+            return false;
         };
         match self.kind.as_str() {
             "content_block_start" => {
-                if let Some(block) = &self.content_block
-                    && block.kind == "tool_use"
-                {
-                    let entry = acc.entry(index);
-                    entry.id = block.id.clone().unwrap_or_default();
-                    entry.name = block.name.clone().unwrap_or_default();
-                }
+                let Some(block) = self.content_block.as_ref().filter(|b| b.kind == "tool_use")
+                else {
+                    return false;
+                };
+                let entry = acc.entry(index);
+                entry.id = block.id.clone().unwrap_or_default();
+                entry.name = block.name.clone().unwrap_or_default();
+                true
             }
             "content_block_delta" => {
-                if let Some(delta) = &self.delta
-                    && delta.kind == "input_json_delta"
-                    && let Some(fragment) = &delta.partial_json
-                {
-                    acc.entry(index).arguments.push_str(fragment);
-                }
+                let Some(fragment) = self
+                    .delta
+                    .as_ref()
+                    .filter(|delta| delta.kind == "input_json_delta")
+                    .and_then(|delta| delta.partial_json.as_ref())
+                else {
+                    return false;
+                };
+                acc.entry(index).arguments.push_str(fragment);
+                true
             }
-            _ => {}
+            _ => false,
         }
     }
 }

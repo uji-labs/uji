@@ -100,10 +100,9 @@ pub(crate) fn model_windows(
             let key =
                 LlmConfig::for_provider(provider.id.clone(), Some(&provider), String::new(), None)
                     .resolve_key();
-            let windows = discover::windows(&client, &provider, key.as_deref()).await;
-            if windows.is_empty() {
+            let Some(windows) = discover::windows(&client, &provider, key.as_deref()).await else {
                 return;
-            }
+            };
             let _ = sender.send(Signal::Models(ModelsEvent {
                 provider: provider.id,
                 windows,

@@ -1,4 +1,5 @@
 pub mod builtin;
+pub mod lines;
 pub mod policy;
 pub mod progress;
 pub mod prompt;

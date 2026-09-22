@@ -24,7 +24,7 @@ pub mod status;
 pub mod tools;
 pub mod window;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -62,8 +62,9 @@ pub struct Api {
     requests: RefCell<Vec<request::Request>>,
     pick: RefCell<pick::Pick>,
     access: RefCell<tools::Access>,
-    segments: Registry,
-    agent_context: Registry,
+    segments: RefCell<Registry>,
+    agent_context: RefCell<Registry>,
+    next_handler: Cell<u64>,
     actions: Actions,
 }
 
@@ -86,8 +87,9 @@ impl Api {
             session_state: SessionState::new(conversation),
             requests: RefCell::default(),
             pick: RefCell::default(),
-            segments: Registry::default(),
-            agent_context: Registry::default(),
+            segments: RefCell::default(),
+            agent_context: RefCell::default(),
+            next_handler: Cell::new(0),
             actions: Actions::default(),
         })
     }
@@ -146,7 +148,7 @@ impl Api {
         std::mem::take(&mut *self.requests.borrow_mut())
     }
 
-    pub fn segments(&self) -> &Registry {
+    pub fn segments(&self) -> &RefCell<Registry> {
         &self.segments
     }
 
@@ -154,8 +156,14 @@ impl Api {
         &self.actions
     }
 
-    pub fn agent_context(&self) -> &Registry {
+    pub fn agent_context(&self) -> &RefCell<Registry> {
         &self.agent_context
+    }
+
+    pub fn next_handler_name(&self) -> String {
+        let next = self.next_handler.get().saturating_add(1);
+        self.next_handler.set(next);
+        format!("handler {next}")
     }
 
     pub fn session(&self) -> &SessionState {

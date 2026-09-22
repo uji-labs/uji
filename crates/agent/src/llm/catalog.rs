@@ -83,7 +83,14 @@ pub struct Provider {
     #[serde(default)]
     pub models: Vec<Model>,
     #[serde(skip)]
-    pub custom: bool,
+    pub origin: Origin,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Origin {
+    #[default]
+    Builtin,
+    Registered,
 }
 
 /// Which field an OpenAI-compatible endpoint wants the output limit in.
@@ -326,7 +333,7 @@ impl Catalog {
     }
 
     pub fn add(&mut self, mut provider: Provider) {
-        provider.custom = true;
+        provider.origin = Origin::Registered;
         match self
             .providers
             .iter_mut()

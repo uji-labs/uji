@@ -3,9 +3,14 @@ language: rust
 severity: error
 message: A conditional push is `filter`/`filter_map`; build the collection with an iterator chain.
 rule:
-  pattern: |
-    for $X in $ITER {
-      if $COND {
-        $OUT.push($VALUE);
-      }
-    }
+  all:
+    - pattern: |
+        for $X in $ITER {
+          if $COND {
+            $OUT.push($VALUE);
+          }
+        }
+    - not:
+        has:
+          kind: else_clause
+          stopBy: end

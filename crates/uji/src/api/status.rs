@@ -17,7 +17,7 @@ pub fn add(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
                 .transpose()?
                 .flatten()
                 .unwrap_or(50);
-            api.segments().add(Entry {
+            api.segments().borrow_mut().add(Entry {
                 name,
                 priority,
                 call: render,
@@ -29,7 +29,7 @@ pub fn add(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
 
 pub fn remove(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
     bind(lua, api, move |api, _, name: String| {
-        api.segments().remove(&name);
+        api.segments().borrow_mut().remove(&name);
         Ok(())
     })
 }
@@ -38,7 +38,7 @@ pub fn remove(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
 pub fn segments(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
     bind(lua, api, move |api, lua, ()| {
         let out = lua.create_table()?;
-        for (name, render) in api.segments().calls() {
+        for (name, render) in api.segments().borrow().calls() {
             match render.call::<Value>(()) {
                 Ok(Value::Nil) => {}
                 Ok(value) => out.push(value)?,

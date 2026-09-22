@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use mlua::{Function, Lua, Table};
 
-use crate::api::handlers::{DEFAULT_PRIORITY, Handler};
+use crate::api::registry::{DEFAULT_PRIORITY, Entry};
 
 use super::Api;
 use crate::api::bind::bind;
@@ -19,14 +19,10 @@ pub fn on(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
                 ),
                 None => (None, None),
             };
-            let mut handlers = api.handlers().borrow_mut();
-            let name = match named {
-                Some(name) => name,
-                None => handlers.anonymous(),
-            };
-            handlers.add(
+            let name = named.unwrap_or_else(|| api.next_handler_name());
+            api.handlers().borrow_mut().add(
                 event,
-                Handler {
+                Entry {
                     name: name.clone(),
                     priority: priority.unwrap_or(DEFAULT_PRIORITY),
                     call,

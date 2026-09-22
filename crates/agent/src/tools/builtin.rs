@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 
 use crate::llm::ToolSpec;
 use crate::process;
+use crate::tools::lines;
 
 use super::{Invocation, Tool};
 
@@ -188,40 +189,6 @@ fn spill_path(command: &str) -> Option<PathBuf> {
     Some(dir.join(format!("{}-{stem}.log", std::process::id())))
 }
 
-fn read_line<R: BufRead>(reader: &mut R, line: &mut String) -> std::io::Result<bool> {
-    line.clear();
-    let mut any = false;
-    let mut over = false;
-    loop {
-        let available = reader.fill_buf()?;
-        if available.is_empty() {
-            return Ok(any);
-        }
-        any = true;
-        let (chunk, done) = match available.iter().position(|byte| *byte == b'\n') {
-            Some(at) => (&available[..at], true),
-            None => (available, false),
-        };
-        let room = MAX_LINE_BYTES.saturating_sub(line.len());
-        if room == 0 {
-            over = true;
-        } else {
-            let take = chunk.len().min(room);
-            line.push_str(&String::from_utf8_lossy(&chunk[..take]));
-            over |= take < chunk.len();
-        }
-        let consumed = chunk.len() + usize::from(done);
-        reader.consume(consumed);
-        if done {
-            break;
-        }
-    }
-    if over {
-        line.push_str(" …[line truncated]");
-    }
-    Ok(true)
-}
-
 fn is_probably_binary(bytes: &[u8]) -> bool {
     bytes.iter().take(8_000).any(|byte| *byte == 0)
 }
@@ -287,7 +254,13 @@ impl Tool for ReadFile {
         let mut line = String::new();
         let mut total = 0usize;
         let mut shown = 0usize;
-        while read_line(&mut reader, &mut line).map_err(|err| fs_error("read", &path, cwd, &err))? {
+        while let lines::Line::Read { truncated } =
+            lines::read(&mut reader, &mut line, MAX_LINE_BYTES)
+                .map_err(|err| fs_error("read", &path, cwd, &err))?
+        {
+            if truncated {
+                line.push_str(" …[line truncated]");
+            }
             total = total.saturating_add(1);
             if total < offset || shown >= limit {
                 continue;
@@ -632,7 +605,7 @@ fn grep_file(dir: &Dir, rel: &Path, label: &str, regex: &regex::Regex, out: &mut
     }
     let mut line = String::new();
     let mut index = 0usize;
-    while read_line(&mut reader, &mut line).unwrap_or(false) {
+    while let Ok(lines::Line::Read { .. }) = lines::read(&mut reader, &mut line, MAX_LINE_BYTES) {
         index = index.saturating_add(1);
         if out.len() >= MAX_GREP_MATCHES {
             return;

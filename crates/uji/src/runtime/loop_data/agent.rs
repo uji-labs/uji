@@ -117,7 +117,7 @@ impl LoopData {
     }
 
     fn gather_context(&self, system: &mut String, messages: &mut Vec<Message>) {
-        for (name, call) in self.inner.api.agent_context().calls() {
+        for (name, call) in self.inner.api.agent_context().borrow().calls() {
             let (text, at_turn) = match call.call::<LuaValue>(()) {
                 Ok(LuaValue::String(text)) => (text.to_string_lossy(), false),
                 Ok(LuaValue::Table(table)) => {

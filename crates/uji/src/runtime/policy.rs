@@ -73,19 +73,16 @@ fn tool_rules(name: &str, value: LuaValue, notices: &mut Vec<String>) -> ToolRul
     for action in PRECEDENCE {
         let key: &'static str = action.into();
         if let Ok(Some(entries)) = table.get::<Option<Vec<String>>>(key) {
-            let (readable, broken): (Vec<_>, Vec<_>) = entries
-                .into_iter()
-                .map(|entry| {
-                    matcher(&entry)
-                        .map(|matcher| Rule { matcher, action })
-                        .ok_or(entry)
-                })
-                .partition(Result::is_ok);
-            rules.extend(readable.into_iter().filter_map(Result::ok));
-            unreadable |= !broken.is_empty();
-            notices.extend(broken.into_iter().filter_map(Result::err).map(|entry| {
-                format!("tool policy: `{name}` {key} rule `{entry}` is not a valid pattern")
-            }));
+            for entry in entries {
+                if let Some(matcher) = matcher(&entry) {
+                    rules.push(Rule { matcher, action });
+                } else {
+                    unreadable = true;
+                    notices.push(format!(
+                        "tool policy: `{name}` {key} rule `{entry}` is not a valid pattern"
+                    ));
+                }
+            }
         }
     }
     if unreadable {

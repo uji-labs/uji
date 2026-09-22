@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use crate::llm::Progress;
 use crate::llm::providers::stream::{Api, Parts, stream};
 use crate::session::model::ToolCall;
 
@@ -64,22 +65,33 @@ impl Api for OpenAi {
         self.post(client, &provider_request).await
     }
 
-    fn read(&self, event: Chunk, parts: &mut Parts, on_delta: &mut (dyn FnMut(String) + Send)) {
+    fn read(
+        &self,
+        event: Chunk,
+        parts: &mut Parts,
+        on_delta: &mut (dyn FnMut(String) + Send),
+    ) -> Progress {
+        let mut moved = false;
         if let Some(delta) = event.delta_text() {
             on_delta(delta.to_string());
             parts.text.push_str(delta);
+            moved = true;
         }
         if let Some(delta) = event.delta_reasoning() {
             parts.reasoning.push_str(delta);
+            moved = true;
         }
         if let Some(reason) = event.finish_reason() {
             parts.finish_reason = Some(reason.to_string());
             parts.complete = true;
+            moved = true;
         }
         if let Some(reported) = event.usage {
             parts.usage = reported.into();
+            moved = true;
         }
-        event.accumulate(&mut parts.acc);
+        moved |= event.accumulate(&mut parts.acc);
+        Progress::from(moved)
     }
 
     fn finished(&self, parts: &Parts) -> Result<(), LlmError> {

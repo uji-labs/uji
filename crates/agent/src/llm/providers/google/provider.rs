@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 
+use crate::llm::Progress;
 use crate::llm::providers::stream::{Api, Parts, stream};
 
 use crate::llm::{LlmConfig, LlmError, LlmRequest, LlmResponse, Protocol, send};
@@ -54,18 +55,29 @@ impl Api for Gemini {
         self.post(client, request.model, &provider_request).await
     }
 
-    fn read(&self, event: Response, parts: &mut Parts, on_delta: &mut (dyn FnMut(String) + Send)) {
+    fn read(
+        &self,
+        event: Response,
+        parts: &mut Parts,
+        on_delta: &mut (dyn FnMut(String) + Send),
+    ) -> Progress {
+        let mut moved = false;
         let text = event.text();
         if !text.is_empty() {
             on_delta(text.clone());
             parts.text.push_str(&text);
+            moved = true;
         }
         if let Some(reported) = event.usage_metadata {
             parts.usage = reported.into();
+            moved = true;
         }
+        let finished = event.finished();
         parts.hit_limit |= event.truncated();
-        parts.complete |= event.finished();
-        event.accumulate(&mut parts.acc);
+        parts.complete |= finished;
+        moved |= finished;
+        moved |= event.accumulate(&mut parts.acc);
+        Progress::from(moved)
     }
 }
 

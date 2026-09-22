@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use serde::Serialize;
 
 pub(crate) async fn send<T: Serialize + ?Sized>(
@@ -132,20 +131,6 @@ pub(crate) fn clip(text: &str, max: usize) -> String {
     )
 }
 
-pub(crate) const STREAM_IDLE: Duration = Duration::from_secs(120);
-
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-
-const TRANSPORT_IDLE: Duration = Duration::from_secs(STREAM_IDLE.as_secs() + 30);
-
-pub fn http_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .connect_timeout(CONNECT_TIMEOUT)
-        .read_timeout(TRANSPORT_IDLE)
-        .build()
-        .unwrap_or_default()
-}
-
 pub(crate) const MAX_RETRY_AFTER_SECS: u64 = 60;
 pub(crate) const RETRY_ATTEMPTS: u32 = 5;
 const RETRY_INITIAL: Duration = Duration::from_secs(2);
@@ -158,34 +143,4 @@ pub(crate) fn backoff(attempt: u32) -> Duration {
     let capped = step.min(RETRY_CEILING);
     let jitter = 1.0 + RETRY_JITTER * (rand::random::<f64>() * 2.0 - 1.0);
     capped.mul_f64(jitter.max(0.0))
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Progress {
-    Made,
-    Keepalive,
-}
-
-pub(crate) async fn response_lines(
-    response: reqwest::Response,
-    mut on_line: impl FnMut(&str) -> Progress + Send,
-) -> Result<(), LlmError> {
-    let mut buf = String::new();
-    let mut stream = response.bytes_stream();
-    let mut deadline = tokio::time::Instant::now() + STREAM_IDLE;
-    loop {
-        let chunk = match tokio::time::timeout_at(deadline, stream.next()).await {
-            Ok(Some(chunk)) => chunk.map_err(LlmError::transport)?,
-            Ok(None) => return Ok(()),
-            Err(_) => return Err(LlmError::stalled(STREAM_IDLE)),
-        };
-        buf.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(pos) = buf.find('\n') {
-            let line = buf[..pos].trim_end_matches('\r').to_string();
-            buf.drain(..=pos);
-            if on_line(&line) == Progress::Made {
-                deadline = tokio::time::Instant::now() + STREAM_IDLE;
-            }
-        }
-    }
 }
