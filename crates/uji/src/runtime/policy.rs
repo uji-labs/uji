@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use globset::Glob;
 use mlua::{Lua, Table, Value as LuaValue};
 use regex::Regex;
@@ -7,16 +9,19 @@ use uji_agent::tools::policy::{Action, Matcher, Rule, ToolPolicy, ToolRules};
 
 const PRECEDENCE: [Action; Action::VARIANTS.len()] = [Action::Deny, Action::Allow, Action::Ask];
 
-pub(super) fn compile(lua: &Lua) -> (ToolPolicy, Vec<String>) {
+pub(super) fn compile(lua: &Lua, known: &BTreeSet<String>) -> (ToolPolicy, Vec<String>) {
     let mut policy = ToolPolicy::default();
     let mut notices = Vec::new();
     let Some(table) = policy_table(lua) else {
         return (policy, notices);
     };
-    if let Ok(Some(default)) = table.get::<Option<String>>("default")
-        && let Some(action) = Action::parse(&default)
-    {
-        policy.default = action;
+    if let Ok(Some(default)) = table.get::<Option<String>>("default") {
+        match Action::parse(&default) {
+            Some(action) => policy.default = action,
+            None => notices.push(format!(
+                "tool policy: default `{default}` is not allow, ask or deny; asking instead"
+            )),
+        }
     }
     for pair in table.pairs::<String, LuaValue>() {
         let Ok((name, value)) = pair else {
@@ -25,9 +30,15 @@ pub(super) fn compile(lua: &Lua) -> (ToolPolicy, Vec<String>) {
         if name == "default" {
             continue;
         }
-        if let Some(rules) = tool_rules(value, &mut notices) {
-            policy.tools.insert(name, rules);
+        if !known.contains(&name) {
+            notices.push(format!(
+                "tool policy: `{name}` is not a tool, so its rules do nothing"
+            ));
+            continue;
         }
+        policy
+            .tools
+            .insert(name.clone(), tool_rules(&name, value, &mut notices));
     }
     (policy, notices)
 }
@@ -38,29 +49,55 @@ fn policy_table(lua: &Lua) -> Option<Table> {
     tool.get("policy").ok()
 }
 
-fn tool_rules(value: LuaValue, notices: &mut Vec<String>) -> Option<ToolRules> {
+fn tool_rules(name: &str, value: LuaValue, notices: &mut Vec<String>) -> ToolRules {
     let LuaValue::Table(table) = value else {
-        return None;
+        notices.push(format!(
+            "tool policy: `{name}` is not a table of rules; asking before every {name}"
+        ));
+        return ToolRules {
+            rules: Vec::new(),
+            default: Action::Ask,
+        };
     };
     let mut rules = Vec::new();
     let mut default = Action::Ask;
-    if let Ok(Some(value)) = table.get::<Option<String>>("default")
-        && let Some(action) = Action::parse(&value)
-    {
-        default = action;
+    if let Ok(Some(value)) = table.get::<Option<String>>("default") {
+        match Action::parse(&value) {
+            Some(action) => default = action,
+            None => notices.push(format!(
+                "tool policy: `{name}` default `{value}` is not allow, ask or deny; asking instead"
+            )),
+        }
     }
+    let mut unreadable = false;
     for action in PRECEDENCE {
         let key: &'static str = action.into();
         if let Ok(Some(entries)) = table.get::<Option<Vec<String>>>(key) {
-            for entry in entries {
-                match matcher(&entry) {
-                    Some(matcher) => rules.push(Rule { matcher, action }),
-                    None => notices.push(format!("bad policy rule: {entry}")),
-                }
-            }
+            let (readable, broken): (Vec<_>, Vec<_>) = entries
+                .into_iter()
+                .map(|entry| {
+                    matcher(&entry)
+                        .map(|matcher| Rule { matcher, action })
+                        .ok_or(entry)
+                })
+                .partition(Result::is_ok);
+            rules.extend(readable.into_iter().filter_map(Result::ok));
+            unreadable |= !broken.is_empty();
+            notices.extend(broken.into_iter().filter_map(Result::err).map(|entry| {
+                format!("tool policy: `{name}` {key} rule `{entry}` is not a valid pattern")
+            }));
         }
     }
-    Some(ToolRules { rules, default })
+    if unreadable {
+        let raised = default.strictest(Action::Ask);
+        if raised != default {
+            notices.push(format!(
+                "tool policy: asking before every {name}, because part of its policy could not be read"
+            ));
+            default = raised;
+        }
+    }
+    ToolRules { rules, default }
 }
 
 fn matcher(value: &str) -> Option<Matcher> {

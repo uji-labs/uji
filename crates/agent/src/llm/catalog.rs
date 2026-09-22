@@ -4,6 +4,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use crate::credential;
+use crate::llm::discover;
 use crate::session::store::{SessionStorage, Setting};
 
 use super::tuning::{Effort, Retention};
@@ -81,6 +82,8 @@ pub struct Provider {
     pub context_window: Option<u64>,
     #[serde(default)]
     pub models: Vec<Model>,
+    #[serde(skip)]
+    pub custom: bool,
 }
 
 /// Which field an OpenAI-compatible endpoint wants the output limit in.
@@ -292,7 +295,6 @@ impl Provider {
         let reserve = known
             .and_then(|model| model.output)
             .unwrap_or(MAX_RESERVE)
-            .min(MAX_RESERVE)
             .min(window / 4);
         Some(Budget { window, reserve })
     }
@@ -323,7 +325,8 @@ impl Catalog {
         Self { providers }
     }
 
-    pub fn add(&mut self, provider: Provider) {
+    pub fn add(&mut self, mut provider: Provider) {
+        provider.custom = true;
         match self
             .providers
             .iter_mut()
@@ -348,6 +351,29 @@ impl Catalog {
 
     pub fn all(&self) -> &[Provider] {
         &self.providers
+    }
+
+    pub fn set_windows(&mut self, id: &str, windows: &[discover::Windows]) -> usize {
+        let Some(provider) = self.providers.iter_mut().find(|entry| entry.id == id) else {
+            return 0;
+        };
+        let mut changed = 0;
+        for found in windows {
+            let Some(model) = provider
+                .models
+                .iter_mut()
+                .find(|model| model.id == found.model)
+            else {
+                continue;
+            };
+            if model.context == found.context && model.output == found.output {
+                continue;
+            }
+            model.context = found.context.or(model.context);
+            model.output = found.output.or(model.output);
+            changed += 1;
+        }
+        changed
     }
 }
 

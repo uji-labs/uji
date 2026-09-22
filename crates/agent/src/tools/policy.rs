@@ -19,6 +19,23 @@ impl Action {
     pub fn parse(value: &str) -> Option<Self> {
         Self::from_str(value).ok()
     }
+
+    fn strictness(self) -> u8 {
+        match self {
+            Self::Allow => 0,
+            Self::Ask => 1,
+            Self::Deny => 2,
+        }
+    }
+
+    #[must_use]
+    pub fn strictest(self, other: Self) -> Self {
+        if other.strictness() > self.strictness() {
+            other
+        } else {
+            self
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

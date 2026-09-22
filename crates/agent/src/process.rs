@@ -1,5 +1,7 @@
+use std::collections::VecDeque;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
@@ -71,53 +73,83 @@ impl<'a> Spec<'a> {
     }
 }
 
-/// Output kept to a budget as it arrives.
-///
-/// Capping only at the end means a command that prints without stopping is held
-/// in memory in full before anything is discarded.
 pub struct Capture {
-    text: String,
+    lines: VecDeque<String>,
+    bytes: usize,
     budget: usize,
-    total: usize,
-    truncated: bool,
+    dropped: usize,
+    spill: Option<Spill>,
+}
+
+struct Spill {
+    path: PathBuf,
+    file: std::io::BufWriter<std::fs::File>,
+    failed: bool,
 }
 
 impl Capture {
     pub fn new(budget: usize) -> Self {
         Self {
-            text: String::new(),
+            lines: VecDeque::new(),
+            bytes: 0,
             budget,
-            total: 0,
-            truncated: false,
+            dropped: 0,
+            spill: None,
         }
+    }
+
+    #[must_use]
+    pub fn spilling(mut self, path: PathBuf) -> Self {
+        self.spill = std::fs::File::create(&path).ok().map(|file| Spill {
+            path,
+            file: std::io::BufWriter::new(file),
+            failed: false,
+        });
+        self
     }
 
     pub fn push(&mut self, line: &str) {
-        self.total = self.total.saturating_add(line.len()).saturating_add(1);
-        if self.truncated {
-            return;
+        if let Some(spill) = self.spill.as_mut()
+            && !spill.failed
+            && writeln!(spill.file, "{line}").is_err()
+        {
+            spill.failed = true;
         }
-        if self.text.len().saturating_add(line.len()) > self.budget {
-            self.truncated = true;
-            return;
+        self.bytes = self.bytes.saturating_add(line.len()).saturating_add(1);
+        self.lines.push_back(line.to_string());
+        while self.bytes > self.budget && self.lines.len() > 1 {
+            let Some(gone) = self.lines.pop_front() else {
+                break;
+            };
+            self.bytes = self.bytes.saturating_sub(gone.len().saturating_add(1));
+            self.dropped = self.dropped.saturating_add(1);
         }
-        self.text.push_str(line);
-        self.text.push('\n');
     }
 
     pub fn finish(mut self) -> String {
-        let kept = self.text.len();
-        if self.text.ends_with('\n') {
-            self.text.pop();
+        let spilled = self.spill.take().and_then(|mut spill| {
+            let usable = !spill.failed && spill.file.flush().is_ok();
+            usable.then_some(spill.path)
+        });
+        let mut text = String::new();
+        if self.dropped > 0 {
+            let _ = write!(text, "… {} earlier lines dropped", self.dropped);
+            match &spilled {
+                Some(path) => {
+                    let _ = writeln!(text, "; full output in {}", path.display());
+                }
+                None => text.push('\n'),
+            }
         }
-        if self.truncated {
-            let _ = write!(
-                self.text,
-                "\n… output truncated, kept {kept} of {} bytes",
-                self.total
-            );
+        let mut lines = self.lines.into_iter();
+        if let Some(first) = lines.next() {
+            text.push_str(&first);
         }
-        self.text
+        for line in lines {
+            text.push('\n');
+            text.push_str(&line);
+        }
+        text
     }
 }
 
@@ -141,8 +173,6 @@ fn builder(spec: &Spec<'_>) -> Option<tokio::process::Command> {
     let stdin = if spec.stdin.is_some() {
         Stdio::piped()
     } else {
-        // Without a writer the child would sit on an open pipe forever, so give
-        // anything that reads an immediate end of input.
         Stdio::null()
     };
     builder
@@ -161,10 +191,6 @@ where
     lines.next_line().await.ok().flatten()
 }
 
-/// Run a command, handing each line to `on_line` as it arrives.
-///
-/// One place that knows how to spawn, read both pipes, feed stdin, honour a
-/// cancel token and a timeout, and kill the child on the way out.
 pub async fn stream(
     spec: Spec<'_>,
     cancel: &CancelToken,

@@ -1,5 +1,3 @@
-//! Running an external command: what comes back, and what stops it.
-
 use std::time::{Duration, Instant};
 
 use uji_agent::llm::CancelToken;
@@ -25,10 +23,8 @@ async fn both_streams_and_the_exit_code_come_back() {
     assert_eq!(err, ["two"]);
 }
 
-/// Capping only once the command has finished means a command that prints
-/// without stopping is held in memory in full first.
 #[tokio::test]
-async fn output_is_capped_while_it_is_still_arriving() {
+async fn the_end_of_a_long_output_is_what_survives() {
     let cancel = CancelToken::new();
     let mut capture = Capture::new(40);
     process::stream(
@@ -39,9 +35,33 @@ async fn output_is_capped_while_it_is_still_arriving() {
     .await
     .unwrap();
     let text = capture.finish();
-    assert!(text.starts_with("line-1\n"));
-    assert!(!text.contains("line-100"));
-    assert!(text.contains("output truncated"), "{text}");
+    assert!(text.ends_with("line-100"), "{text}");
+    assert!(
+        !text.contains("line-1\n"),
+        "kept the start instead of the end"
+    );
+    assert!(text.contains("earlier lines dropped"), "{text}");
+}
+
+#[tokio::test]
+async fn a_spill_keeps_what_the_window_drops() {
+    let cancel = CancelToken::new();
+    let path = std::env::temp_dir().join("uji-capture-spill.log");
+    let mut capture = Capture::new(40).spilling(path.clone());
+    process::stream(
+        Spec::shell("for i in $(seq 1 100); do echo line-$i; done"),
+        &cancel,
+        |_, line| capture.push(&line),
+    )
+    .await
+    .unwrap();
+    let text = capture.finish();
+    assert!(text.contains(&path.display().to_string()), "{text}");
+    let spilled = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(spilled.lines().count(), 100);
+    assert!(spilled.starts_with("line-1\n"));
+    assert!(spilled.trim_end().ends_with("line-100"));
+    let _ = std::fs::remove_file(&path);
 }
 
 #[tokio::test]
@@ -75,8 +95,6 @@ async fn cancelling_kills_the_command() {
     assert!(started.elapsed() < Duration::from_secs(5));
 }
 
-/// Nothing is going to write to it, so a command that reads must see the end of
-/// its input rather than wait on a pipe that never closes.
 #[tokio::test]
 async fn a_command_that_reads_with_no_writer_sees_the_end_of_input() {
     let cancel = CancelToken::new();

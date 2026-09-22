@@ -1,5 +1,3 @@
-//! What ends up on screen, drawn through the real render path.
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -32,7 +30,6 @@ fn app() -> App {
     App::new(session, Conversation::shared(), state)
 }
 
-/// The windows a running uji has: a transcript with the composer under it.
 fn windowed() -> App {
     let app = app();
     {
@@ -88,8 +85,6 @@ fn the_draft_is_drawn_with_the_cursor_in_it() {
     );
 }
 
-/// A hidden prompt is how an API key is typed in. It must never draw the
-/// characters, at any cursor position.
 #[test]
 fn a_hidden_prompt_shows_no_characters() {
     let mut app = windowed();

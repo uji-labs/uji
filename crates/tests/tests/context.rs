@@ -1,5 +1,3 @@
-//! What of a session reaches the model.
-
 use uji_agent::llm::context::build;
 use uji_agent::session::id::{MessageId, now_millis};
 use uji_agent::session::model::{Message, StoredMessage, ToolCall};
@@ -13,9 +11,6 @@ fn stored(seq: i64, message: Message) -> StoredMessage {
     }
 }
 
-/// `!cmd` output is the user's, not the model's. It is kept with the session
-/// and shown in the transcript, but sending it would put whatever the user ran
-/// — and whatever it printed — into the context behind their back.
 #[test]
 fn a_shell_message_never_reaches_the_model() {
     let context = build(&[
@@ -43,8 +38,6 @@ fn a_shell_message_never_reaches_the_model() {
     );
 }
 
-/// A tool call whose result never arrived would leave the provider with a
-/// dangling call, so the call is dropped and any text it carried is kept.
 #[test]
 fn a_tool_call_without_its_result_is_dropped() {
     let context = build(&[stored(

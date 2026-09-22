@@ -3,7 +3,7 @@ use serde::de::DeserializeOwned;
 
 use crate::llm::providers::acc::ToolAcc;
 use crate::llm::request::{LlmRequest, LlmResponse, Usage};
-use crate::llm::{LlmError, response_lines, status_error};
+use crate::llm::{LlmError, Progress, response_lines, status_error};
 use crate::session::model::ToolCall;
 
 const DATA: &str = "data: ";
@@ -18,6 +18,18 @@ pub struct Parts {
     pub hit_limit: bool,
     pub complete: bool,
     pub acc: ToolAcc,
+}
+
+impl Parts {
+    fn written(&self) -> usize {
+        self.text.len()
+            + self.reasoning.len()
+            + self.acc.written()
+            + usize::from(self.complete)
+            + usize::from(self.hit_limit)
+            + usize::from(self.finish_reason.is_some())
+            + usize::try_from(self.usage.total()).unwrap_or(usize::MAX)
+    }
 }
 
 #[async_trait]
@@ -67,14 +79,21 @@ pub async fn stream<A: Api>(
     let mut parts = Parts::default();
     response_lines(response, |line| {
         let Some(data) = line.strip_prefix(DATA) else {
-            return;
+            return Progress::Keepalive;
         };
         if data == DONE {
             parts.complete = true;
-            return;
+            return Progress::Made;
         }
-        if let Ok(event) = serde_json::from_str::<A::Event>(data) {
-            api.read(event, &mut parts, on_delta);
+        let Ok(event) = serde_json::from_str::<A::Event>(data) else {
+            return Progress::Keepalive;
+        };
+        let before = parts.written();
+        api.read(event, &mut parts, on_delta);
+        if parts.written() == before {
+            Progress::Keepalive
+        } else {
+            Progress::Made
         }
     })
     .await?;

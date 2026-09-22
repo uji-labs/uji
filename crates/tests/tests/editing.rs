@@ -1,5 +1,3 @@
-//! Editing a draft: what the composer does to the text as it is typed.
-
 use uji_ui::app::{Composer, Line};
 
 fn typed(text: &str) -> Line {

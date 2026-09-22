@@ -1,4 +1,5 @@
 use std::fmt::Write as _;
+use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,8 +15,12 @@ use crate::process;
 use super::{Invocation, Tool};
 
 const MAX_READ_LINES: usize = 2_000;
+const MAX_LINE_BYTES: usize = 2_000;
+const SNIFF_BYTES: usize = 8_192;
 const MAX_TOOL_OUTPUT: usize = 24_000;
 const MAX_GREP_MATCHES: usize = 200;
+const MAX_LIST_ENTRIES: usize = 1_000;
+const MAX_MATCH_CHARS: usize = 400;
 const MAX_GREP_DEPTH: usize = 12;
 const SKIP_DIRS: &[&str] = &[
     ".git",
@@ -172,6 +177,51 @@ fn usize_arg(args: &Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+fn spill_path(command: &str) -> Option<PathBuf> {
+    let dir = std::env::temp_dir().join("uji-output");
+    std::fs::create_dir_all(&dir).ok()?;
+    let stem: String = command
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+        .take(40)
+        .collect();
+    Some(dir.join(format!("{}-{stem}.log", std::process::id())))
+}
+
+fn read_line<R: BufRead>(reader: &mut R, line: &mut String) -> std::io::Result<bool> {
+    line.clear();
+    let mut any = false;
+    let mut over = false;
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(any);
+        }
+        any = true;
+        let (chunk, done) = match available.iter().position(|byte| *byte == b'\n') {
+            Some(at) => (&available[..at], true),
+            None => (available, false),
+        };
+        let room = MAX_LINE_BYTES.saturating_sub(line.len());
+        if room == 0 {
+            over = true;
+        } else {
+            let take = chunk.len().min(room);
+            line.push_str(&String::from_utf8_lossy(&chunk[..take]));
+            over |= take < chunk.len();
+        }
+        let consumed = chunk.len() + usize::from(done);
+        reader.consume(consumed);
+        if done {
+            break;
+        }
+    }
+    if over {
+        line.push_str(" …[line truncated]");
+    }
+    Ok(true)
+}
+
 fn is_probably_binary(bytes: &[u8]) -> bool {
     bytes.iter().take(8_000).any(|byte| *byte == 0)
 }
@@ -219,38 +269,49 @@ impl Tool for ReadFile {
         if target.dir.metadata(&target.rel).is_ok_and(|m| m.is_dir()) {
             return Err(format!("{path} is a directory; use list_dir"));
         }
-        let bytes = target
+        let file = target
             .dir
-            .read(&target.rel)
+            .open(&target.rel)
             .map_err(|err| fs_error("read", &path, cwd, &err))?;
-        if is_probably_binary(&bytes) {
+        let mut reader = BufReader::with_capacity(SNIFF_BYTES, file);
+        let head = reader
+            .fill_buf()
+            .map_err(|err| fs_error("read", &path, cwd, &err))?;
+        if is_probably_binary(head) {
             return Err(format!("{path} looks like a binary file"));
         }
-        let text = String::from_utf8_lossy(&bytes);
-        let total = text.lines().count();
         let offset = usize_arg(args, "offset").unwrap_or(1).max(1);
         let limit = usize_arg(args, "limit").unwrap_or(MAX_READ_LINES).max(1);
-        if offset > total && total > 0 {
+
+        let mut out = String::new();
+        let mut line = String::new();
+        let mut total = 0usize;
+        let mut shown = 0usize;
+        while read_line(&mut reader, &mut line).map_err(|err| fs_error("read", &path, cwd, &err))? {
+            total = total.saturating_add(1);
+            if total < offset || shown >= limit {
+                continue;
+            }
+            shown = shown.saturating_add(1);
+            let _ = writeln!(out, "{total:>5}| {line}");
+        }
+        if total == 0 {
+            return Ok(format!("{path} is empty"));
+        }
+        if offset > total {
             return Err(format!(
                 "offset {offset} is past the end of {path} ({total} lines)"
             ));
         }
-        let mut out = String::new();
-        for (index, line) in text.lines().enumerate().skip(offset - 1).take(limit) {
-            let _ = writeln!(out, "{:>5}| {line}", index + 1);
-        }
-        if out.is_empty() {
-            return Ok(format!("{path} is empty"));
-        }
-        let last = (offset + limit - 1).min(total);
+        let last = offset.saturating_add(shown).saturating_sub(1);
         if last < total {
             let _ = write!(
                 out,
                 "\n[showed lines {offset}-{last} of {total}; call read_file again with offset {} for more]",
-                last + 1
+                last.saturating_add(1)
             );
         }
-        Ok(cap(out, MAX_TOOL_OUTPUT))
+        Ok(out)
     }
 }
 
@@ -435,11 +496,16 @@ impl Tool for ListDir {
             .read_dir(&target.rel)
             .map_err(|err| fs_error("list", &path, cwd, &err))?;
         let mut rows: Vec<String> = Vec::new();
+        let mut capped = false;
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();
             let is_dir = entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false);
             if is_dir && SKIP_DIRS.contains(&name.as_str()) {
                 continue;
+            }
+            if rows.len() >= MAX_LIST_ENTRIES {
+                capped = true;
+                break;
             }
             rows.push(format!("{} {name}", if is_dir { "dir " } else { "file" }));
         }
@@ -447,7 +513,14 @@ impl Tool for ListDir {
             return Ok(format!("{path} is empty"));
         }
         rows.sort();
-        Ok(cap(rows.join("\n"), MAX_TOOL_OUTPUT))
+        let mut out = rows.join("\n");
+        if capped {
+            let _ = write!(
+                out,
+                "\n\n[stopped at {MAX_LIST_ENTRIES} entries; narrow the path or use grep]"
+            );
+        }
+        Ok(out)
     }
 }
 
@@ -547,21 +620,26 @@ impl Tool for Grep {
 }
 
 fn grep_file(dir: &Dir, rel: &Path, label: &str, regex: &regex::Regex, out: &mut Vec<String>) {
-    let Ok(bytes) = dir.read(rel) else {
+    let Ok(file) = dir.open(rel) else {
         return;
     };
-    if is_probably_binary(&bytes) {
+    let mut reader = BufReader::with_capacity(SNIFF_BYTES, file);
+    let Ok(head) = reader.fill_buf() else {
+        return;
+    };
+    if is_probably_binary(head) {
         return;
     }
-    let text = String::from_utf8_lossy(&bytes);
-    for (index, line) in text.lines().enumerate() {
+    let mut line = String::new();
+    let mut index = 0usize;
+    while read_line(&mut reader, &mut line).unwrap_or(false) {
+        index = index.saturating_add(1);
         if out.len() >= MAX_GREP_MATCHES {
             return;
         }
-        if regex.is_match(line) {
-            let line = line.trim_end();
-            let line: String = line.chars().take(400).collect();
-            out.push(format!("{label}:{}: {line}", index + 1));
+        if regex.is_match(&line) {
+            let shown: String = line.trim_end().chars().take(MAX_MATCH_CHARS).collect();
+            out.push(format!("{label}:{index}: {shown}"));
         }
     }
 }
@@ -606,7 +684,9 @@ fn walk_grep(dir: &Dir, prefix: &Path, regex: &regex::Regex, depth: usize, out: 
     }
 }
 
-pub struct RunCommand;
+pub struct RunCommand {
+    pub roots: Roots,
+}
 
 #[async_trait]
 impl Tool for RunCommand {
@@ -643,6 +723,11 @@ impl Tool for RunCommand {
             .unwrap_or(120)
             .max(1);
         let mut capture = process::Capture::new(MAX_TOOL_OUTPUT);
+        if let Some(path) = spill_path(&command)
+            && resolve(call.cwd, &path.to_string_lossy(), &self.roots).is_ok()
+        {
+            capture = capture.spilling(path);
+        }
         let spec = process::Spec::shell(&command)
             .in_dir(call.cwd)
             .within(Duration::from_secs(timeout));

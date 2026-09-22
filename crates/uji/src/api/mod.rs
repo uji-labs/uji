@@ -254,6 +254,7 @@ pub fn register(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Table> {
     uji.set("json", json::register(lua, api)?)?;
     uji.set("schedule", schedule::schedule(lua, api)?)?;
     uji.set("on", event::on(lua, api)?)?;
+    uji.set("off", event::off(lua, api)?)?;
     uji.set("emit", event::emit(lua, api)?)?;
     uji.set("notify", event::notify(lua, api)?)?;
     uji.set("command", command::command(lua, api)?)?;

@@ -93,11 +93,21 @@ impl Inner {
     }
 
     pub(crate) fn compile_policy(&self) {
-        let (policy, notices) = policy::compile(&self.lua);
+        let known = self.tool_names();
+        let (policy, notices) = policy::compile(&self.lua, &known);
         *self.policy.borrow_mut() = policy;
         for notice in notices {
             self.report(notice);
         }
+    }
+
+    fn tool_names(&self) -> std::collections::BTreeSet<String> {
+        uji_agent::tools::builtin_registry(uji_agent::tools::builtin::Roots::new(Vec::new()))
+            .specs()
+            .into_iter()
+            .map(|spec| spec.name)
+            .chain(self.api.lua_tools().borrow().keys().cloned())
+            .collect()
     }
 
     pub(crate) fn state(&self) -> Rc<RefCell<UiState>> {

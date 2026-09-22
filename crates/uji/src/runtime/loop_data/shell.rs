@@ -15,7 +15,6 @@ use super::LoopData;
 use crate::runtime::events;
 use crate::runtime::signal::Signal;
 
-/// A runaway command must not be able to push the transcript out of memory.
 const MAX_OUTPUT: usize = 64 * 1024;
 const FALLBACK_SHELL: &str = "/bin/sh";
 

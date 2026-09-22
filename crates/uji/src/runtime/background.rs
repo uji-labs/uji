@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use uji_agent::llm::context::{self, Cut};
-use uji_agent::llm::{Llm, Usage, summary, title};
+use uji_agent::llm::discover::{self, Windows};
+use uji_agent::llm::{Llm, LlmConfig, Provider, Usage, summary, title};
 use uji_agent::session::model::{Message, StoredMessage};
 
 use super::signal::Signal;
@@ -79,4 +80,34 @@ pub(crate) fn title(
         };
         let _ = sender.send(Signal::Title(event));
     });
+}
+
+pub(crate) struct ModelsEvent {
+    pub(crate) provider: String,
+    pub(crate) windows: Vec<Windows>,
+}
+
+pub(crate) fn model_windows(
+    runtime: &tokio::runtime::Runtime,
+    client: &Arc<reqwest::Client>,
+    providers: Vec<Provider>,
+    sender: &calloop::channel::Sender<Signal>,
+) {
+    for provider in providers {
+        let client = Arc::clone(client);
+        let sender = sender.clone();
+        runtime.spawn(async move {
+            let key =
+                LlmConfig::for_provider(provider.id.clone(), Some(&provider), String::new(), None)
+                    .resolve_key();
+            let windows = discover::windows(&client, &provider, key.as_deref()).await;
+            if windows.is_empty() {
+                return;
+            }
+            let _ = sender.send(Signal::Models(ModelsEvent {
+                provider: provider.id,
+                windows,
+            }));
+        });
+    }
 }

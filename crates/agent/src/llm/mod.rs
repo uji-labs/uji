@@ -2,6 +2,7 @@ pub mod agent;
 pub mod cancel;
 pub mod catalog;
 pub mod context;
+pub mod discover;
 pub mod error;
 pub mod event;
 pub mod prompt;
@@ -20,8 +21,10 @@ pub use catalog::{
     OAuthSession, Provider, Selection, ThinkingFormat, Wire, authenticated, resolve,
     resolve_from_storage,
 };
-pub use error::{HttpError, LlmError};
-pub(crate) use error::{RETRY_ATTEMPTS, backoff, clip, response_lines, send, status_error};
+pub use error::{HttpError, LlmError, http_client};
+pub(crate) use error::{
+    Progress, RETRY_ATTEMPTS, backoff, clip, response_lines, send, status_error,
+};
 pub use event::{StreamEvent, ToolDecision};
 pub use prompt::{DEFAULT_SYSTEM_PROMPT, system_prompt};
 pub use providers::anthropic::Anthropic;

@@ -24,6 +24,7 @@ impl LoopData {
     pub(crate) fn bootstrap(&mut self) -> std::io::Result<()> {
         self.frontend.draw(&self.app)?;
         self.inner.resolve_llm(&mut *self.storage);
+        self.discover_model_windows();
         self.inner.emit(events::Event::StatusChanged.name(), &[]);
         self.refresh_suggestions();
         self.frontend.draw(&self.app)?;
@@ -231,6 +232,7 @@ impl LoopData {
         let conversation = Rc::clone(self.app.conversation());
         self.inner = Inner::boot(state, conversation, client, self.config_dir.clone());
         self.inner.resolve_llm(&mut *self.storage);
+        self.discover_model_windows();
         self.refresh_suggestions();
         self.drain_diagnostics();
         self.inner.emit(events::Event::StatusChanged.name(), &[]);

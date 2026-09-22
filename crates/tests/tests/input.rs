@@ -1,5 +1,3 @@
-//! What a keypress does: sending, commands, chords, and the modals.
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -99,8 +97,6 @@ fn a_slash_is_a_command_and_anything_else_is_a_message() {
     );
 }
 
-/// Shift is how a capital is typed. The chord carries the character that was
-/// pressed, and that is what has to land in the draft.
 #[test]
 fn shift_types_a_capital() {
     let mut app = app();
@@ -110,8 +106,6 @@ fn shift_types_a_capital() {
     assert_eq!(app.input(), "ABc");
 }
 
-/// The bug that made `<C-w>` type a `w`: a chord is not a character, in the
-/// composer or in a modal.
 #[test]
 fn a_modified_key_never_types_its_letter() {
     let mut app = app();
@@ -157,7 +151,6 @@ fn a_newline_is_composed_and_sent_as_one_message() {
     );
 }
 
-/// Up walks the draft first and only then reaches for history.
 #[test]
 fn up_moves_within_a_multi_line_draft_before_it_recalls() {
     let mut app = app();
@@ -237,8 +230,6 @@ fn tab_completes_a_suggestion() {
     assert_eq!(app.input(), "/models ");
 }
 
-/// Editing the query has to rerank, or the list shows matches for text that is
-/// no longer there.
 #[test]
 fn typing_in_a_picker_reranks_it_and_a_page_key_walks_it() {
     let mut app = app();
@@ -305,7 +296,6 @@ fn the_default_bindings_follow_the_mode() {
     }
 }
 
-/// A binding names a key, not a character: `<C-a>` and `<C-A>` are one chord.
 #[test]
 fn a_binding_names_a_key_and_round_trips_through_its_name() {
     let keymap = Keymap::default();
