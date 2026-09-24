@@ -1,7 +1,7 @@
 # uji.tool
 
 uji ships four tools: `read_file`, `edit_file`, `write_file` and
-`run_command`. `uji.tool` adds your own, hides tools, and sets the rules that
+`run_command`. `uji.tool` adds your own, turns tools off, and sets the rules that
 decide which calls need your approval.
 
 ### uji.tool.add(name, spec)
@@ -62,8 +62,8 @@ end
 
 ### uji.tool.disable(names)
 
-Hides tools from the model without removing them. Plan mode uses this to take
-away the editing tools.
+Turns tools off. The model still sees them, and uji denies any call to them.
+Plan mode uses this to take away the editing tools.
 
 ```lua
 uji.tool.disable({ "edit_file", "write_file" })
@@ -71,7 +71,7 @@ uji.tool.disable({ "edit_file", "write_file" })
 
 ### uji.tool.enable(names)
 
-Shows tools that `uji.tool.disable` hid.
+Turns tools back on after `uji.tool.disable`.
 
 ```lua
 uji.tool.enable({ "edit_file", "write_file" })

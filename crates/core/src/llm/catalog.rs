@@ -9,7 +9,7 @@ use crate::session::store::{SessionStorage, Setting};
 
 use super::Llm;
 use super::bridge::{Bridge, Dispatch};
-use super::tuning::{Effort, Retention};
+use super::tuning::Effort;
 
 pub struct LlmConfig {
     pub provider: String,
@@ -378,7 +378,7 @@ pub struct Selection {
     pub name: String,
     pub model: String,
     pub effort: Effort,
-    pub cache: Retention,
+    pub caches: bool,
 }
 
 fn setting(storage: &mut dyn SessionStorage, key: &Setting) -> Option<String> {
@@ -406,20 +406,13 @@ pub fn resolve_from_storage(
         .and_then(|name| Effort::parse(&name))
         .filter(|_| known.is_some_and(|entry| entry.reasons(&model)))
         .unwrap_or_default();
-    let cache = setting(storage, &Setting::Cache)
-        .and_then(|name| Retention::parse(&name))
-        .unwrap_or_default();
-    let cache = if known.is_some_and(|entry| entry.caches(&model)) {
-        cache
-    } else {
-        Retention::Off
-    };
+    let caches = known.is_some_and(|entry| entry.caches(&model));
     Selection {
         llm: resolve(known.map(|entry| entry.wire.as_str()), &config, dispatch),
         name: known.map_or_else(|| provider_id.clone(), |entry| entry.name.clone()),
         id: provider_id,
         model,
         effort,
-        cache,
+        caches,
     }
 }

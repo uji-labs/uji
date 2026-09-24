@@ -9,8 +9,8 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.tool.add(name, spec)`](tool.md#ujitooladdname-spec) | Registers a tool the model can call, or replaces the tool with the same name. |
 | [`uji.tool.remove(name)`](tool.md#ujitoolremovename) | Removes a tool and returns `true` if it existed. |
 | [`uji.tool.list()`](tool.md#ujitoollist) | Returns the names of every registered tool. |
-| [`uji.tool.disable(names)`](tool.md#ujitooldisablenames) | Hides tools from the model without removing them. |
-| [`uji.tool.enable(names)`](tool.md#ujitoolenablenames) | Shows tools that `uji.tool.disable` hid. |
+| [`uji.tool.disable(names)`](tool.md#ujitooldisablenames) | Turns tools off. The model still sees them, and uji denies any call to them. |
+| [`uji.tool.enable(names)`](tool.md#ujitoolenablenames) | Turns tools back on after `uji.tool.disable`. |
 | [`uji.tool.policy(rules)`](tool.md#ujitoolpolicyrules) | Sets which tool calls run without asking, which ask first, and which uji refuses. |
 | [`uji.tool.confine(enabled)`](tool.md#ujitoolconfineenabled) | With `true`, limits `read_file`, `edit_file` and `write_file` to the working directory and the roots from `uji.tool.roots`. |
 | [`uji.tool.roots(paths)`](tool.md#ujitoolrootspaths) | Replaces the directories the file tools may reach besides the working directory, and returns the list. |
@@ -80,7 +80,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.context.add(name, provide, opts)`](context.md#ujicontextaddname-provide-opts) | Registers a function that uji calls at the start of every turn. |
 | [`uji.context.remove(name)`](context.md#ujicontextremovename) | Removes a context function and returns `true` if it existed. |
 | [`uji.context.list()`](context.md#ujicontextlist) | Returns the names of the context functions, in the order uji calls them. |
-| [`uji.context.configure(opts)`](context.md#ujicontextconfigureopts) | Sets when uji compacts. |
+| [`uji.context.configure(opts)`](context.md#ujicontextconfigureopts) | Sets how long the provider caches the conversation, and when uji compacts. |
 
 ## Events
 

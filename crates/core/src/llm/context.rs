@@ -80,12 +80,21 @@ pub fn summary_message(summary: &str, files: &[String]) -> Message {
 
 pub fn build(stored: &[StoredMessage]) -> Vec<Cow<'_, Message>> {
     let (checkpoint, rest) = split_at_compaction(stored);
-    let mut out = Vec::with_capacity(rest.len() + 1);
-    if let Some((summary, files)) = checkpoint {
-        out.push(Cow::Owned(summary_message(summary, files)));
-    }
-    out.extend(sanitize(rest));
-    out
+    let summary = checkpoint.map(|(summary, files)| Cow::Owned(summary_message(summary, files)));
+    let messages = rest.iter().filter_map(|entry| {
+        let message = &entry.message;
+        match message {
+            Message::User { .. }
+            | Message::Assistant { .. }
+            | Message::Tool { .. }
+            | Message::System { .. }
+            | Message::Error { .. } => Some(Cow::Borrowed(message)),
+            Message::Context { text } => Some(Cow::Owned(Message::User { text: text.clone() })),
+            // The user ran it, not the model: it stays out of the context.
+            Message::Shell { .. } | Message::Compaction { .. } => None,
+        }
+    });
+    summary.into_iter().chain(messages).collect()
 }
 
 type Checkpoint<'a> = (Option<(&'a str, &'a [String])>, &'a [StoredMessage]);
@@ -102,51 +111,6 @@ fn split_at_compaction(stored: &[StoredMessage]) -> Checkpoint<'_> {
         _ => None,
     };
     (checkpoint, &stored[at.saturating_add(1)..])
-}
-
-fn sanitize(stored: &[StoredMessage]) -> Vec<Cow<'_, Message>> {
-    let messages = || stored.iter().map(|entry| &entry.message);
-    let mut has_result: HashSet<&str> = HashSet::new();
-    for message in messages() {
-        if let Message::Tool { tool_call_id, .. } = message {
-            has_result.insert(tool_call_id.as_str());
-        }
-    }
-
-    let mut requested: HashSet<&str> = HashSet::new();
-    let mut out = Vec::with_capacity(stored.len());
-    for message in messages() {
-        match message {
-            Message::Assistant {
-                text,
-                tool_calls,
-                reasoning,
-            } if !tool_calls.is_empty() => {
-                let complete = tool_calls
-                    .iter()
-                    .all(|call| has_result.contains(call.id.as_str()));
-                if complete {
-                    requested.extend(tool_calls.iter().map(|call| call.id.as_str()));
-                    out.push(Cow::Borrowed(message));
-                } else if !text.is_empty() {
-                    out.push(Cow::Owned(Message::Assistant {
-                        text: text.clone(),
-                        tool_calls: Vec::new(),
-                        reasoning: reasoning.clone(),
-                    }));
-                }
-            }
-            Message::Tool { tool_call_id, .. } => {
-                if requested.contains(tool_call_id.as_str()) {
-                    out.push(Cow::Borrowed(message));
-                }
-            }
-            // The user ran it, not the model: it stays out of the context.
-            Message::Shell { .. } | Message::Compaction { .. } => {}
-            _ => out.push(Cow::Borrowed(message)),
-        }
-    }
-    out
 }
 
 const CHARS_PER_TOKEN: usize = 4;

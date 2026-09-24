@@ -19,6 +19,7 @@ The request has these fields:
 - `effort`, one of `off`, `minimal`, `low`, `medium` and `high`
 - `max_output`, the output token limit
 - `cache`, one of `off`, `short` and `long`
+- `session`, the session id
 - `provider`, with `id`, `base_url` and `compat`
 - `auth`, with `key`, and `oauth` for subscription sign-in
 

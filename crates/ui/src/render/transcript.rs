@@ -250,6 +250,10 @@ impl Transcript {
             self.reset();
         }
         for stored in &messages[self.folded..] {
+            self.last_seq = stored.seq;
+            if matches!(stored.message, Message::Context { .. }) {
+                continue;
+            }
             if self.grouping.separates(stored) {
                 self.lines.push(Line::from(""));
             }
@@ -257,7 +261,6 @@ impl Transcript {
                 render(&mut self.lines, Block::Thinking(reasoning), width);
             }
             render(&mut self.lines, Block::Message(stored), width);
-            self.last_seq = stored.seq;
         }
         self.folded = messages.len();
     }

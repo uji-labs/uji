@@ -4,6 +4,8 @@ use uji_core::session::model::{Message, Stamp, StoredMessage, ToolCall};
 use super::LoopData;
 use crate::runtime::events;
 
+const STOPPED: &str = "error: uji stopped before this tool returned a result";
+
 impl LoopData {
     pub(super) fn append(&mut self, message: Message) {
         let id = self.app.messages().info().id;
@@ -26,6 +28,23 @@ impl LoopData {
         self.inner
             .emit(&events::MessageAppended { kind, text: &text });
         self.dirty = true;
+    }
+
+    pub(super) fn answer_unanswered_calls(&mut self) {
+        let results: Vec<Message> = self
+            .app
+            .messages()
+            .unanswered_calls()
+            .into_iter()
+            .map(|call| Message::Tool {
+                tool_call_id: call.id.clone(),
+                name: call.name.clone(),
+                content: STOPPED.to_string(),
+            })
+            .collect();
+        for result in results {
+            self.append(result);
+        }
     }
 
     fn unsaved_stamp(&self) -> Stamp {

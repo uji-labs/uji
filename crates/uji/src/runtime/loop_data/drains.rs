@@ -21,6 +21,7 @@ use crate::runtime::{Inner, job};
 
 impl LoopData {
     pub(crate) fn bootstrap(&mut self) -> std::io::Result<()> {
+        self.answer_unanswered_calls();
         self.frontend.draw(&self.app)?;
         self.inner.resolve_llm(&mut *self.storage);
         self.discover_model_windows();

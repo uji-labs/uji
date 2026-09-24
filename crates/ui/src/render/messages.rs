@@ -244,6 +244,7 @@ fn push_message(
             );
         }
         Message::Compaction { .. } => push_divider(lines, width, palette),
+        Message::Context { .. } => {}
     }
 }
 

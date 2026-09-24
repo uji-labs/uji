@@ -45,6 +45,7 @@ local function guess(base_url)
         thinking = thinking,
         tool_result_name = false,
         finish_reason = true,
+        cache_key = has("api.openai.com"),
     }
 end
 
@@ -110,6 +111,7 @@ local function body(request, resolved)
         tools = common.nonempty(common.map(request.tools, tool)),
         stream = true,
         stream_options = { include_usage = true },
+        prompt_cache_key = resolved.cache_key and request.session or nil,
     }
     local limit = common.fit_thinking(request.effort, request.max_output)
     local level = request.effort ~= "off" and request.effort or nil

@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use serde::Deserialize;
 use strum::{Display, EnumString, IntoStaticStr, VariantArray};
 
 #[derive(
@@ -31,10 +32,9 @@ impl Effort {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, Display, EnumString, IntoStaticStr, VariantArray,
-)]
-#[strum(serialize_all = "snake_case", ascii_case_insensitive)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, IntoStaticStr, Deserialize)]
+#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum Retention {
     Off,
     #[default]
@@ -43,10 +43,6 @@ pub enum Retention {
 }
 
 impl Retention {
-    pub fn parse(name: &str) -> Option<Self> {
-        Self::from_str(name).ok()
-    }
-
     pub fn name(self) -> &'static str {
         self.into()
     }

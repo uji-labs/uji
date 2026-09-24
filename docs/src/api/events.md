@@ -74,8 +74,8 @@ You sent a message. The payload has `text`.
 ### message_appended
 
 A message joined the transcript. The payload has `type` and `text`. The type
-is one of `user`, `assistant`, `tool`, `system`, `shell`, `error` and
-`compaction`.
+is one of `user`, `assistant`, `tool`, `system`, `shell`, `error`,
+`compaction` and `context`.
 
 ### queue_changed
 

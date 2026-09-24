@@ -36,7 +36,7 @@ pub(crate) struct Inner {
     pub(crate) llm_model: String,
     pub(crate) llm_provider: String,
     pub(crate) llm_effort: uji_core::llm::Effort,
-    pub(crate) llm_cache: uji_core::llm::Retention,
+    pub(crate) llm_caches: bool,
     pub(crate) client: Arc<reqwest::Client>,
     pub(crate) policy: ToolPolicy,
     pub(crate) dispatch: Dispatch,
@@ -58,7 +58,7 @@ impl Inner {
             llm_model: String::new(),
             llm_provider: String::new(),
             llm_effort: uji_core::llm::Effort::default(),
-            llm_cache: uji_core::llm::Retention::default(),
+            llm_caches: false,
             client,
             policy: ToolPolicy::default(),
             dispatch,
@@ -225,7 +225,7 @@ impl Inner {
         self.llm_model.clone_from(&selection.model);
         self.llm_provider = selection.id;
         self.llm_effort = selection.effort;
-        self.llm_cache = selection.cache;
+        self.llm_caches = selection.caches;
         self.state().borrow_mut().set_active(ActiveModel {
             provider: Some(selection.name),
             model: Some(selection.model),

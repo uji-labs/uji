@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use mlua::{Function, Lua, LuaSerdeExt, Table, Value};
 use serde::Deserialize;
+use uji_core::llm::Retention;
 use uji_ui::config::overlay;
 
 use crate::api::Api;
@@ -37,6 +38,7 @@ struct CompactionConfig {
 #[serde(default, deny_unknown_fields)]
 struct ContextConfig {
     compaction: CompactionConfig,
+    cache: Option<Retention>,
 }
 
 impl Compaction {
@@ -83,6 +85,9 @@ pub(crate) fn configure(lua: &Lua, api: &Rc<Api>) -> mlua::Result<Function> {
     bind(lua, api, move |api, lua, opts: Table| {
         let config: ContextConfig = lua.from_value(Value::Table(opts))?;
         api.compaction().borrow_mut().apply(config.compaction);
+        if let Some(cache) = config.cache {
+            api.cache().set(cache);
+        }
         Ok(())
     })
 }

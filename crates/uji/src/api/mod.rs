@@ -45,7 +45,7 @@ use self::input::Composer;
 use self::job::Jobs;
 use self::registry::Registry;
 use self::tools::Tool;
-use uji_core::llm::Catalog;
+use uji_core::llm::{Catalog, Retention};
 use uji_ui::keymap::Keymap;
 
 pub struct Api {
@@ -71,6 +71,7 @@ pub struct Api {
     segments: RefCell<Registry>,
     context: RefCell<Registry>,
     compaction: RefCell<context::Compaction>,
+    cache: Cell<Retention>,
     rules: RefCell<tools::Rules>,
     next_handler: Cell<u64>,
     actions: RefCell<Actions>,
@@ -101,6 +102,7 @@ impl Api {
             segments: RefCell::default(),
             context: RefCell::default(),
             compaction: RefCell::default(),
+            cache: Cell::default(),
             rules: RefCell::default(),
             next_handler: Cell::new(0),
             actions: RefCell::default(),
@@ -175,6 +177,10 @@ impl Api {
 
     pub fn compaction(&self) -> &RefCell<context::Compaction> {
         &self.compaction
+    }
+
+    pub fn cache(&self) -> &Cell<Retention> {
+        &self.cache
     }
 
     pub fn rules(&self) -> &RefCell<tools::Rules> {

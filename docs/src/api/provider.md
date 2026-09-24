@@ -16,7 +16,7 @@ Adds a provider, or merges `spec` into the provider with the same `id`.
 | `auth_env` | list of strings | Environment variables that may hold the API key. |
 | `models` | list | Model ids, or tables with `id`, `context`, `output`, `reasoning` and `cache`. |
 | `context_window` | integer | The context size to assume for a model that does not set one. |
-| `compat` | table | Options for the wire, such as the name of the output limit field. |
+| `compat` | table | Options for the wire, such as the name of the output limit field. On `openai-chat`, `cache_key = true` sends the session id as `prompt_cache_key`, which the OpenAI API uses to reuse its cache. It is on for `api.openai.com`. |
 | `oauth` | table | Subscription sign-in settings. The built-in Anthropic and OpenAI providers show the format. |
 
 When the provider exists, each field you give replaces the old one, except

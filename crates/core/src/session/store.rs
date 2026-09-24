@@ -32,7 +32,6 @@ pub enum Setting {
     Model,
     BaseUrl,
     Effort,
-    Cache,
     ModelFor(String),
 }
 
@@ -43,7 +42,6 @@ impl Setting {
             Self::Model => "llm.model".into(),
             Self::BaseUrl => "llm.base_url".into(),
             Self::Effort => "llm.effort".into(),
-            Self::Cache => "llm.cache".into(),
             Self::ModelFor(provider) => format!("llm.model.{provider}").into(),
         }
     }

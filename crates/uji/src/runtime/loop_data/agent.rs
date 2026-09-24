@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use mlua::serde::SerializeOptions;
 use mlua::{Function, LuaSerdeExt, Table, Value as LuaValue};
 use serde::Serialize;
-use uji_core::llm::{ToolSpec, context};
+use uji_core::llm::{Retention, ToolSpec, context};
+use uji_core::session::id::SessionId;
 use uji_core::session::model::Message;
 use uji_ui::model::RunState;
 
@@ -23,6 +24,7 @@ struct Turn<'a> {
     effort: &'static str,
     max_output: u32,
     cache: &'static str,
+    session: SessionId,
 }
 
 impl LoopData {
@@ -44,10 +46,13 @@ impl LoopData {
         });
         self.maybe_title(text);
 
-        let (system, extra) = self.prompt(text);
+        let (system, context) = self.prompt(text);
+        for message in context {
+            self.append(message);
+        }
         let tools = self.gather_tools();
         self.start_working();
-        match self.start_turn(text, system, extra, tools) {
+        match self.start_turn(text, system, tools) {
             Ok(cancel) => self.turn.cancel = Some(cancel),
             Err(err) => {
                 self.fail_assistant(&format!("{LOOP}: {err}"));
@@ -60,10 +65,9 @@ impl LoopData {
         &self,
         text: &str,
         system: String,
-        extra: Vec<Message>,
         tools: Vec<ToolSpec>,
     ) -> mlua::Result<Function> {
-        let turn = self.encode_turn(text, system, extra, tools)?;
+        let turn = self.encode_turn(text, system, tools)?;
         let host = agent::host(&self.inner.lua, &self.inner.api)?;
         self.inner
             .require::<Table>(LOOP)?
@@ -75,12 +79,15 @@ impl LoopData {
         &self,
         text: &str,
         system: String,
-        extra: Vec<Message>,
         tools: Vec<ToolSpec>,
     ) -> mlua::Result<LuaValue> {
         let conversation = self.app.messages();
-        let mut messages = context::build(conversation.messages());
-        messages.extend(extra.into_iter().map(Cow::Owned));
+        let messages = context::build(conversation.messages());
+        let cache = if self.inner.llm_caches {
+            self.inner.api.cache().get()
+        } else {
+            Retention::Off
+        };
         let turn = Turn {
             text,
             system,
@@ -89,7 +96,8 @@ impl LoopData {
             model: &self.inner.llm_model,
             effort: self.inner.llm_effort.name(),
             max_output: self.max_output(),
-            cache: self.inner.llm_cache.name(),
+            cache: cache.name(),
+            session: conversation.info().id,
         };
         let options = SerializeOptions::new()
             .serialize_none_to_null(false)

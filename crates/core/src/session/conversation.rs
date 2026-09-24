@@ -1,10 +1,11 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use crate::llm::Usage;
 
 use super::id::SessionId;
-use super::model::{Message, Session, StoredMessage, UNTITLED};
+use super::model::{Message, Session, StoredMessage, ToolCall, UNTITLED};
 
 pub type Shared = Rc<RefCell<Conversation>>;
 
@@ -70,6 +71,25 @@ impl Conversation {
 
     pub fn messages(&self) -> &[StoredMessage] {
         &self.messages
+    }
+
+    pub fn unanswered_calls(&self) -> Vec<&ToolCall> {
+        let mut answered = HashSet::new();
+        for entry in self.messages.iter().rev() {
+            match &entry.message {
+                Message::Tool { tool_call_id, .. } => {
+                    answered.insert(tool_call_id.as_str());
+                }
+                Message::Assistant { tool_calls, .. } => {
+                    return tool_calls
+                        .iter()
+                        .filter(|call| !answered.contains(call.id.as_str()))
+                        .collect();
+                }
+                _ => break,
+            }
+        }
+        Vec::new()
     }
 
     pub fn push(&mut self, message: StoredMessage) {

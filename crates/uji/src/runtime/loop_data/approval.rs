@@ -51,6 +51,10 @@ impl LoopData {
     }
 
     pub(super) fn handle_tool_decision(&mut self, id: u64, name: &str, arguments: Table) {
+        if self.inner.api.access().borrow().disabled().contains(name) {
+            self.answer(id, Decision::Deny(format!("{name} is disabled")));
+            return;
+        }
         let verdict = self.policy_verdict(name, &arguments);
         let decision = self.inner.ask(&events::BeforeTool {
             name,
@@ -109,13 +113,11 @@ impl LoopData {
     }
 
     pub(super) fn gather_tools(&self) -> Vec<ToolSpec> {
-        let access = self.inner.api.access().borrow();
         self.inner
             .api
             .tools()
             .borrow()
             .iter()
-            .filter(|(name, _)| !access.disabled().contains(*name))
             .map(|(name, tool)| ToolSpec {
                 name: name.clone(),
                 description: tool.description.clone(),

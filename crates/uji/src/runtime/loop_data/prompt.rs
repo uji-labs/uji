@@ -47,7 +47,7 @@ impl LoopData {
                 continue;
             }
             if at_turn {
-                messages.push(Message::User { text });
+                messages.push(Message::Context { text });
             } else {
                 system.push_str("\n\n");
                 system.push_str(&text);

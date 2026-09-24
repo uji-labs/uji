@@ -66,6 +66,9 @@ pub enum Message {
         #[serde(default)]
         files: Vec<String>,
     },
+    Context {
+        text: String,
+    },
 }
 
 impl Message {
@@ -78,7 +81,8 @@ impl Message {
             Message::User { text }
             | Message::Assistant { text, .. }
             | Message::System { text }
-            | Message::Error { text } => text,
+            | Message::Error { text }
+            | Message::Context { text } => text,
             Message::Tool { content, .. } => content,
             Message::Shell { output, .. } => output,
             Message::Compaction { summary, .. } => summary,

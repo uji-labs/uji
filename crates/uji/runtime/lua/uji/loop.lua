@@ -157,6 +157,7 @@ function Turn:call()
         effort = self.effort,
         max_output = self.max_output,
         cache = self.cache,
+        session = self.session,
         provider = route.provider,
         auth = route.auth,
     }

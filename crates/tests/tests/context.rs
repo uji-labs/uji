@@ -1,6 +1,6 @@
 use uji_core::llm::context::build;
 use uji_core::session::id::{MessageId, now_millis};
-use uji_core::session::model::{Message, StoredMessage, ToolCall};
+use uji_core::session::model::{Message, StoredMessage};
 
 fn stored(seq: i64, message: Message) -> StoredMessage {
     StoredMessage {
@@ -37,28 +37,6 @@ fn a_shell_message_never_reaches_the_model() {
             .any(|message| message.text().contains("hunter2")),
         "shell output leaked into the context"
     );
-}
-
-#[test]
-fn a_tool_call_without_its_result_is_dropped() {
-    let history = [stored(
-        0,
-        Message::Assistant {
-            text: String::from("looking"),
-            tool_calls: vec![ToolCall {
-                id: String::from("call-1"),
-                name: String::from("read_file"),
-                arguments: String::from("{}"),
-            }],
-            reasoning: None,
-        },
-    )];
-    let context = build(&history);
-    assert!(matches!(
-        context.iter().map(AsRef::as_ref).collect::<Vec<&Message>>().as_slice(),
-        [Message::Assistant { text, tool_calls, .. }]
-            if text == "looking" && tool_calls.is_empty()
-    ));
 }
 
 #[test]
