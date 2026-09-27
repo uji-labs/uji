@@ -20,7 +20,7 @@ lint: scan
 
 # Structural rules only.
 scan:
-    ast-grep scan crates/core/src crates/ui/src crates/uji/src
+    ast-grep scan crates/kernel/src crates/uji/src
 
 # Unit + integration tests.
 test:

@@ -3,16 +3,12 @@ language: rust
 severity: error
 message: >-
   `RefCell` and `Cell` belong where state is shared by owners that cannot hold
-  `&mut`: the `Api` every Lua closure captures, and the caches the renderer
-  fills through `&App`. Anywhere else the type is plain data mutated through
-  `&mut self`, and whoever shares it wraps it as `RefCell<T>`. With `&mut` in
-  hand, use `get_mut()` rather than `borrow_mut()`.
+  `&mut`: the kernel's `Promise`, which several tasks await while another
+  resolves it. Anywhere else the type is plain data mutated through `&mut self`,
+  and whoever shares it wraps it as `RefCell<T>`. With `&mut` in hand, use
+  `get_mut()` rather than `borrow_mut()`.
 ignores:
-  - "crates/uji/src/api/mod.rs"
-  - "crates/ui/src/app/mod.rs"
-  - "crates/ui/src/app/overlay.rs"
-  - "crates/ui/src/app/scroll.rs"
-  - "crates/uji/src/runtime/renderer.rs"
+  - "crates/kernel/src/promise.rs"
 rule:
   kind: field_declaration
   has:

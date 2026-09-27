@@ -25,6 +25,7 @@
 - [uji.json](api/json.md)
 - [uji.pack](api/pack.md)
 - [Timers and notices](api/timers.md)
+- [Runtime](api/runtime.md)
 
 # Examples
 

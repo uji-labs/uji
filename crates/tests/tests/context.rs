@@ -1,14 +1,33 @@
-use uji_core::llm::context::build;
-use uji_core::session::id::{MessageId, now_millis};
-use uji_core::session::model::{Message, StoredMessage};
+use std::error::Error;
+
+use serde::Serialize;
+use uji_tests::{Message, probe};
+
+#[derive(Serialize)]
+struct StoredMessage {
+    seq: i64,
+    message: Message,
+}
 
 fn stored(seq: i64, message: Message) -> StoredMessage {
-    StoredMessage {
-        id: MessageId::new(),
-        seq,
-        time_created: now_millis(),
-        message,
-    }
+    StoredMessage { seq, message }
+}
+
+fn build(history: &[StoredMessage]) -> Result<Vec<Message>, Box<dyn Error>> {
+    let history = serde_json::to_string(history)?;
+    let seen = probe(&format!(
+        r#"
+        local view = require("uji.agent.view")
+        local stored = uji.json.decode({history:?}, {{ nulls = false }})
+        for _, message in ipairs(view.build(stored)) do
+            emit(message)
+        end
+    "#
+    ))?;
+    Ok(seen
+        .into_iter()
+        .map(serde_json::from_value)
+        .collect::<Result<_, _>>()?)
 }
 
 #[test]
@@ -29,7 +48,7 @@ fn a_shell_message_never_reaches_the_model() {
             },
         ),
     ];
-    let context = build(&history);
+    let context = build(&history).unwrap();
     assert_eq!(context.len(), 1);
     assert!(
         !context
@@ -63,7 +82,7 @@ fn a_compaction_cuts_the_history_it_summarised() {
             },
         ),
     ];
-    let context = build(&history);
+    let context = build(&history).unwrap();
     assert_eq!(context.len(), 2);
     assert!(context[0].text().contains("they said hello"));
     assert!(!context[0].text().contains("ancient history"));

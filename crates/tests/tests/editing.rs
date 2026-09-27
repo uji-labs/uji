@@ -1,9 +1,29 @@
-use uji_ui::app::{Composer, Line};
+use std::error::Error;
 
-fn typed(text: &str) -> Line {
-    let mut line = Line::default();
-    line.set(String::from(text));
-    line
+use serde_json::Value;
+use uji_tests::probe;
+
+const EDITING: &str = r#"
+local Composer = require("uji.ui.composer")
+local Line = require("uji.ui.line")
+
+local function typed(text)
+    local line = Line()
+    line:set(text)
+    return line
+end
+
+local function pasted(count)
+    local lines = {}
+    for at = 0, count - 1 do
+        lines[#lines + 1] = "line " .. at
+    end
+    return table.concat(lines, "\n")
+end
+"#;
+
+fn run(lua: &str) -> Result<Vec<Value>, Box<dyn Error>> {
+    probe(&format!("{EDITING}\n{lua}"))
 }
 
 fn pasted(lines: usize) -> String {
@@ -15,168 +35,247 @@ fn pasted(lines: usize) -> String {
 
 #[test]
 fn a_word_is_deleted_one_word_at_a_time() {
-    let mut line = typed("cargo run --release");
-    line.delete_word_back();
-    assert_eq!(line.text(), "cargo run ");
-    line.delete_word_back();
-    assert_eq!(line.text(), "cargo ");
-
-    let mut path = typed("open crates/ui/src");
-    path.delete_word_back();
-    assert_eq!(path.text(), "open ", "a path is one word");
+    let seen = run(r#"
+        local line = typed("cargo run --release")
+        line:delete_word_back()
+        emit(line.text)
+        line:delete_word_back()
+        emit(line.text)
+        local path = typed("open crates/ui/src")
+        path:delete_word_back()
+        emit(path.text)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], "cargo run ");
+    assert_eq!(seen[1], "cargo ");
+    assert_eq!(seen[2], "open ", "a path is one word");
 }
 
 #[test]
 fn word_motions_stop_where_a_word_starts() {
-    let mut line = typed("one two_three four");
-    line.home();
-    line.word_right();
-    assert_eq!(line.cursor(), 3);
-    line.word_right();
-    assert_eq!(line.cursor(), 13, "an underscore joins a word");
-    line.word_left();
-    assert_eq!(line.cursor(), 4);
-
-    let mut punctuated = typed("one ... two");
-    punctuated.word_left();
-    assert_eq!(punctuated.cursor(), 8, "separators are skipped first");
-    punctuated.word_left();
-    assert_eq!(punctuated.cursor(), 0);
+    let seen = run(r#"
+        local line = typed("one two_three four")
+        line:home()
+        line:word_right()
+        emit(line.cursor)
+        line:word_right()
+        emit(line.cursor)
+        line:word_left()
+        emit(line.cursor)
+        local punctuated = typed("one ... two")
+        punctuated:word_left()
+        emit(punctuated.cursor)
+        punctuated:word_left()
+        emit(punctuated.cursor)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], 3);
+    assert_eq!(seen[1], 13, "an underscore joins a word");
+    assert_eq!(seen[2], 4);
+    assert_eq!(seen[3], 8, "separators are skipped first");
+    assert_eq!(seen[4], 0);
 }
 
 #[test]
 fn a_kill_can_be_yanked_back() {
-    let mut line = typed("hello world");
-    line.home();
-    for _ in 0..5 {
-        line.right();
-    }
-    line.delete_to_start();
-    assert_eq!(line.text(), " world");
-    line.end();
-    line.yank();
-    assert_eq!(line.text(), " worldhello");
+    let seen = run(r#"
+        local line = typed("hello world")
+        line:home()
+        for _ = 1, 5 do
+            line:right()
+        end
+        line:delete_to_start()
+        emit(line.text)
+        line:tail()
+        line:yank()
+        emit(line.text)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], " world");
+    assert_eq!(seen[1], " worldhello");
 }
 
 #[test]
 fn a_kill_to_the_end_stops_at_the_newline() {
-    let mut line = typed("first\nsecond");
-    line.home();
-    line.up();
-    line.right();
-    line.right();
-    line.delete_to_end();
-    assert_eq!(line.text(), "fi\nsecond");
+    let seen = run(r#"
+        local line = typed("first\nsecond")
+        line:home()
+        line:up()
+        line:right()
+        line:right()
+        line:delete_to_end()
+        emit(line.text)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], "fi\nsecond");
 }
 
 #[test]
 fn a_multi_line_draft_moves_by_line_and_keeps_its_column() {
-    let mut line = typed("abcd\nefgh");
-    line.home();
-    line.right();
-    line.right();
-    assert_eq!(line.cursor(), 7, "column 2 of the second line");
-    assert!(line.up());
-    assert_eq!(line.cursor(), 2);
-    assert!(line.down());
-    assert_eq!(line.cursor(), 7);
-
-    let mut shorter = typed("ab\nlonger");
-    assert!(shorter.up());
-    assert_eq!(shorter.cursor(), 2, "clamped to the shorter line");
-
-    let mut single = typed("only one line");
-    assert!(!single.up());
-    assert!(!single.down());
+    let seen = run(r#"
+        local line = typed("abcd\nefgh")
+        line:home()
+        line:right()
+        line:right()
+        emit(line.cursor)
+        emit(line:up())
+        emit(line.cursor)
+        emit(line:down())
+        emit(line.cursor)
+        local shorter = typed("ab\nlonger")
+        emit(shorter:up())
+        emit(shorter.cursor)
+        local single = typed("only one line")
+        emit(single:up())
+        emit(single:down())
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], 7, "column 2 of the second line");
+    assert!(seen[1] == true);
+    assert_eq!(seen[2], 2);
+    assert!(seen[3] == true);
+    assert_eq!(seen[4], 7);
+    assert!(seen[5] == true);
+    assert_eq!(seen[6], 2, "clamped to the shorter line");
+    assert!(seen[7] != true);
+    assert!(seen[8] != true);
 }
 
 #[test]
 fn home_and_end_stay_on_the_line_the_cursor_is_on() {
-    let mut line = typed("first\nsecond");
-    line.home();
-    assert_eq!(line.cursor(), 6);
-    line.end();
-    assert_eq!(line.cursor(), 12);
+    let seen = run(r#"
+        local line = typed("first\nsecond")
+        line:home()
+        emit(line.cursor)
+        line:tail()
+        emit(line.cursor)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], 6);
+    assert_eq!(seen[1], 12);
 }
 
 #[test]
 fn editing_stays_on_character_boundaries() {
-    let mut line = typed("héllo wörld");
-    line.delete_word_back();
-    assert_eq!(line.text(), "héllo ");
-    line.backspace();
-    assert_eq!(line.text(), "héllo");
-    line.left();
-    line.left();
-    line.left();
-    line.backspace();
-    assert_eq!(line.text(), "hllo");
+    let seen = run(r#"
+        local line = typed("héllo wörld")
+        line:delete_word_back()
+        emit(line.text)
+        line:backspace()
+        emit(line.text)
+        line:left()
+        line:left()
+        line:left()
+        line:backspace()
+        emit(line.text)
+    "#)
+    .unwrap();
+    assert_eq!(seen[0], "héllo ");
+    assert_eq!(seen[1], "héllo");
+    assert_eq!(seen[2], "hllo");
 }
 
 #[test]
 fn moving_the_cursor_does_not_count_as_an_edit() {
-    let mut line = typed("text");
-    line.home();
-    let revision = line.revision();
-    line.right();
-    line.word_right();
-    line.end();
-    assert_eq!(line.revision(), revision);
-    line.insert('!');
-    assert_ne!(line.revision(), revision);
+    let seen = run(r#"
+        local line = typed("text")
+        line:home()
+        local revision = line.revision
+        line:right()
+        line:word_right()
+        line:tail()
+        emit(line.revision)
+        emit(revision)
+        line:insert("!")
+        emit(line.revision)
+    "#)
+    .unwrap();
+    let revision = &seen[1];
+    assert_eq!(&seen[0], revision);
+    assert_ne!(&seen[2], revision);
 }
 
 #[test]
 fn a_paste_is_one_marker_that_expands_when_it_is_sent() {
-    let mut composer = Composer::default();
-    composer.paste(&pasted(5));
-    assert!(composer.text().starts_with("[paste #1"));
-    assert_eq!(composer.take(), pasted(5));
+    let seen = run(r"
+        local composer = Composer()
+        composer:paste(pasted(5))
+        emit(composer:text())
+        emit(composer:take())
+    ")
+    .unwrap();
+    assert!(seen[0].as_str().unwrap().starts_with("[paste #1"));
+    assert_eq!(seen[1], pasted(5));
 }
 
 #[test]
 fn backspace_takes_a_whole_paste_marker() {
-    let mut composer = Composer::default();
-    composer.paste(&pasted(5));
-    composer.backspace();
-    assert_eq!(composer.text(), "");
+    let seen = run(r"
+        local composer = Composer()
+        composer:paste(pasted(5))
+        composer:backspace()
+        emit(composer:text())
+    ")
+    .unwrap();
+    assert_eq!(seen[0], "");
 }
 
 #[test]
 fn a_half_deleted_paste_marker_does_not_expand() {
-    let mut composer = Composer::default();
-    composer.edit(|line| line.insert('x'));
-    composer.paste(&pasted(5));
-    composer.edit(Line::delete_word_back);
+    let seen = run(r#"
+        local composer = Composer()
+        composer:edit(function(line)
+            line:insert("x")
+        end)
+        composer:paste(pasted(5))
+        composer:edit(Line.delete_word_back)
+        emit(composer:take())
+    "#)
+    .unwrap();
     assert!(
-        !composer.take().contains("line 0"),
+        !seen[0].as_str().unwrap().contains("line 0"),
         "expanded a marker that was partly deleted"
     );
 }
 
 #[test]
 fn a_trailing_backslash_continues_the_line() {
-    let mut composer = Composer::default();
-    composer.set(String::from("first \\"));
-    assert!(composer.continue_line());
-    assert_eq!(composer.text(), "first \n");
-    assert!(!composer.continue_line());
+    let seen = run(r#"
+        local composer = Composer()
+        composer:set("first \\")
+        emit(composer:continue_line())
+        emit(composer:text())
+        emit(composer:continue_line())
+    "#)
+    .unwrap();
+    assert!(seen[0] == true);
+    assert_eq!(seen[1], "first \n");
+    assert!(seen[2] != true);
 }
 
 #[test]
 fn history_recall_comes_back_to_the_draft() {
-    let mut composer = Composer::default();
-    composer.set(String::from("draft"));
-    let history = |back: usize| {
-        ["newest", "older"]
-            .get(back)
-            .map(|text| (*text).to_string())
-    };
-    assert!(composer.recall_prev(history));
-    assert_eq!(composer.text(), "newest");
-    assert!(composer.recall_prev(history));
-    assert_eq!(composer.text(), "older");
-    assert!(composer.recall_next(history));
-    assert!(composer.recall_next(history));
-    assert_eq!(composer.text(), "draft");
+    let seen = run(r#"
+        local composer = Composer()
+        composer:set("draft")
+        local history = { [0] = "newest", [1] = "older" }
+        local function lookup(back)
+            return history[back]
+        end
+        emit(composer:recall_prev(lookup))
+        emit(composer:text())
+        emit(composer:recall_prev(lookup))
+        emit(composer:text())
+        emit(composer:recall_next(lookup))
+        emit(composer:recall_next(lookup))
+        emit(composer:text())
+    "#)
+    .unwrap();
+    assert!(seen[0] == true);
+    assert_eq!(seen[1], "newest");
+    assert!(seen[2] == true);
+    assert_eq!(seen[3], "older");
+    assert!(seen[4] == true);
+    assert!(seen[5] == true);
+    assert_eq!(seen[6], "draft");
 }

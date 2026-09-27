@@ -3,19 +3,9 @@ language: rust
 severity: error
 message: >-
   `Rc` is for a value with several owners whose lifetimes cannot be written
-  down: the `Api` captured by Lua closures, and the UI state and conversation
-  that both the `App` and the `Api` hold. A value with one owner is owned
-  directly, or boxed when it is a trait object. Clone an `Rc` only where a new
-  owner is created, never to pass a value down a call.
-ignores:
-  - "crates/uji/src/api/mod.rs"
-  - "crates/uji/src/api/bind.rs"
-  - "crates/ui/src/app/mod.rs"
-  - "crates/uji/src/runtime/inner.rs"
-  - "crates/uji/src/runtime/renderer.rs"
-  - "crates/uji/src/runtime/loop_data/mod.rs"
-  - "crates/uji/src/runtime/loop_data/wires.rs"
-  - "crates/core/src/session/conversation.rs"
+  down. A value with one owner is owned directly, or boxed when it is a trait
+  object. Clone an `Rc` only where a new owner is created, never to pass a
+  value down a call.
 rule:
   any:
     - kind: field_declaration

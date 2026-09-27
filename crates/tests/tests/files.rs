@@ -1,8 +1,45 @@
-use uji_core::fs::Files;
+use std::io;
+
+use serde_json::Value;
 use uji_tests::Sandbox;
 
-fn files(sandbox: &Sandbox) -> Files {
-    Files::new(sandbox.work(), Vec::new(), false)
+struct Files<'a> {
+    sandbox: &'a Sandbox,
+}
+
+impl Files<'_> {
+    fn around(&self, target: &str, line: usize, count: usize) -> io::Result<Vec<String>> {
+        let seen = self
+            .sandbox
+            .probe(&format!(
+                r#"
+                local Roots = require("uji.system.roots")
+                local roots = Roots(require("uji.app").session.directory, {{}}, false)
+                local lines, err = roots:around({target:?}, {line}, {count})
+                emit(lines and {{ ok = uji.json.array(lines) }} or {{ err = err }})
+            "#
+            ))
+            .map_err(|err| io::Error::other(err.to_string()))?;
+        match &seen[0] {
+            Value::Object(found) if found.contains_key("ok") => Ok(found["ok"]
+                .as_array()
+                .map(|lines| {
+                    lines
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(String::from)
+                        .collect()
+                })
+                .unwrap_or_default()),
+            other => Err(io::Error::other(
+                other["err"].as_str().unwrap_or_default().to_string(),
+            )),
+        }
+    }
+}
+
+fn files(sandbox: &Sandbox) -> Files<'_> {
+    Files { sandbox }
 }
 
 #[test]

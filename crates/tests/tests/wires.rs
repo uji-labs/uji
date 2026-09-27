@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use serde_json::{Map, Value, json};
-use uji_core::llm::{Effort, Retention, ToolSpec};
-use uji_core::session::model::{Message, ToolCall};
-use uji_tests::{Reply, Request, Sandbox, Server, Until};
+use uji_tests::{
+    Effort, Message, Reply, Request, Retention, Sandbox, Server, ToolCall, ToolSpec, Until,
+};
 
 const IDENTITY: &str = "You are Claude Code, Anthropic's official CLI for Claude.";
 

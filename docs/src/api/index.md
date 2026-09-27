@@ -1,6 +1,6 @@
 # Available APIs
 
-Every function lives under the global `uji` table. A function that finishes later takes a callback as its last argument, which receives the result, or `nil` and an error message. A function that starts background work returns a function that stops it. Wrong arguments raise an error at the call.
+Every function lives under the global `uji` table. A function that finishes later takes a callback as its last argument, which receives the result, or `nil` and an error message. Called without the callback from a slash command, a key binding or a timer, it waits and returns the result instead. A function that starts background work returns a function that stops it. Wrong arguments raise an error at the call.
 
 ## Tools
 
@@ -171,3 +171,27 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.schedule(callback)`](timers.md#ujischedulecallback) | Runs `callback` once the code that called it has finished. |
 | [`uji.defer(seconds, callback)`](timers.md#ujideferseconds-callback) | Runs `callback` after a delay and returns a function that cancels it. |
 | [`uji.notify(message)`](timers.md#ujinotifymessage) | Shows a notice in the transcript. |
+
+## Runtime
+
+| Function | Does |
+|---|---|
+| [`uji.task.spawn(fn, ...)`](runtime.md#ujitaskspawnfn-) | Starts a function as a task that runs alongside the rest of uji. |
+| [`uji.sleep(seconds)`](runtime.md#ujisleepseconds) | Pauses the current task. |
+| [`uji.promise()`](runtime.md#ujipromise) | Returns a promise that tasks can wait on. |
+| [`uji.net.request(opts)`](runtime.md#ujinetrequestopts) | Sends an HTTP request and returns the answer. |
+| [`uji.net.open(opts)`](runtime.md#ujinetopenopts) | Sends an HTTP request and streams the answer. |
+| [`uji.net.listen(port)`](runtime.md#ujinetlistenport) | Accepts connections on a local port. |
+| [`uji.proc.spawn(argv, opts)`](runtime.md#ujiprocspawnargv-opts) | Starts a process. |
+| [`uji.db.open(path)`](runtime.md#ujidbopenpath) | Opens a SQLite database. |
+| [`uji.os`](runtime.md#system) | Reads the platform, the environment and the clock. |
+| [`uji.keychain`](runtime.md#ujikeychaingetservice-account) | Reads and writes secrets in the system keychain. |
+| [`uji.clipboard`](runtime.md#ujiclipboardget) | Reads and writes the system clipboard. |
+| [`uji.regex(pattern)`](runtime.md#ujiregexpattern) | Compiles a regular expression. |
+| [`uji.glob(pattern, opts)`](runtime.md#ujiglobpattern-opts) | Compiles a glob. |
+| [`uji.fuzzy(query, items)`](runtime.md#ujifuzzyquery-items) | Ranks strings against a query. |
+| [`uji.markdown(source)`](runtime.md#ujimarkdownsource) | Parses Markdown into events. |
+| [`uji.width(text)`](runtime.md#ujiwidthtext) | Measures text in terminal columns. |
+| [`uji.base64`](runtime.md#encoding) | Encodes and decodes base64. |
+| [`uji.sha256(data)`](runtime.md#encoding) | Hashes data. |
+| [`uji.random(count)`](runtime.md#encoding) | Returns random bytes. |

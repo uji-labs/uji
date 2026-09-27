@@ -10,20 +10,8 @@ description = "A coding agent you can shape with Lua"
 readme = "../../README.md"
 
 [dependencies]
-clap = { version = "4", features = ["derive"] }
-uji-core = { path = "../core" }
-uji-ui = { path = "../ui" }
-strum = { version = "0.28.0", features = ["derive"] }
-mlua = { version = "0.12", features = ["lua54", "vendored", "serialize"] }
-calloop = "0.14.4"
-thiserror = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-reqwest = { version = "0.12", features = ["json", "stream"] }
-futures-util = "0.3"
-tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "macros", "sync"] }
-regex = "1"
-globset = "0.4"
+uji-kernel = { path = "../kernel" }
+uji-lua = { path = "../../lua" }
 
 [lints]
 workspace = true

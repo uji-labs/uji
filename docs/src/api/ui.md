@@ -79,6 +79,7 @@ uji.ui.close_win(panel)
 
 Shows a list to choose from. `opts.title` is the title and `opts.items` is a
 list of strings. `on_done` receives the chosen item, or `nil` if you cancel.
+Without `on_done`, the call waits and returns the chosen item.
 
 ```lua
 uji.ui.select({ title = "Branch", items = { "main", "dev" } }, function(choice)
@@ -91,7 +92,8 @@ end)
 ### uji.ui.pick(opts, on_done)
 
 Shows a fuzzy finder with a preview pane. `on_done` receives the chosen item,
-or `nil` if you cancel.
+or `nil` if you cancel. Without `on_done`, the call waits and returns the
+chosen item.
 
 | Option | Type | Meaning |
 |---|---|---|
@@ -126,7 +128,7 @@ end)
 
 Asks for a line of text. `opts.title` is the question, `opts.value` fills the
 line, and `opts.hidden = true` masks the input. `on_done` receives the text,
-or `nil` if you cancel.
+or `nil` if you cancel. Without `on_done`, the call waits and returns the text.
 
 ```lua
 uji.ui.prompt({ title = "Commit message" }, function(message)

@@ -4,10 +4,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use uji_core::session::model::Message;
 use uji_tests::{
-    ALLOW_ALL, Reply, Request, SUBMIT, Sandbox, Server, Until, events, provider, text, tool_calls,
-    tool_results,
+    ALLOW_ALL, Message, Reply, Request, SUBMIT, Sandbox, Server, Until, events, provider, text,
+    tool_calls, tool_results,
 };
 
 type Ran = Result<Vec<Message>, Box<dyn Error>>;
