@@ -1,7 +1,10 @@
+use std::pin::pin;
 use std::time::Duration;
 
-use futures_util::future::{AbortHandle, Abortable};
-use mlua::{Function, IntoLuaMulti, Lua, MultiValue, Table, UserData, UserDataMethods};
+use futures_util::future::{self, AbortHandle, Abortable, Either};
+use mlua::{
+    Function, IntoLuaMulti, Lua, MultiValue, Table, UserData, UserDataMethods, Value, Variadic,
+};
 
 use crate::io;
 use crate::kernel::State;
@@ -52,6 +55,8 @@ pub(crate) fn register(lua: &Lua) -> mlua::Result<Table> {
             spawn(lua, &function, args)
         })?,
     )?;
+    task.set("race", race(lua)?)?;
+    task.set("timeout", timeout(lua)?)?;
     task.set(
         "on_error",
         lua.create_function(|lua, handler: Option<Function>| {
@@ -66,9 +71,40 @@ pub(crate) fn sleep(lua: &Lua) -> mlua::Result<Function> {
     lua.create_async_function(|lua, seconds: f64| async move {
         let duration = Duration::try_from_secs_f64(seconds)
             .map_err(|_| mlua::Error::runtime("sleep needs a number of seconds"))?;
-        io::run(io::handle(&lua)?, async move {
-            tokio::time::sleep(duration).await;
-        })
-        .await
+        io::sleep(&io::handle(&lua)?, duration).await;
+        Ok(())
+    })
+}
+
+fn race(lua: &Lua) -> mlua::Result<Function> {
+    lua.create_async_function(|_, functions: Variadic<Function>| async move {
+        if functions.is_empty() {
+            return Err(mlua::Error::runtime("race needs at least one function"));
+        }
+        let calls = functions
+            .iter()
+            .map(|function| Box::pin(function.call_async::<MultiValue>(())));
+        let (outcome, index, _) = future::select_all(calls).await;
+        let mut values = outcome?;
+        let position = i64::try_from(index.saturating_add(1)).unwrap_or(i64::MAX);
+        values.push_front(Value::Integer(position));
+        Ok(values)
+    })
+}
+
+fn timeout(lua: &Lua) -> mlua::Result<Function> {
+    lua.create_async_function(|lua, (seconds, function): (f64, Function)| async move {
+        let limit = Duration::try_from_secs_f64(seconds)
+            .map_err(|_| mlua::Error::runtime("timeout needs a number of seconds"))?;
+        let timer = io::sleep(&io::handle(&lua)?, limit);
+        let call = function.call_async::<MultiValue>(());
+        match future::select(pin!(call), pin!(timer)).await {
+            Either::Left((values, _)) => {
+                let mut values = values?;
+                values.push_front(Value::Boolean(true));
+                Ok(values)
+            }
+            Either::Right(((), _)) => Ok(MultiValue::from_vec(vec![Value::Boolean(false)])),
+        }
     })
 }

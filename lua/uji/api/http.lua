@@ -5,17 +5,18 @@ local TIMEOUT = 30
 local IDLE = 120
 
 local function streamed(opts)
+    local idle = opts.idle or IDLE
     local body, err = sys.net.open({
         url = opts.url,
         method = opts.method,
         headers = opts.headers,
         body = opts.body,
         timeout = opts.timeout,
+        idle = idle,
     })
     if not body then
         return nil, err
     end
-    local idle = opts.idle or IDLE
     local deadline = sys.os.clock() + idle
     local lines = {}
     while true do

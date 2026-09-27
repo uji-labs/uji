@@ -45,6 +45,7 @@ pub(crate) struct State {
     pub(crate) exit: Option<u8>,
     pub(crate) errors: Vec<String>,
     pub(crate) on_error: Option<Function>,
+    pub(crate) clipboard: Option<arboard::Clipboard>,
 }
 
 impl State {
@@ -110,6 +111,7 @@ fn drive(options: Options) -> Result<Outcome, Error> {
         exit: None,
         errors: Vec::new(),
         on_error: None,
+        clipboard: None,
     });
     let main = vm::entry(&lua, &options.entry)?;
     executor::spawn(&lua, &main, lua.create_sequence_from(options.args)?)?;

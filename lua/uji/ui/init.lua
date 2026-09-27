@@ -545,7 +545,12 @@ function Ui:frames()
         self.dirty = sys.promise()
         if not self.suspended then
             self.stream:reveal_step()
-            self:render()
+            local ok, err = pcall(self.render, self)
+            local problem = not ok and tostring(err) or nil
+            if problem and problem ~= self.failure then
+                notices.push("render: " .. problem)
+            end
+            self.failure = problem
             if self.stream:revealing() then
                 self:invalidate()
             end

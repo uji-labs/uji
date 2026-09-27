@@ -15,6 +15,7 @@ return {
     sha256 = uji.sha256,
     random = uji.random,
     width = uji.width,
+    lossy = uji.lossy,
     markdown = uji.markdown,
     regex = uji.regex,
     glob = uji.glob,

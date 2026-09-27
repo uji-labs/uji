@@ -1,3 +1,4 @@
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 
@@ -43,6 +44,113 @@ fn stat_of(metadata: &std::fs::Metadata) -> Stat {
             .ok()
             .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
             .and_then(|elapsed| i64::try_from(elapsed.as_millis()).ok()),
+    }
+}
+
+const NEWLINE: u8 = b'\n';
+const BUFFER: usize = 64 * 1024;
+
+#[derive(Serialize, Default)]
+struct Excerpt {
+    lines: Vec<String>,
+    cut: Vec<usize>,
+    total: Option<usize>,
+    binary: bool,
+}
+
+struct Window {
+    from: usize,
+    count: usize,
+    max: usize,
+    sniff: usize,
+    total: bool,
+}
+
+impl Window {
+    fn from_opts(opts: Option<&Table>) -> mlua::Result<Self> {
+        let number = |key: &str, default: usize| -> mlua::Result<usize> {
+            Ok(opts
+                .map(|opts| opts.get::<Option<usize>>(key))
+                .transpose()?
+                .flatten()
+                .unwrap_or(default))
+        };
+        Ok(Self {
+            from: number("from", 1)?.max(1),
+            count: number("count", usize::MAX)?,
+            max: number("max", usize::MAX)?,
+            sniff: number("sniff", 0)?,
+            total: opts
+                .map(|opts| opts.get::<Option<bool>>("total"))
+                .transpose()?
+                .flatten()
+                .unwrap_or(false),
+        })
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<Excerpt> {
+        let file = std::fs::File::open(path)?;
+        let mut reader = BufReader::with_capacity(BUFFER.max(self.sniff), file);
+        let mut excerpt = Excerpt::default();
+        if self.sniff > 0 {
+            let head = reader.fill_buf()?;
+            if head[..head.len().min(self.sniff)].contains(&0) {
+                excerpt.binary = true;
+                return Ok(excerpt);
+            }
+        }
+        let mut number = 0usize;
+        let mut line = Vec::new();
+        loop {
+            let wanted = number.saturating_add(1) >= self.from && excerpt.lines.len() < self.count;
+            if !wanted && !self.total && excerpt.lines.len() >= self.count {
+                break;
+            }
+            let keep = if wanted { self.max } else { 0 };
+            let Some(truncated) = next_line(&mut reader, &mut line, keep)? else {
+                break;
+            };
+            number = number.saturating_add(1);
+            if wanted {
+                excerpt
+                    .lines
+                    .push(String::from_utf8_lossy(&line).into_owned());
+                if truncated {
+                    excerpt.cut.push(excerpt.lines.len());
+                }
+            }
+        }
+        if self.total {
+            excerpt.total = Some(number);
+        }
+        Ok(excerpt)
+    }
+}
+
+fn next_line(
+    reader: &mut impl BufRead,
+    line: &mut Vec<u8>,
+    keep: usize,
+) -> std::io::Result<Option<bool>> {
+    line.clear();
+    let mut started = false;
+    let mut truncated = false;
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            return Ok(started.then_some(truncated));
+        }
+        started = true;
+        let ended = available.iter().position(|byte| *byte == NEWLINE);
+        let chunk = ended.map_or(available, |at| &available[..at]);
+        let take = chunk.len().min(keep.saturating_sub(line.len()));
+        line.extend_from_slice(&chunk[..take]);
+        truncated |= take < chunk.len();
+        let consumed = chunk.len().saturating_add(usize::from(ended.is_some()));
+        reader.consume(consumed);
+        if ended.is_some() {
+            return Ok(Some(truncated));
+        }
     }
 }
 
@@ -107,6 +215,17 @@ pub(crate) fn register(lua: &Lua) -> mlua::Result<Table> {
         lua.create_async_function(|lua, path: String| async move {
             match io::run(io::handle(&lua)?, tokio::fs::read(path)).await? {
                 Ok(bytes) => Value::String(lua.create_string(bytes)?).into_lua_multi(&lua),
+                Err(err) => io::failure(&lua, &err),
+            }
+        })?,
+    )?;
+    fs.set(
+        "lines",
+        lua.create_async_function(|lua, (path, opts): (String, Option<Table>)| async move {
+            let window = Window::from_opts(opts.as_ref())?;
+            let read = io::blocking(io::handle(&lua)?, move || window.read(&path)).await?;
+            match read {
+                Ok(excerpt) => lua.to_value(&excerpt)?.into_lua_multi(&lua),
                 Err(err) => io::failure(&lua, &err),
             }
         })?,

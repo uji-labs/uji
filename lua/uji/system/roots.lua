@@ -4,7 +4,6 @@ local sys = require("uji.sys")
 
 local SNIFF_BYTES = 8192
 local PREVIEW_LINE = 2000
-local REPLACEMENT = "\239\191\189"
 
 local Roots = class()
 
@@ -84,26 +83,7 @@ function Roots:read(target)
     return bytes
 end
 
-local function lossy_cut(line, max)
-    if #line <= max then
-        return line, false
-    end
-    local kept = line:sub(1, max)
-    local lead = #kept
-    while lead > 0 and kept:byte(lead) >= 128 and kept:byte(lead) < 192 do
-        lead = lead - 1
-    end
-    if lead > 0 then
-        local byte = kept:byte(lead)
-        local need = byte >= 240 and 4 or byte >= 224 and 3 or byte >= 192 and 2 or 1
-        if lead + need - 1 > #kept then
-            kept = kept:sub(1, lead - 1) .. REPLACEMENT
-        end
-    end
-    return kept, true
-end
-
-function Roots:text(target)
+function Roots:excerpt(target, window)
     local full, err = self:resolve(target)
     if not full then
         return nil, err
@@ -112,56 +92,32 @@ function Roots:text(target)
     if stat and stat.type == "dir" then
         return nil, target .. " is a directory, not a file"
     end
-    local bytes, failure = sys.fs.read(full)
-    if not bytes then
+    window.sniff = SNIFF_BYTES
+    local read, failure = sys.fs.lines(full, window)
+    if not read then
         return nil, self:failed("read", target, failure)
     end
-    if bytes:sub(1, SNIFF_BYTES):find("\0", 1, true) then
+    if read.binary then
         return nil, target .. " looks like a binary file"
     end
-    return bytes
-end
-
-local function each_line(text)
-    local at = 1
-    local size = #text
-    return function()
-        if at > size then
-            return nil
-        end
-        local stop = text:find("\n", at, true)
-        local line
-        if stop then
-            line = text:sub(at, stop - 1)
-            at = stop + 1
-        else
-            line = text:sub(at)
-            at = size + 1
-        end
-        return line
-    end
+    return read
 end
 
 function Roots:lines(target, window)
-    local text, err = self:text(target)
-    if not text then
+    local read, err = self:excerpt(target, {
+        from = window.offset or 1,
+        count = window.limit,
+        max = window.max_line,
+        total = true,
+    })
+    if not read then
         return nil, err
     end
-    local offset = window.offset or 1
-    local limit = window.limit or math.huge
-    local max = window.max_line or math.huge
-    local out = { lines = {}, cut = {}, total = 0 }
-    for line in each_line(text) do
-        out.total = out.total + 1
-        if out.total >= offset and #out.lines < limit then
-            local kept, truncated = lossy_cut(line, max)
-            out.lines[#out.lines + 1] = kept
-            if truncated then
-                out.cut[#out.lines] = true
-            end
-        end
+    local cut = {}
+    for _, index in ipairs(read.cut) do
+        cut[index] = true
     end
-    return out
+    return { lines = read.lines, cut = cut, total = read.total }
 end
 
 function Roots:write(target, content)
@@ -183,24 +139,14 @@ function Roots:write(target, content)
 end
 
 function Roots:around(target, line, count)
-    local text, err = self:text(target)
-    if not text then
+    local start = math.max(math.max(line - 1, 0) - math.floor(count / 4), 0)
+    local read, err = self:excerpt(target, { from = start + 1, count = count, max = PREVIEW_LINE })
+    if not read then
         return nil, err
     end
-    local start = math.max(line - 1, 0) - math.floor(count / 4)
-    start = math.max(start, 0)
-    local stop = start + count
     local out = {}
-    local at = 0
-    for current in each_line(text) do
-        if at >= stop then
-            break
-        end
-        at = at + 1
-        if at > start then
-            local shown = lossy_cut(current, PREVIEW_LINE):gsub("\r$", "")
-            out[#out + 1] = string.format("%5d| %s", at, shown)
-        end
+    for index, text in ipairs(read.lines) do
+        out[index] = string.format("%5d| %s", start + index, (text:gsub("\r$", "")))
     end
     return out
 end

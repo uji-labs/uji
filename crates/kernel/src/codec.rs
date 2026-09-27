@@ -203,12 +203,18 @@ pub(crate) fn install(lua: &Lua, uji: &Table) -> mlua::Result<()> {
         })?,
     )?;
     uji.set(
+        "lossy",
+        lua.create_function(|_, data: mlua::LuaString| Ok(data.to_string_lossy()))?,
+    )?;
+    uji.set(
         "width",
-        lua.create_function(|_, text: mlua::LuaString| Ok(text.to_str()?.width()))?,
+        lua.create_function(|_, text: mlua::LuaString| Ok(text.to_string_lossy().width()))?,
     )?;
     uji.set(
         "markdown",
-        lua.create_function(|lua, source: mlua::LuaString| markdown(lua, &source.to_str()?))?,
+        lua.create_function(|lua, source: mlua::LuaString| {
+            markdown(lua, &source.to_string_lossy())
+        })?,
     )?;
     Ok(())
 }

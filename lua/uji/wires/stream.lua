@@ -207,6 +207,7 @@ local function run(spec, reply)
         method = "POST",
         headers = headers,
         body = uji.json.encode(spec.body),
+        idle = M.idle,
     })
     if not body then
         return nil, { kind = "http", message = err }

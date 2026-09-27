@@ -86,7 +86,7 @@ impl Screen {
         let mut at = col;
         match spans {
             Value::String(text) => {
-                at = self.put((at, row), right, &text.to_str()?, Style::default());
+                at = self.put((at, row), right, &text.to_string_lossy(), Style::default());
             }
             Value::Table(spans) => {
                 for span in spans.sequence_values::<Value>() {
@@ -103,7 +103,7 @@ impl Screen {
                             )));
                         }
                     };
-                    at = self.put((at, row), right, &text.to_str()?, style);
+                    at = self.put((at, row), right, &text.to_string_lossy(), style);
                 }
             }
             Value::Nil => {}

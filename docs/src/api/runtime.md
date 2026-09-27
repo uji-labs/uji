@@ -26,6 +26,18 @@ closed.
 
 Waits. Pauses the task for `seconds`, which may be a fraction.
 
+### uji.task.race(fn, ...)
+
+Waits. Runs every function at once inside the current task and returns the
+position of the first to finish, followed by what it returned. The others stop
+there. An error in the first to finish is raised again. Cancelling the current
+task stops all of them.
+
+### uji.task.timeout(seconds, fn)
+
+Waits. Runs `fn` inside the current task and returns `true` followed by what it
+returned, or `false` when `seconds` pass first, in which case `fn` stops there.
+
 ### uji.promise()
 
 Returns a promise that tasks can wait on until another task settles it.
@@ -77,7 +89,7 @@ Listens for connections on `port` on the local machine, or on a free port when
 | `server.port` | The port it listens on. |
 | `server:accept()` | Waits. Returns the next connection, or `nil` and an error message once the server is closed. |
 | `server:close()` | Stops listening. |
-| `conn:line()` | Waits. Returns the next line, or `nil` when the other side closes. |
+| `conn:line(seconds)` | Waits. Returns the next line, `nil` when the other side closes, or `false` when `seconds` pass first. Without `seconds` it waits as long as the line takes. |
 | `conn:read(count)` | Waits. Returns exactly `count` bytes. |
 | `conn:write(data)` | Waits. Sends `data`. |
 | `conn:close()` | Waits. Closes the connection. |
@@ -188,6 +200,11 @@ end byte positions in `source`.
 ### uji.width(text)
 
 Returns how many terminal columns `text` takes.
+
+### uji.lossy(data)
+
+Returns `data` as valid UTF-8, with each invalid byte sequence replaced by
+U+FFFD.
 
 ## Encoding
 

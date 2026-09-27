@@ -52,35 +52,37 @@ function M.defer(seconds, fn, ...)
     end
 end
 
-function M.race(...)
-    local promise = sys.promise()
-    local tasks = {}
-    for index, fn in ipairs({ ... }) do
-        tasks[index] = sys.task.spawn(function()
-            promise:resolve(index, pack(pcall(fn)))
-        end)
+local function guarded(fn)
+    return function()
+        return pack(pcall(fn))
     end
-    local index, outcome = promise:await()
-    for _, task in ipairs(tasks) do
-        task:cancel()
-    end
+end
+
+local function settle(outcome)
     if not outcome[1] then
         error(outcome[2], 0)
     end
-    return index, unpack(outcome, 2, outcome.n)
+    return unpack(outcome, 2, outcome.n)
+end
+
+function M.race(...)
+    local racers = {}
+    for index, fn in ipairs({ ... }) do
+        racers[index] = guarded(fn)
+    end
+    local index, outcome = sys.task.race(unpack(racers))
+    return index, settle(outcome)
 end
 
 function M.timeout(seconds, fn)
     if not seconds then
         return true, fn()
     end
-    local results = pack(M.race(fn, function()
-        sys.sleep(seconds)
-    end))
-    if results[1] ~= 1 then
+    local finished, outcome = sys.task.timeout(seconds, guarded(fn))
+    if not finished then
         return false
     end
-    return true, unpack(results, 2, results.n)
+    return true, settle(outcome)
 end
 
 function M.callback(run)

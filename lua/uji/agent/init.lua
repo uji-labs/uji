@@ -233,7 +233,7 @@ end
 
 function Agent:tool_result(call, content)
     event.emit("tool_progress", {})
-    self:append({ type = "tool", tool_call_id = call.id, name = call.name, content = content })
+    self:append({ type = "tool", tool_call_id = call.id, name = call.name, content = sys.lossy(content) })
     if self.turn then
         self.turn.answered[call.id] = true
         self.turn.running = nil

@@ -7,8 +7,8 @@ use std::pin::pin;
 use futures_util::StreamExt;
 use futures_util::future::{self, Either};
 use mlua::{
-    AnyUserData, Function, IntoLuaMulti, Lua, LuaSerdeExt, MultiValue, ObjectLike, Table, UserData,
-    UserDataFields, UserDataMethods, Value,
+    AnyUserData, IntoLuaMulti, Lua, LuaSerdeExt, MultiValue, Table, UserData, UserDataFields,
+    UserDataMethods, Value,
 };
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method, Url};
@@ -16,6 +16,7 @@ use serde::Serialize;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::{Mutex, mpsc, oneshot};
 
 use crate::io::{self, Abort};
@@ -177,19 +178,50 @@ struct Chunks {
     done: bool,
 }
 
+enum Ready {
+    Line(Vec<u8>),
+    End,
+    Wait,
+}
+
 impl Chunks {
+    fn split(&mut self) -> Option<Vec<u8>> {
+        let at = self.buffer.iter().position(|byte| *byte == NEWLINE)?;
+        let mut line: Vec<u8> = self.buffer.drain(..=at).collect();
+        line.pop();
+        if line.last() == Some(&RETURN) {
+            line.pop();
+        }
+        Some(line)
+    }
+
+    fn remainder(&mut self) -> Option<Vec<u8>> {
+        (!self.buffer.is_empty()).then(|| std::mem::take(&mut self.buffer))
+    }
+
+    fn ready(&mut self) -> Result<Ready, NetError> {
+        loop {
+            if let Some(line) = self.split() {
+                return Ok(Ready::Line(line));
+            }
+            if self.done {
+                return Ok(self.remainder().map_or(Ready::End, Ready::Line));
+            }
+            match self.receiver.try_recv() {
+                Ok(chunk) => self.buffer.extend(chunk?),
+                Err(TryRecvError::Empty) => return Ok(Ready::Wait),
+                Err(TryRecvError::Disconnected) => self.done = true,
+            }
+        }
+    }
+
     async fn line(&mut self) -> Result<Option<Vec<u8>>, NetError> {
         loop {
-            if let Some(at) = self.buffer.iter().position(|byte| *byte == NEWLINE) {
-                let mut line: Vec<u8> = self.buffer.drain(..=at).collect();
-                line.pop();
-                if line.last() == Some(&RETURN) {
-                    line.pop();
-                }
+            if let Some(line) = self.split() {
                 return Ok(Some(line));
             }
             if self.done {
-                return Ok((!self.buffer.is_empty()).then(|| std::mem::take(&mut self.buffer)));
+                return Ok(self.remainder());
             }
             self.pull().await?;
         }
@@ -217,6 +249,34 @@ pub(crate) struct Body {
     _task: Abort,
 }
 
+impl Body {
+    async fn line(&self, lua: Lua, limit: Option<Duration>) -> mlua::Result<MultiValue> {
+        let mut chunks = self.chunks.lock().await;
+        let read = match chunks.ready() {
+            Ok(Ready::Line(line)) => Ok(Some(line)),
+            Ok(Ready::End) => Ok(None),
+            Err(err) => Err(err),
+            Ok(Ready::Wait) => match limit {
+                None => chunks.line().await,
+                Some(limit) => {
+                    let timer = io::sleep(&io::handle(&lua)?, limit);
+                    match future::select(pin!(chunks.line()), pin!(timer)).await {
+                        Either::Left((read, _)) => read,
+                        Either::Right(((), _)) => {
+                            return Value::Boolean(false).into_lua_multi(&lua);
+                        }
+                    }
+                }
+            },
+        };
+        match read {
+            Ok(Some(line)) => Value::String(lua.create_string(line)?).into_lua_multi(&lua),
+            Ok(None) => Ok(MultiValue::new()),
+            Err(err) => io::failure(&lua, &err),
+        }
+    }
+}
+
 impl UserData for Body {
     fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("status", |_, body| Ok(body.head.status));
@@ -225,37 +285,13 @@ impl UserData for Body {
 
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_async_method("line", |lua, body, wait: Option<f64>| async move {
-            let limit = wait
-                .map(|seconds| {
-                    Duration::try_from_secs_f64(seconds)
-                        .map_err(|_| mlua::Error::runtime("line needs a number of seconds"))
-                })
-                .transpose()?;
-            let mut chunks = body.chunks.lock().await;
-            let read = match limit {
-                None => chunks.line().await,
-                Some(limit) => {
-                    let timer = io::run(io::handle(&lua)?, async move {
-                        tokio::time::sleep(limit).await;
-                    });
-                    match future::select(pin!(chunks.line()), pin!(timer)).await {
-                        Either::Left((read, _)) => read,
-                        Either::Right((slept, _)) => {
-                            slept?;
-                            return Value::Boolean(false).into_lua_multi(&lua);
-                        }
-                    }
-                }
-            };
-            match read {
-                Ok(Some(line)) => Value::String(lua.create_string(line)?).into_lua_multi(&lua),
-                Ok(None) => Ok(MultiValue::new()),
-                Err(err) => io::failure(&lua, &err),
-            }
+            body.line(lua, io::limit(wait)?).await
         });
-        methods.add_function("lines", |_, body: AnyUserData| {
-            let line: Function = body.get("line")?;
-            Ok((line, body))
+        methods.add_function("lines", |lua, body: AnyUserData| {
+            lua.create_async_function(move |lua, ()| {
+                let body = body.clone();
+                async move { body.borrow::<Body>()?.line(lua, None).await }
+            })
         });
         methods.add_async_method("read", |lua, body, ()| async move {
             match body.chunks.lock().await.rest().await {
@@ -360,9 +396,20 @@ impl UserData for Server {
 
 impl UserData for Conn {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
-        methods.add_async_method("line", |lua, conn, ()| async move {
-            let read = io::run(io::handle(&lua)?, read_line(Arc::clone(&conn.reader))).await?;
-            io::settle(&lua, read)
+        methods.add_async_method("line", |lua, conn, wait: Option<f64>| async move {
+            let limit = io::limit(wait)?;
+            let reader = Arc::clone(&conn.reader);
+            let read = io::run(io::handle(&lua)?, async move {
+                match limit {
+                    Some(limit) => tokio::time::timeout(limit, read_line(reader)).await.ok(),
+                    None => Some(read_line(reader).await),
+                }
+            })
+            .await?;
+            match read {
+                Some(read) => io::settle(&lua, read),
+                None => Value::Boolean(false).into_lua_multi(&lua),
+            }
         });
         methods.add_async_method("read", |lua, conn, count: usize| async move {
             let read = io::run(

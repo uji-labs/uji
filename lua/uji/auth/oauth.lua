@@ -3,6 +3,7 @@ local sys = require("uji.sys")
 local task = require("uji.task")
 
 local CALLBACK_TIMEOUT = 300
+local READ_TIMEOUT = 5
 local EXPIRY_SKEW = 300
 local MAX_ERROR_BODY = 500
 local LAUNCHERS = { macos = "open", windows = "explorer", linux = "xdg-open", other = "xdg-open" }
@@ -126,7 +127,7 @@ function Flow:url()
 end
 
 function Flow:serve(conn)
-    local line = conn:line()
+    local line = conn:line(READ_TIMEOUT)
     local target = line and line:match("^%S+%s+(%S+)")
     if not target then
         conn:close()

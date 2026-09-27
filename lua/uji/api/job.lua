@@ -29,6 +29,22 @@ local function call(handler, ...)
     end
 end
 
+local function ordered()
+    local last
+    return function(operation)
+        local before = last
+        local done = sys.promise()
+        last = done
+        task.spawn(function()
+            if before then
+                before:await()
+            end
+            pcall(operation)
+            done:resolve()
+        end)
+    end
+end
+
 local function start(opts)
     local command = argv(opts.cmd)
     local cwd = opts.cwd or (app.session and app.session.directory)
@@ -62,18 +78,19 @@ local function start(opts)
         end
         call(opts.on_exit, exit.code or -1)
     end)
+    local queue = ordered()
     return {
         send = function(text)
             local data = tostring(text)
             if data:sub(-1) ~= "\n" then
                 data = data .. "\n"
             end
-            task.spawn(function()
+            queue(function()
                 proc:write(data)
             end)
         end,
         close = function()
-            task.spawn(function()
+            queue(function()
                 proc:close()
             end)
         end,

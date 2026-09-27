@@ -178,6 +178,8 @@ Every function lives under the global `uji` table. A function that finishes late
 |---|---|
 | [`uji.task.spawn(fn, ...)`](runtime.md#ujitaskspawnfn-) | Starts a function as a task that runs alongside the rest of uji. |
 | [`uji.sleep(seconds)`](runtime.md#ujisleepseconds) | Pauses the current task. |
+| [`uji.task.race(fn, ...)`](runtime.md#ujitaskracefn-) | Runs functions at once and returns the first to finish. |
+| [`uji.task.timeout(seconds, fn)`](runtime.md#ujitasktimeoutseconds-fn) | Runs a function with a time limit. |
 | [`uji.promise()`](runtime.md#ujipromise) | Returns a promise that tasks can wait on. |
 | [`uji.net.request(opts)`](runtime.md#ujinetrequestopts) | Sends an HTTP request and returns the answer. |
 | [`uji.net.open(opts)`](runtime.md#ujinetopenopts) | Sends an HTTP request and streams the answer. |
@@ -192,6 +194,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.fuzzy(query, items)`](runtime.md#ujifuzzyquery-items) | Ranks strings against a query. |
 | [`uji.markdown(source)`](runtime.md#ujimarkdownsource) | Parses Markdown into events. |
 | [`uji.width(text)`](runtime.md#ujiwidthtext) | Measures text in terminal columns. |
+| [`uji.lossy(data)`](runtime.md#ujilossydata) | Turns bytes into valid UTF-8. |
 | [`uji.base64`](runtime.md#encoding) | Encodes and decodes base64. |
 | [`uji.sha256(data)`](runtime.md#encoding) | Hashes data. |
 | [`uji.random(count)`](runtime.md#encoding) | Returns random bytes. |

@@ -23,11 +23,12 @@ impl Matcher {
 impl UserData for Matcher {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("test", |_, matcher, subject: mlua::LuaString| {
-            Ok(matcher.find(&subject.to_str()?).is_some())
+            Ok(matcher.find(&subject.to_string_lossy()).is_some())
         });
         methods.add_method(
             "find",
-            |lua, matcher, subject: mlua::LuaString| match matcher.find(&subject.to_str()?) {
+            |lua, matcher, subject: mlua::LuaString| match matcher.find(&subject.to_string_lossy())
+            {
                 Some((start, end)) => (start.saturating_add(1), end).into_lua_multi(lua),
                 None => Ok(MultiValue::new()),
             },
