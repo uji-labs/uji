@@ -5,20 +5,11 @@ local plugin = require("uji.plugin")
 local RETENTIONS = { off = true, short = true, long = true }
 local COMPACTION = { enabled = "boolean", reserve = "number", keep_recent = "number" }
 
-local function defaults()
-    return { enabled = true, reserve = nil, keep_recent = 20000 }
-end
-
 local M = {
     functions = plugin.track(Registry(plugin.current)),
-    compaction = defaults(),
+    compaction = { enabled = true, reserve = nil, keep_recent = 20000 },
     cache = "short",
 }
-
-function M.reset()
-    M.compaction = defaults()
-    M.cache = "short"
-end
 
 function M.add(name, provide, opts)
     if type(name) ~= "string" or type(provide) ~= "function" then

@@ -2,7 +2,9 @@ local notices = require("uji.notices")
 local paths = require("uji.paths")
 local sys = require("uji.sys")
 
-local M = { roots = {}, served = {} }
+local CACHE = "overrides.json"
+
+local M = { roots = {} }
 
 local function run_git(cwd, args)
     local command = { "git" }
@@ -200,14 +202,6 @@ local function install(found)
     return dir
 end
 
-function M.reset()
-    M.roots = {}
-    for module in pairs(M.served) do
-        package.loaded[module] = nil
-    end
-    M.served = {}
-end
-
 function M.add_root(dir)
     for _, root in ipairs(M.roots) do
         if root == dir then
@@ -312,13 +306,73 @@ function M.searcher(module)
                 if not chunk then
                     error(err, 0)
                 end
-                M.served[module] = true
                 return chunk, path
             end
             tried[#tried + 1] = "\n\tno file '" .. path .. "'"
         end
     end
     return table.concat(tried)
+end
+
+function M.same(left, right)
+    if #left ~= #right then
+        return false
+    end
+    for index = 1, #left do
+        if left[index] ~= right[index] then
+            return false
+        end
+    end
+    return true
+end
+
+function M.overriding(roots)
+    local out = {}
+    for _, root in ipairs(roots) do
+        if is_dir(root .. "/" .. paths.MODULE_DIR .. "/uji") then
+            out[#out + 1] = root
+        end
+    end
+    return out
+end
+
+local function cache_path()
+    local data = paths.data()
+    return data and data .. "/" .. CACHE
+end
+
+function M.remembered()
+    local path = cache_path()
+    local text = path and sys.fs.read(path)
+    local ok, roots = pcall(sys.json.decode, text or "[]", { nulls = false })
+    return ok and type(roots) == "table" and roots or {}
+end
+
+function M.remember(roots)
+    local path = cache_path()
+    if not path or M.same(roots, M.remembered()) then
+        return
+    end
+    local copy = {}
+    for index, root in ipairs(roots) do
+        copy[index] = root
+    end
+    sys.fs.mkdir(path:match("^(.*)/[^/]*$"))
+    sys.fs.write(path, sys.json.encode(sys.json.array(copy)))
+end
+
+function M.expected()
+    local roots = {}
+    local config = paths.config()
+    if config then
+        roots[1] = config
+    end
+    for _, root in ipairs(M.remembered()) do
+        if root ~= config then
+            roots[#roots + 1] = root
+        end
+    end
+    return M.overriding(roots)
 end
 
 function M.plugin_files(root)

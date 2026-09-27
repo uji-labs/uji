@@ -8,6 +8,7 @@ use crate::{
 
 const AFTER_PRELOAD: i64 = 2;
 
+#[derive(Clone)]
 pub enum Sources {
     Embedded(&'static [(&'static str, &'static str)]),
     Directory(PathBuf),
@@ -39,9 +40,9 @@ impl Sources {
     }
 }
 
-pub(crate) fn create(sources: Sources) -> mlua::Result<Lua> {
+pub(crate) fn create(layers: Vec<Sources>) -> mlua::Result<Lua> {
     let lua = Lua::new();
-    install_searcher(&lua, sources)?;
+    install_searcher(&lua, layers)?;
     let uji = lua.create_table()?;
     uji.set("task", executor::register(&lua)?)?;
     uji.set("sleep", executor::sleep(&lua)?)?;
@@ -66,9 +67,9 @@ pub(crate) fn entry(lua: &Lua, module: &str) -> mlua::Result<Function> {
     lua.globals().get::<Function>("require")?.call(module)
 }
 
-fn install_searcher(lua: &Lua, sources: Sources) -> mlua::Result<()> {
+fn install_searcher(lua: &Lua, layers: Vec<Sources>) -> mlua::Result<()> {
     let searcher = lua.create_function(move |lua, module: String| {
-        let Some((name, source)) = sources.find(&module) else {
+        let Some((name, source)) = layers.iter().find_map(|layer| layer.find(&module)) else {
             return Ok(MultiValue::from_vec(vec![Value::String(
                 lua.create_string(format!("\n\tno runtime module '{module}'"))?,
             )]));

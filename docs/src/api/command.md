@@ -11,7 +11,7 @@ The built-in commands are these.
 | `/thinking` | Shows or hides the model's reasoning. |
 | `/compact` | Summarises earlier messages to free context. |
 | `/sync` | Updates installed packs and reloads. |
-| `/reload` | Reloads your config. |
+| `/reload` | Starts uji again with your current config and files, keeping the conversation and your draft. |
 | `/help` | Lists every command, including the ones plugins add. |
 | `/quit` | Quits. |
 

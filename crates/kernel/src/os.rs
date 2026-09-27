@@ -1,8 +1,9 @@
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use mlua::{Lua, Table};
 
-use crate::kernel::State;
+use crate::kernel::{Restart, State};
 
 fn now() -> i64 {
     SystemTime::now()
@@ -37,6 +38,20 @@ pub(crate) fn register(lua: &Lua) -> mlua::Result<Table> {
     os.set(
         "clock",
         lua.create_function(|lua, ()| Ok(State::of(lua)?.started.elapsed().as_secs_f64()))?,
+    )?;
+    os.set(
+        "restart",
+        lua.create_function(|lua, opts: Table| {
+            let roots: Vec<String> = opts
+                .get::<Option<Vec<String>>>("roots")?
+                .unwrap_or_default();
+            State::of_mut(lua)?.restart = Some(Restart {
+                args: opts.get("args")?,
+                roots: roots.into_iter().map(PathBuf::from).collect(),
+                carry: opts.get("carry")?,
+            });
+            Ok(())
+        })?,
     )?;
     os.set(
         "exit",

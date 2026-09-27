@@ -4,7 +4,7 @@ mod screen;
 mod virtual_screen;
 
 use crossterm::event::Event;
-use mlua::{IntoLuaMulti, Lua, Table};
+use mlua::{AnyUserData, IntoLuaMulti, Lua, Table};
 use tokio::sync::{mpsc, watch};
 
 use crate::kernel::State;
@@ -12,6 +12,18 @@ use crate::kernel::State;
 pub enum Terminal {
     Real,
     Virtual(VirtualTerminal),
+}
+
+pub(crate) enum Tty {
+    Fresh(Terminal),
+    Opened(screen::Screen, input::Input),
+}
+
+pub(crate) fn reclaim(screen: &AnyUserData, input: &AnyUserData) -> Option<Tty> {
+    Some(Tty::Opened(
+        screen.take::<screen::Screen>().ok()?,
+        input.take::<input::Input>().ok()?,
+    ))
 }
 
 pub struct VirtualTerminal {
@@ -75,10 +87,15 @@ pub(crate) fn register(lua: &Lua) -> mlua::Result<Table> {
                 .terminal
                 .take()
                 .ok_or_else(|| mlua::Error::runtime("the terminal is already open"))?;
-            match terminal {
-                Terminal::Real => real::open()?.into_lua_multi(lua),
-                Terminal::Virtual(terminal) => virtual_screen::open(terminal)?.into_lua_multi(lua),
-            }
+            let (screen, input) = match terminal {
+                Tty::Fresh(Terminal::Real) => real::open()?,
+                Tty::Fresh(Terminal::Virtual(terminal)) => virtual_screen::open(terminal)?,
+                Tty::Opened(screen, input) => (screen, input),
+            };
+            let screen = lua.create_userdata(screen)?;
+            let input = lua.create_userdata(input)?;
+            State::of_mut(lua)?.opened = Some((screen.clone(), input.clone()));
+            (screen, input).into_lua_multi(lua)
         })?,
     )?;
     Ok(tty)

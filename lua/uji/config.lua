@@ -1,5 +1,4 @@
 local catalog = require("uji.catalog")
-local context = require("uji.context")
 local discover = require("uji.agent.discover")
 local event = require("uji.event")
 local model = require("uji.model")
@@ -11,6 +10,7 @@ local sys = require("uji.sys")
 local tool = require("uji.tool")
 
 local DEFAULTS = "uji.defaults"
+local FLAGS = { "config-dir", "data-dir", "db" }
 
 local M = { searching = false }
 
@@ -59,16 +59,32 @@ function M.refresh()
     event.emit("status_changed", {})
 end
 
-function M.reload()
-    for _, loaded in ipairs(plugin.list()) do
-        plugin.unload(loaded.name)
+function M.settle(args)
+    local declared = packs.overriding(packs.list())
+    packs.remember(declared)
+    if packs.same(declared, sys.os.roots) then
+        return false
     end
-    packs.reset()
-    tool.reset()
-    context.reset()
-    require("uji.ui"):reset()
-    M.load()
-    M.refresh()
+    sys.os.restart({ args = args, roots = declared })
+    return true
+end
+
+function M.reload()
+    local app = require("uji.app")
+    if app.agent and app.agent:working() then
+        notices.push("finish or interrupt the current turn before reloading")
+        return
+    end
+    local argv = { app.argv[1] or "uji", "resume", "--id", app.session.id }
+    for _, flag in ipairs(FLAGS) do
+        local value = app.flags[flag]
+        if value then
+            argv[#argv + 1] = "--" .. flag
+            argv[#argv + 1] = value
+        end
+    end
+    local draft = require("uji.ui").composer:text()
+    sys.os.restart({ args = argv, roots = packs.expected(), carry = sys.json.encode({ draft = draft }) })
 end
 
 return M

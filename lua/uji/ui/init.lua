@@ -77,14 +77,6 @@ function Ui:init()
     self.suspended = false
 end
 
-function Ui:reset()
-    self.windows = {}
-    self.keymap:reset()
-    self.theme = Theme()
-    self.capture = nil
-    self:invalidate()
-end
-
 function Ui:open()
     if not self.screen then
         self.screen, self.input = sys.tty.open()

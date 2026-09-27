@@ -17,14 +17,6 @@ local M = {
     extra = {},
 }
 
-function M.reset()
-    M.disabled = {}
-    M.rules = {}
-    M.changed = true
-    M.confined = true
-    M.extra = {}
-end
-
 function M.add(name, spec)
     if type(name) ~= "string" or name == "" then
         error("uji.tool.add needs a name", 2)

@@ -6,11 +6,12 @@ processes, keep data in SQLite and read the system.
 
 ## Tasks
 
-A task is a function that runs alongside the rest of uji. A function marked
-*waits* pauses the task that calls it until its result is ready, and uji keeps
-running in the meantime. Your config, slash commands, key bindings, actions,
-timers from `uji.schedule` and `uji.defer`, and tool functions all run as
-tasks. Calling a waiting function outside a task raises an error.
+A task is a function that runs alongside the rest of uji. Anything that waits
+on the network, a process, the keychain or a timer pauses only the task that
+called it, and uji keeps running meanwhile. Your config, slash commands, key
+bindings, actions, timers from `uji.schedule` and `uji.defer`, and tool
+functions all run as tasks. Calling something that waits from outside a task
+raises an error.
 
 ### uji.task.spawn(fn, ...)
 
@@ -24,37 +25,38 @@ closed.
 
 ### uji.sleep(seconds)
 
-Waits. Pauses the task for `seconds`, which may be a fraction.
+Pauses the task for `seconds`, which may be a fraction.
 
 ### uji.task.race(fn, ...)
 
-Waits. Runs every function at once inside the current task and returns the
-position of the first to finish, followed by what it returned. The others stop
-there. An error in the first to finish is raised again. Cancelling the current
-task stops all of them.
+Runs every function at once inside the current task and waits for the first to
+finish. The result is its position followed by what it returned, and the others
+stop there. An error in the first to finish is raised again, and cancelling the
+current task stops all of them.
 
 ### uji.task.timeout(seconds, fn)
 
-Waits. Runs `fn` inside the current task and returns `true` followed by what it
-returned, or `false` when `seconds` pass first, in which case `fn` stops there.
+Runs `fn` inside the current task for at most `seconds`. When `fn` finishes in
+time the result is `true` followed by what it returned. Otherwise `fn` stops and
+the result is `false`.
 
 ### uji.promise()
 
-Returns a promise that tasks can wait on until another task settles it.
+Creates a promise that tasks can wait on until another task settles it.
 
 | Member | Meaning |
 |---|---|
-| `promise:resolve(...)` | Settles the promise with the values given. Returns `true` the first time and `false` after. |
-| `promise:await()` | Waits. Returns the values the promise was settled with. |
+| `promise:resolve(...)` | Settles the promise with the values given. The result is `true` the first time and `false` after. |
+| `promise:await()` | Waits until the promise is settled and gives back its values. |
 | `promise.settled` | `true` once the promise is settled. |
 
 ## Network
 
 ### uji.net.request(opts)
 
-Waits. Sends an HTTP request and returns a table with `status`, `headers` and
-`body`, or `nil` and an error message when no answer came back. An answer with
-an error status is still returned as a table.
+Sends an HTTP request and waits for the answer, a table with `status`,
+`headers` and `body`. When no answer comes back the result is `nil` and an
+error message. An error status still counts as an answer.
 
 | Option | Type | Meaning |
 |---|---|---|
@@ -66,41 +68,41 @@ an error status is still returned as a table.
 
 ### uji.net.open(opts)
 
-Waits. Sends a request like `uji.net.request` and returns as soon as the
-headers arrive, so the body can be read as it streams. Returns a response
-object, or `nil` and an error message. It takes the same options, plus `idle`,
-the seconds without data after which reading fails. The default is 120.
+Sends a request like `uji.net.request`, but hands back a response object as
+soon as the headers arrive, so the body can be read while it streams. It takes
+the same options plus `idle`, the seconds without data after which reading
+fails, 120 by default. A failed request gives `nil` and an error message.
 
 | Member | Meaning |
 |---|---|
 | `response.status` | The status code. |
 | `response.headers` | Header names and values. |
-| `response:line(seconds)` | Waits. Returns the next line, `nil` at the end of the body, or `false` when `seconds` pass first. Without `seconds` it waits as long as the line takes. |
+| `response:line(seconds)` | The next line, `nil` at the end of the body, or `false` if `seconds` pass first. Without `seconds` it waits as long as the line takes. |
 | `response:lines()` | An iterator over the remaining lines, for a `for` loop. |
-| `response:read()` | Waits. Returns the rest of the body. |
+| `response:read()` | Everything left in the body, once it has arrived. |
 
 ### uji.net.listen(port)
 
-Listens for connections on `port` on the local machine, or on a free port when
-`port` is `0`. Returns a server, or `nil` and an error message.
+Listens on `port` on the local machine, or on a free port when `port` is `0`.
+The result is a server, or `nil` and an error message.
 
 | Member | Meaning |
 |---|---|
 | `server.port` | The port it listens on. |
-| `server:accept()` | Waits. Returns the next connection, or `nil` and an error message once the server is closed. |
+| `server:accept()` | The next connection, or `nil` and an error message once the server is closed. |
 | `server:close()` | Stops listening. |
-| `conn:line(seconds)` | Waits. Returns the next line, `nil` when the other side closes, or `false` when `seconds` pass first. Without `seconds` it waits as long as the line takes. |
-| `conn:read(count)` | Waits. Returns exactly `count` bytes. |
-| `conn:write(data)` | Waits. Sends `data`. |
-| `conn:close()` | Waits. Closes the connection. |
+| `conn:line(seconds)` | The next line, `nil` when the other side closes, or `false` if `seconds` pass first. Without `seconds` it waits as long as the line takes. |
+| `conn:read(count)` | Exactly `count` bytes. |
+| `conn:write(data)` | Sends `data`. |
+| `conn:close()` | Closes the connection. |
 
 ## Processes
 
 ### uji.proc.spawn(argv, opts)
 
 Starts the program named by the first item of the list `argv`, with the rest
-as its arguments. Returns a process, or `nil` and an error message. The process
-is killed when nothing refers to it any more.
+as its arguments. The result is a process, or `nil` and an error message. The
+process is killed when nothing refers to it any more.
 
 | Option | Type | Meaning |
 |---|---|---|
@@ -111,31 +113,31 @@ is killed when nothing refers to it any more.
 | Member | Meaning |
 |---|---|
 | `proc.pid` | The process id. |
-| `proc:line()` | Waits. Returns the next line of output and `"stdout"` or `"stderr"`, or `nil` when both streams end. |
+| `proc:line()` | The next line of output with `"stdout"` or `"stderr"`, or `nil` once both streams end. |
 | `proc:lines()` | An iterator over the remaining lines and their streams. |
-| `proc:write(data)` | Waits. Writes `data` to the process's input. |
-| `proc:close()` | Waits. Closes the process's input. |
+| `proc:write(data)` | Writes `data` to the process's input. |
+| `proc:close()` | Closes the process's input. |
 | `proc:kill()` | Kills the process. |
-| `proc:wait()` | Waits. Returns a table with `code`, `signal` and `success` once the process exits. |
+| `proc:wait()` | Waits for the process to exit and gives a table with `code`, `signal` and `success`. |
 
 ## Storage
 
 ### uji.db.open(path)
 
-Opens or creates the SQLite database at `path`. Returns a database, or `nil`
-and an error message. Parameters are a list that fills the `?` marks in the
-statement, and `uji.db.null` stands for `NULL` in that list.
+Opens or creates the SQLite database at `path`. The result is a database, or
+`nil` and an error message. Parameters are a list that fills the `?` marks in
+the statement, and `uji.db.null` stands for `NULL` in that list.
 
 | Member | Meaning |
 |---|---|
-| `db:exec(sql, params)` | Runs a statement and returns the number of rows it changed. Without `params`, `sql` may hold several statements. |
-| `db:query(sql, params)` | Returns the rows as a list of tables keyed by column name. |
-| `db:transaction(fn)` | Runs `fn` in a transaction and returns what it returns. An error inside `fn` rolls the transaction back and raises again. |
+| `db:exec(sql, params)` | Runs a statement and gives the number of rows it changed. Without `params`, `sql` may hold several statements. |
+| `db:query(sql, params)` | The rows, as a list of tables keyed by column name. |
+| `db:transaction(fn)` | Runs `fn` in a transaction and gives back what it returns. An error inside `fn` rolls the transaction back and raises again. |
 | `db:close()` | Closes the database. |
 
 ## System
 
-| Function | Returns |
+| Function | Gives |
 |---|---|
 | `uji.os.platform` | `"macos"`, `"linux"`, `"windows"` or `"other"`. |
 | `uji.os.env(name)` | The value of an environment variable, or `nil` when it is unset or empty. |
@@ -143,40 +145,49 @@ statement, and `uji.db.null` stands for `NULL` in that list.
 | `uji.os.home()` | Your home directory, or `nil`. |
 | `uji.os.now()` | The time in milliseconds since the Unix epoch. |
 | `uji.os.clock()` | Seconds since uji started, for measuring how long something took. |
+| `uji.os.roots` | The directories whose `lua/` folder is searched before the built-in modules. |
+| `uji.os.carry` | The text handed over by the last `uji.os.restart`, or `nil`. |
+
+### uji.os.restart(opts)
+
+Starts uji's Lua side again once the current code yields, keeping the screen.
+Every task, connection and process from this run stops. `opts.args` is the
+command line for the new run, `opts.roots` sets `uji.os.roots` for it, and
+`opts.carry` is text it can read from `uji.os.carry`.
 
 ### uji.keychain.get(service, account)
 
-Waits. Returns the secret saved in the system keychain for `service` and
-`account`, or `nil` when there is none.
+Looks up the secret saved in the system keychain for `service` and `account`,
+and gives `nil` when there is none.
 
 ### uji.keychain.set(service, account, secret)
 
-Waits. Saves `secret` in the system keychain. Returns `true`, or `nil` and an
+Saves `secret` in the system keychain, then gives `true`, or `nil` and an
 error message.
 
 ### uji.keychain.delete(service, account)
 
-Waits. Removes the secret. Returns `true`, or `nil` and an error message.
+Removes the secret, with the same result as `uji.keychain.set`.
 
 ### uji.clipboard.get()
 
-Returns the text on the system clipboard, or `nil` and an error message.
+Reads the text on the system clipboard, or gives `nil` and an error message.
 
 ### uji.clipboard.set(text)
 
-Puts `text` on the system clipboard. Returns `true`, or `nil` and an error
+Puts `text` on the system clipboard and gives `true`, or `nil` and an error
 message.
 
 ## Text
 
 ### uji.regex(pattern)
 
-Compiles a regular expression and returns a matcher, or `nil` and an error
+Compiles a regular expression into a matcher, or gives `nil` and an error
 message.
 
 ### uji.glob(pattern, opts)
 
-Compiles a glob such as `*.rs` and returns a matcher, or `nil` and an error
+Compiles a glob such as `*.rs` into a matcher, or gives `nil` and an error
 message. With `opts.separator = true`, `*` does not match `/`.
 
 | Member | Meaning |
@@ -186,29 +197,29 @@ message. With `opts.separator = true`, `*` does not match `/`.
 
 ### uji.fuzzy(query, items)
 
-Ranks the list of strings `items` against `query` the way the pickers do, and
-returns the positions of the matches, best first. An empty query returns every
+Ranks the list of strings `items` against `query` the way the pickers do, as
+positions in `items` with the best match first. An empty query gives every
 position in order.
 
 ### uji.markdown(source)
 
-Parses Markdown and returns its events as a list. Each event is a list whose
-first item is `"start"`, `"end"`, `"text"`, `"code"`, `"html"`, `"break"`,
-`"rule"` or `"task"`, followed by the details of that event and the start and
-end byte positions in `source`.
+Parses Markdown into a list of events. Each event is itself a list that starts
+with its kind, one of `"start"`, `"end"`, `"text"`, `"code"`, `"html"`,
+`"break"`, `"rule"` and `"task"`. The details of that event come next, then its
+start and end byte positions in `source`.
 
 ### uji.width(text)
 
-Returns how many terminal columns `text` takes.
+Counts the terminal columns `text` takes.
 
 ### uji.lossy(data)
 
-Returns `data` as valid UTF-8, with each invalid byte sequence replaced by
+Turns `data` into valid UTF-8, replacing each invalid byte sequence with
 U+FFFD.
 
 ## Encoding
 
-| Function | Returns |
+| Function | Gives |
 |---|---|
 | `uji.base64.encode(data, opts)` | `data` in base64. `opts.url = true` uses the URL alphabet and `opts.pad = false` leaves out padding. |
 | `uji.base64.decode(text, opts)` | The decoded bytes. It takes the same options and raises an error for text that is not base64. |
