@@ -281,7 +281,7 @@ end
 function Agent:verdict(name, entry, args)
     local ok, subject = pcall(tool.subject, entry, name, args)
     if not ok then
-        notices.push(name .. " subject: " .. tostring(subject))
+        notices.push(name .. " subject: " .. sys.message(subject))
         return { ask = true }
     end
     local action = tool.compiled():evaluate(name, subject, entry and entry.policy)

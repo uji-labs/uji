@@ -3,6 +3,7 @@ local text = require("uji.ui.text")
 
 local MULTI_CLICK = 0.5
 local JOINERS = { ["/"] = true, ["-"] = true, ["_"] = true, ["."] = true }
+local SCREEN = { top = 0, height = math.huge, shift = 0 }
 
 local function point(x, y)
     return { x = x, y = y }
@@ -40,11 +41,15 @@ local function joins(left, right)
     return left.wordlike and right.wordlike and (left.joiner or right.joiner)
 end
 
+local function inside(pane, y)
+    return pane ~= nil and y >= pane.top and y < pane.top + pane.height
+end
+
 local Selection = class()
 
 function Selection:init()
     self.rows = {}
-    self.pending = nil
+    self.lines = {}
     self.range = nil
     self.grain = "char"
     self.initial = nil
@@ -52,7 +57,20 @@ function Selection:init()
 end
 
 function Selection:row(y)
-    return self.rows[y] or {}
+    return text.chars(self.lines[y] or "")
+end
+
+function Selection:locate(y)
+    local pane = self.pane
+    return math.max(pane.top, math.min(y, pane.top + pane.height - 1)) - pane.shift
+end
+
+function Selection:capture()
+    for y, line in pairs(self.rows) do
+        if inside(self.pane, y) then
+            self.lines[y - self.pane.shift] = line
+        end
+    end
 end
 
 function Selection:line_span(y)
@@ -114,29 +132,19 @@ function Selection:begin(at, now)
     self.range = { anchor = point(span.start, at.y), head = point(head, at.y) }
 end
 
-function Selection:resolve()
-    local pending = self.pending
-    if pending then
-        self.pending = nil
-        self:begin(pending.at, pending.now)
-    end
-end
-
-function Selection:active()
-    return self.pending ~= nil or self.range ~= nil
-end
-
 function Selection:press(x, y, now)
-    self.pending = { at = point(x, y), now = now }
+    self.pane = inside(self.transcript, y) and self.transcript or SCREEN
+    self.lines = {}
+    self:capture()
+    self:begin(point(x, self:locate(y)), now)
 end
 
 function Selection:drag(x, y)
-    self:resolve()
     local range = self.range
     if not range then
         return
     end
-    local at = point(x, y)
+    local at = point(x, self:locate(y))
     local initial = self.initial
     if self.grain == "char" or not initial then
         range.head = at
@@ -169,11 +177,10 @@ function Selection:text()
         local piece = table.concat(chars, "", from + 1, math.max(to, from))
         out[#out + 1] = piece:match("^(.-)%s*$")
     end
-    return table.concat(out, "\n")
+    return (table.concat(out, "\n"):gsub("^\n+", ""):gsub("\n+$", ""))
 end
 
 function Selection:release()
-    self:resolve()
     if not self.range then
         return nil
     end
@@ -182,7 +189,6 @@ function Selection:release()
 end
 
 function Selection:clear()
-    self.pending = nil
     self.initial = nil
     self.grain = "char"
     local had = self.range ~= nil
@@ -190,23 +196,29 @@ function Selection:clear()
     return had
 end
 
-function Selection:sync(screen, width, height, style)
-    if not self:active() then
-        return
-    end
+function Selection:sync(screen, width, height, style, transcript)
+    self.transcript = transcript
+    self.rows = {}
     for y = 0, height - 1 do
-        self.rows[y] = text.chars(screen:text(y) or "")
+        self.rows[y] = screen:text(y)
     end
-    self:resolve()
     if not self.range then
         return
     end
+    if self.pane ~= SCREEN and self.pane ~= transcript then
+        self:clear()
+        return
+    end
+    self:capture()
     local start, finish = self:bounds()
-    for y = start.y, math.min(finish.y, height - 1) do
-        local from = y == start.y and start.x or 0
-        local to = y == finish.y and finish.x or width
-        if to > from then
-            screen:paint(y, from, to - from, 1, style)
+    for row = start.y, finish.y do
+        local y = row + self.pane.shift
+        if inside(self.pane, y) then
+            local from = row == start.y and start.x or 0
+            local to = row == finish.y and finish.x or width
+            if to > from then
+                screen:paint(y, from, to - from, 1, style)
+            end
         end
     end
 end

@@ -192,6 +192,162 @@ fn a_tall_confirm_keeps_its_choices_on_screen_and_scrolls_its_body() {
 }
 
 #[test]
+fn a_copied_selection_has_no_empty_line_at_either_end() {
+    let seen = uji_tests::probe(
+        r#"
+        local Selection = require("uji.ui.selection")
+        local selection = Selection()
+        selection.rows = { [0] = "first line", [1] = "second", [2] = "", [3] = "fourth" }
+        selection:press(0, 0, 0)
+        selection:drag(0, 1)
+        emit(selection:release())
+        selection:clear()
+        selection:press(10, 0, 10)
+        selection:drag(6, 1)
+        emit(selection:release())
+        selection:clear()
+        selection:press(0, 1, 20)
+        selection:drag(6, 3)
+        emit(selection:release())
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        seen[0], "first line",
+        "a drag that ends at the start of the next row"
+    );
+    assert_eq!(
+        seen[1], "second",
+        "a drag that starts past the end of a line"
+    );
+    assert_eq!(
+        seen[2], "second\n\nfourth",
+        "blank lines inside the selection stay"
+    );
+}
+
+#[test]
+fn copying_a_selection_leaves_the_transcript_in_place() {
+    let seen = screen(
+        40,
+        12,
+        r#"
+        local sys = require("uji.sys")
+        local copied
+        sys.clipboard.set = function(value)
+            copied = value
+            return true
+        end
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "line " .. index })
+        end
+        local function rows()
+            ui.screen:clear()
+            ui:paint()
+            local _, height = ui.screen:size()
+            local out = {}
+            for row = 0, height - 1 do
+                out[#out + 1] = ui.screen:text(row)
+            end
+            return table.concat(out, "\n")
+        end
+        local before = rows()
+        emit(before)
+        local row
+        for index = 0, 11 do
+            if ui.screen:text(index):find("line 29") then
+                row = index
+            end
+        end
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        rows()
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 8 })
+        rows()
+        ui:mouse({ kind = "up", button = "left", row = row, col = 8 })
+        emit(rows())
+        emit(copied)
+        sys.sleep(1.2)
+        emit(rows())
+        "#,
+    )
+    .unwrap();
+    let before: Vec<&str> = seen[0].split('\n').collect();
+    let flashed: Vec<&str> = seen[1].split('\n').collect();
+    assert_eq!(seen[2], "line 29");
+    assert!(flashed[0].contains("copied 1 line(s)"));
+    assert_eq!(
+        flashed[1..],
+        before[1..],
+        "the copy message does not push the transcript up"
+    );
+    assert_eq!(seen[3], seen[0], "the copy message goes away");
+}
+
+#[test]
+fn a_selection_stays_on_its_text_when_the_transcript_moves() {
+    let seen = screen(
+        40,
+        24,
+        r#"
+        local sys = require("uji.sys")
+        local copied
+        sys.clipboard.set = function(value)
+            copied = value
+            return true
+        end
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "line " .. index })
+        end
+        local function paint()
+            ui.screen:clear()
+            ui:paint()
+        end
+        local function find(label)
+            for row = 0, 23 do
+                if ui.screen:text(row):find(label .. "$") or ui.screen:text(row):find(label .. " ") then
+                    return row
+                end
+            end
+        end
+        paint()
+        local row = find("line 28")
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        paint()
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 3 })
+        paint()
+        app.session:append({ type = "user", text = "line 31" })
+        app.session:append({ type = "user", text = "line 32" })
+        paint()
+        local moved = find("line 28")
+        emit(tostring(row - moved))
+        ui:mouse({ kind = "drag", button = "left", row = moved, col = 8 })
+        paint()
+        ui:mouse({ kind = "up", button = "left", row = moved, col = 8 })
+        emit(copied)
+        copied = nil
+        row = find("line 30")
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        paint()
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 8 })
+        ui.theme.revision = ui.theme.revision + 1
+        paint()
+        ui:mouse({ kind = "up", button = "left", row = row, col = 8 })
+        emit(tostring(copied == nil))
+        "#,
+    )
+    .unwrap();
+    assert_ne!(seen[0], "0", "the new messages move the transcript up");
+    assert_eq!(
+        seen[1], "line 28",
+        "the selection follows its text as the transcript moves"
+    );
+    assert_eq!(
+        seen[2], "true",
+        "redrawing the whole transcript drops the selection"
+    );
+}
+
+#[test]
 fn new_output_does_not_move_a_transcript_scrolled_up() {
     let seen = screen(
         40,
