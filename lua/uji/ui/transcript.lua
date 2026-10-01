@@ -105,6 +105,7 @@ function Transcript:reset()
     self.last = 0
     self.count = 0
     self.last_seq = nil
+    self.fresh = true
 end
 
 function Transcript:block(entries, index, render)
@@ -149,12 +150,14 @@ function Transcript:sync(entries, render)
 end
 
 function Transcript:extend(entries, want, render)
+    local before = self.count
     while self.count < want and self.first > 1 do
         self.first = self.first - 1
         local lines = self:block(entries, self.first, render)
         self.blocks[self.first] = lines
         self.count = self.count + #lines
     end
+    return self.count - before
 end
 
 function Transcript:rows()
@@ -179,7 +182,11 @@ function Transcript:frame(input, split, render, want)
         self.reasoning:clear()
     end
     self:sync(input.entries, render)
-    self:extend(input.entries, want, render)
+    local prepended = self:extend(input.entries, want, render)
+    if self.fresh then
+        prepended = nil
+        self.fresh = false
+    end
     local notices = self.notices:get(input.notices, function(lines)
         for _, notice in ipairs(input.notices) do
             render(lines, { kind = "notice", text = notice })
@@ -197,6 +204,7 @@ function Transcript:frame(input, split, render, want)
         render(lines, { kind = "pending", text = chunk, continuing = continuing, events = events })
     end)
     return {
+        prepended = prepended,
         notices = notices,
         queued = queued,
         folded = self:rows(),

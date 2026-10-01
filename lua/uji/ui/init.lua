@@ -495,6 +495,8 @@ function Ui:mouse(incoming)
         self:scroller():up(SCROLL_LINES)
     elseif kind == "scroll_down" then
         self:scroller():down(SCROLL_LINES)
+    elseif incoming.button == "left" and kind == "down" and not self.modal and self.views.messages:jumps(incoming.row, incoming.col) then
+        self.scroll:follow()
     elseif incoming.button == "left" and kind == "down" then
         self.selection:press(incoming.col, incoming.row, sys.os.clock())
     elseif incoming.button == "left" and kind == "drag" then

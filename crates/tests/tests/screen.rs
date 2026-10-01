@@ -190,3 +190,74 @@ fn a_tall_confirm_keeps_its_choices_on_screen_and_scrolls_its_body() {
     assert!(!bottom.contains("content line 1 "));
     assert!(bottom.contains("1. Yes, proceed"));
 }
+
+#[test]
+fn new_output_does_not_move_a_transcript_scrolled_up() {
+    let seen = screen(
+        40,
+        16,
+        r#"
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "old " .. index })
+        end
+        local function rows()
+            ui.screen:clear()
+            ui:paint()
+            local _, height = ui.screen:size()
+            local out = {}
+            for row = 0, height - 1 do
+                out[#out + 1] = ui.screen:text(row)
+            end
+            return table.concat(out, "\n")
+        end
+        emit(rows())
+        ui:mouse({ kind = "scroll_up" })
+        ui:mouse({ kind = "scroll_up" })
+        emit(rows())
+        ui.theme.revision = ui.theme.revision + 1
+        emit(rows())
+        local reply = {}
+        for index = 1, 20 do
+            reply[index] = "new " .. index
+            ui:delta({ text = reply[index] .. "\n\n" })
+            ui.stream:reveal_all()
+            rows()
+        end
+        emit(rows())
+        ui:clear_stream()
+        rows()
+        app.session:append({ type = "assistant", text = table.concat(reply, "\n\n") })
+        emit(rows())
+        local jump = ui.views.messages.jump
+        ui:mouse({ kind = "down", button = "left", row = jump.row, col = jump.col })
+        emit(rows())
+        "#,
+    )
+    .unwrap();
+    let rows: Vec<Vec<&str>> = seen
+        .iter()
+        .map(|screen| screen.split('\n').map(str::trim_end).collect())
+        .collect();
+    let at_bottom = &rows[0];
+    let scrolled = &rows[1];
+    assert!(at_bottom.iter().any(|row| row.contains("old 30")));
+    assert!(!at_bottom.iter().any(|row| row.contains("Jump to bottom")));
+    assert_ne!(scrolled[0], at_bottom[0]);
+    assert!(scrolled.iter().any(|row| row.contains("Jump to bottom")));
+    assert_eq!(
+        rows[2], *scrolled,
+        "redrawing everything keeps the view where it was"
+    );
+    assert_eq!(
+        rows[3], *scrolled,
+        "a reply streaming in keeps the view where it was"
+    );
+    assert_eq!(
+        rows[4], *scrolled,
+        "the finished reply keeps the view where it was"
+    );
+    assert!(rows[4].iter().any(|row| row.contains("Jump to bottom")));
+    let followed = &rows[5];
+    assert!(followed.iter().any(|row| row.contains("new 20")));
+    assert!(!followed.iter().any(|row| row.contains("Jump to bottom")));
+}
