@@ -47,6 +47,11 @@ function Messages:draw(ui, screen, area, window)
     }, split, function(out, block)
         blocks:render(out, block, width)
     end, height + (ui.scroll.anchor or 0))
+    if parts.prepended then
+        self.base = self.base + parts.prepended
+    else
+        self.base, self.pane = 0, {}
+    end
 
     local tail = {}
     if partial ~= "" then
@@ -102,6 +107,9 @@ function Messages:draw(ui, screen, area, window)
     append(rows, notes)
     append(rows, below)
     canvas.lines(screen, inner, rows)
+    local pane = self.pane
+    pane.top, pane.height, pane.shift = inner.y, finish - start, inner.y - start + self.base
+    return pane
 end
 
 return Messages

@@ -28,6 +28,7 @@ local Theme = require("uji.ui.theme")
 local Window = require("uji.ui.window")
 
 local FRAME = 1 / 60
+local FLASH = 1
 local MIN_PICK_ROWS = 10
 local SCROLL_LINES = 3
 
@@ -479,14 +480,27 @@ function Ui:key(chord)
     self:invalidate()
 end
 
+function Ui:flash(message)
+    local shown = { text = " " .. message .. " " }
+    self.flashed = shown
+    self:invalidate()
+    task.spawn(function()
+        sys.sleep(FLASH)
+        if self.flashed == shown then
+            self.flashed = nil
+            self:invalidate()
+        end
+    end)
+end
+
 function Ui:copy(value)
     local count = #text.lines(value)
     if sys.clipboard.set(value) then
-        notices.push("copied " .. count .. " line(s)")
+        self:flash("copied " .. count .. " line(s)")
         return
     end
     self.screen:write("\27]52;c;" .. sys.base64.encode(value) .. "\7")
-    notices.push("copied " .. count .. " line(s) via the terminal")
+    self:flash("copied " .. count .. " line(s) via the terminal")
 end
 
 function Ui:mouse(incoming)
@@ -555,12 +569,12 @@ function Ui:paint()
     local area = layout.rect(0, 0, width, height)
     self:fit(area)
     local rects = layout.layout(area, self.windows)
-    local modal_rect, input_rect
+    local modal_rect, input_rect, pane
     for index, window in ipairs(self.windows) do
         local rect = rects[index]
         local view = window.view
         if view == "messages" then
-            self.views.messages:draw(self, screen, rect, window)
+            pane = self.views.messages:draw(self, screen, rect, window)
         elseif view == "input" then
             input_rect = input_rect or rect
             self.views.input:draw(self, screen, rect, window)
@@ -580,7 +594,11 @@ function Ui:paint()
         end
         modal:draw(self, screen, target)
     end
-    self.selection:sync(screen, width, height, self.palette.reverse)
+    self.selection:sync(screen, width, height, self.palette.reverse, not modal and pane or nil)
+    if self.flashed then
+        local size = math.min(text.width(self.flashed.text), width)
+        canvas.write(screen, 0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
+    end
 end
 
 function Ui:render()
