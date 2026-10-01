@@ -190,3 +190,39 @@ fn a_tall_confirm_keeps_its_choices_on_screen_and_scrolls_its_body() {
     assert!(!bottom.contains("content line 1 "));
     assert!(bottom.contains("1. Yes, proceed"));
 }
+
+#[test]
+fn a_copied_selection_has_no_empty_line_at_either_end() {
+    let seen = uji_tests::probe(
+        r#"
+        local Selection = require("uji.ui.selection")
+        local text = require("uji.ui.text")
+        local selection = Selection()
+        selection.rows = { [0] = text.chars("first line"), [1] = text.chars("second"), [2] = text.chars(""), [3] = text.chars("fourth") }
+        selection:press(0, 0, 0)
+        selection:drag(0, 1)
+        emit(selection:release())
+        selection:clear()
+        selection:press(10, 0, 10)
+        selection:drag(6, 1)
+        emit(selection:release())
+        selection:clear()
+        selection:press(0, 1, 20)
+        selection:drag(6, 3)
+        emit(selection:release())
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        seen[0], "first line",
+        "a drag that ends at the start of the next row"
+    );
+    assert_eq!(
+        seen[1], "second",
+        "a drag that starts past the end of a line"
+    );
+    assert_eq!(
+        seen[2], "second\n\nfourth",
+        "blank lines inside the selection stay"
+    );
+}

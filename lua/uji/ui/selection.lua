@@ -169,7 +169,7 @@ function Selection:text()
         local piece = table.concat(chars, "", from + 1, math.max(to, from))
         out[#out + 1] = piece:match("^(.-)%s*$")
     end
-    return table.concat(out, "\n")
+    return (table.concat(out, "\n"):gsub("^\n+", ""):gsub("\n+$", ""))
 end
 
 function Selection:release()
