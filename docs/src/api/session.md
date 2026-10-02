@@ -6,6 +6,8 @@ compact it or stop the running turn.
 ## uji.session.info()
 
 Returns a table with the session's `id`, `title` and `directory`.
+An empty conversation has an ID before its first message is saved.
+Reload preserves that ID without inserting an empty database record.
 
 ```lua
 local here = uji.session.info().directory
@@ -39,8 +41,9 @@ local line = string.format("%d tokens over %d requests", usage.total, usage.requ
 
 ## uji.session.set_title(title)
 
-Renames the session, saves the name, and fires `session_titled`. An empty
-title raises an error.
+Renames the session and fires `session_titled`.
+For a blank conversation, the name commits with the first message.
+An empty title raises an error.
 
 ```lua
 uji.session.set_title("fix the flaky login test")

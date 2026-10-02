@@ -44,7 +44,13 @@ local RUN = {
     backspace = function(ui)
         ui:backspace()
     end,
-    delete_forward = edit(Line.delete_forward),
+    delete_forward = function(ui)
+        if ui.modal and ui.modal.delete_prompt then
+            ui.modal:delete_prompt()
+        else
+            ui:edit(Line.delete_forward)
+        end
+    end,
     delete_word_back = edit(Line.delete_word_back),
     delete_word_forward = edit(Line.delete_word_forward),
     delete_to_start = edit(Line.delete_to_start),

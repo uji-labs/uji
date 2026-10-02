@@ -1,153 +1,168 @@
+local app = require("uji.core.app")
 local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
 local layout = require("uji.core.ui.layout")
+local Select = require("uji.core.ui.views.select")
 local sys = require("uji.sys")
 local text = require("uji.core.ui.text")
 local ui = require("uji.core.ui")
 
-local UPDATED_WIDTH = 14
-local ID_WIDTH = 36
-local GAP = "  "
-local PAGE = 10
+local Picker = class(Select)
+Picker.float = true
 
-local UNITS = {
-    { 60, 1, "second" },
-    { 3600, 60, "minute" },
-    { 86400, 3600, "hour" },
-    { 604800, 86400, "day" },
-    { 2592000, 604800, "week" },
-    { 31536000, 2592000, "month" },
-    { math.huge, 31536000, "year" },
-}
+function Picker:init(store, directory, active)
+    self.store, self.directory, self.active = store, directory, active
+    Select.init(self, { title = "Sessions · Enter resume · Ctrl-D delete · Esc cancel" })
+    self:refresh()
+end
 
-local function ago(millis)
-    local seconds = math.max(math.floor((sys.os.now() - (millis or 0)) / 1000), 0)
-    if seconds < 10 then
-        return "now"
-    end
-    for _, unit in ipairs(UNITS) do
-        if seconds < unit[1] then
-            local count = math.floor(seconds / unit[2])
-            if count <= 1 then
-                return (unit[3] == "hour" and "an " or "a ") .. unit[3] .. " ago"
-            end
-            return count .. " " .. unit[3] .. "s ago"
+function Picker:refresh()
+    self.records, self.items = {}, {}
+    for _, session in ipairs(self.store:sessions()) do
+        if session.directory == self.directory then
+            local label = session.title .. " · " .. session.id
+            self.items[#self.items + 1] = label
+            self.records[label] = session
         end
     end
+    self:rerank()
 end
 
-local function cell(value, width)
-    return text.pad(text.clip(value, width), width)
+function Picker:move(delta)
+    self.problem = nil
+    Select.move(self, delta)
 end
 
-local Sessions = class()
-
-function Sessions:init(sessions, directory)
-    self.sessions = sessions
-    self.directory = directory
-    self.cursor = 1
+function Picker:edited()
+    self.problem = nil
+    Select.edited(self)
 end
 
-function Sessions:move(delta)
-    self.cursor = math.min(math.max(self.cursor + delta, 1), math.max(#self.sessions, 1))
-end
-
-function Sessions:key(incoming)
-    local key = incoming.key
-    if key == "up" then
-        self:move(-1)
-    elseif key == "down" then
-        self:move(1)
-    elseif key == "pageup" then
-        self:move(-PAGE)
-    elseif key == "pagedown" then
-        self:move(PAGE)
-    elseif key == "home" then
-        self.cursor = 1
-    elseif key == "end" then
-        self.cursor = math.max(#self.sessions, 1)
-    elseif key == "enter" and #self.sessions > 0 then
-        return self.sessions[self.cursor]
-    elseif key == "esc" or (key == "q" and not incoming.ctrl and not incoming.alt) or (key == "c" and incoming.ctrl) then
-        return false
+function Picker:delete_prompt()
+    local session = self.records[self:chosen()]
+    if not session then return end
+    for _, row in ipairs(self.store:tree(session.id)) do
+        if row.id == self.active then
+            self.problem = "The open session cannot be deleted. Switch sessions first."
+            return
+        end
     end
+    self.deleting = session
+    self.problem = nil
 end
 
-function Sessions:row(palette, values, width, style)
-    local title = math.max(width - UPDATED_WIDTH - ID_WIDTH - #GAP * 2, 0)
-    local line = cell(values[1], title) .. GAP .. cell(values[2], UPDATED_WIDTH) .. GAP .. cell(values[3], ID_WIDTH)
-    return { { text.clip(line, width), style or palette.text } }
+function Picker:confirm_delete()
+    local session = self.deleting
+    if not session then return end
+    -- Recheck ownership immediately before deletion, not only when opening confirmation.
+    for _, row in ipairs(self.store:tree(session.id)) do
+        if row.id == self.active then self.deleting = nil; return end
+    end
+    local ok, err = pcall(self.store.delete, self.store, session.id)
+    self.deleting = nil
+    if not ok then self.problem = tostring(err); return end
+    self:refresh()
 end
 
-function Sessions:draw(screen, palette)
-    local width, height = screen:size()
-    local list = layout.rect(0, 0, width, height - 1)
-    local inner = canvas.block(screen, list, {
-        border = "plain",
-        style = palette.highlight,
-        title = " Sessions in " .. self.directory .. " ",
-    })
-    local lines = { self:row(palette, { "TITLE", "UPDATED", "ID" }, inner.width, ui.styles:with(palette.muted, { bold = true })) }
-    if #self.sessions == 0 then
-        lines[2] = { { "No sessions in current directory", palette.muted } }
+function Picker:line()
+    return not self.deleting and self.query or nil
+end
+
+function Picker:accept()
+    if self.deleting then self.deleting = nil; return end
+    self:settle(self.records[self:chosen()])
+end
+
+function Picker:cancel()
+    if self.deleting then self.deleting = nil; return end
+    self:settle(nil)
+end
+
+function Picker:key(chord, owner)
+    if self.deleting then
+        if chord.key == "y" and not chord.ctrl and not chord.alt then self:confirm_delete()
+        elseif chord.key == "esc" or chord.key == "enter" or chord.key == "n" then self.deleting = nil end
+    elseif chord.key == "d" and chord.ctrl then
+        self:delete_prompt()
     else
-        local available = math.max(inner.height - 1, 1)
-        local start = 0
-        if self.cursor > available then
-            start = math.min(self.cursor - available, #self.sessions - available)
-        end
-        for at = start + 1, math.min(start + available, #self.sessions) do
-            local session = self.sessions[at]
-            local style = at == self.cursor and palette.chosen or palette.text
-            local line = self:row(palette, { session.title, ago(session.updated), session.id }, inner.width, style)
-            if at == self.cursor then
-                local used = text.width(line[1][1])
-                line[2] = { string.rep(" ", math.max(inner.width - used, 0)), palette.selected }
-            end
-            lines[#lines + 1] = line
-        end
+        Select.key(self, chord, owner)
     end
-    canvas.lines(screen, inner, lines)
-    local hint
-    if #self.sessions == 0 then
-        hint = { { "esc", palette.highlight }, { " quit", palette.muted } }
-    else
-        hint = {
-            { "↑/↓", palette.highlight },
-            { " navigate   ", palette.muted },
-            { "enter", palette.highlight },
-            { " resume   ", palette.muted },
-            { "esc", palette.highlight },
-            { " quit", palette.muted },
+end
+
+function Picker:draw(owner, screen, area)
+    if self.deleting then
+        local session = self.deleting
+        local lines = {
+            { { "Delete session and all child history?", owner.palette.accent } },
+            { { text.clip(session.title, area.width), owner.palette.text } },
+            { { text.clip(session.id, area.width), owner.palette.muted } },
+            {}, { { "y delete · Enter/Esc cancel", owner.palette.text } },
         }
+        return canvas.popup(screen, area, lines, math.min(#lines, area.height))
     end
-    canvas.write(screen, height - 1, 0, hint, width)
-    screen:flush()
+    if #self.items == 0 or self.problem then
+        return canvas.popup(screen, area, {
+            { { text.clip(self.problem or "No saved sessions · Esc cancel", area.width), owner.palette.muted } },
+        }, 1)
+    end
+    Select.draw(self, owner, screen, area)
 end
 
-local M = {}
+local M = { Picker = Picker }
 
 function M.pick(store)
-    local directory = sys.os.cwd()
-    local sessions = {}
-    for _, session in ipairs(store:sessions()) do
-        if session.directory == directory then
-            sessions[#sessions + 1] = session
-        end
-    end
+    local picker = Picker(store, sys.os.cwd(), nil)
     local screen = ui:open()
-    local palette = ui.styles:sync(ui.theme)
-    local picker = Sessions(sessions, directory)
-    picker:draw(screen, palette)
-    for incoming in ui.input:events() do
-        if incoming.type == "key" then
-            local chosen = picker:key(incoming)
-            if chosen ~= nil then
-                return chosen or nil
-            end
-        end
-        picker:draw(screen, palette)
+    local previous = ui.modal
+    ui.modal, picker.ui = picker, ui
+    local function draw()
+        local width, height = screen:size()
+        ui.palette = ui.styles:sync(ui.theme)
+        picker:draw(ui, screen, layout.rect(0, 0, width, height))
+        screen:flush()
     end
+    local ok, result = pcall(function()
+        draw()
+        for incoming in ui.input:events() do
+            if incoming.type == "key" and (picker.deleting or (incoming.key == "d" and incoming.ctrl)) then
+                picker:key(incoming, ui)
+            else
+                ui:handle(incoming)
+            end
+            if picker.answer.settled then return picker.answer:await() end
+            draw()
+        end
+    end)
+    ui.modal = previous
+    if not ok then error(result, 0) end
+    return result
+end
+
+function M.busy()
+    return ui:working() or (app.agent and (app.agent.shell ~= nil or #app.agent.queue > 0))
+end
+
+function M.restart(session)
+    assert(not M.busy(), "resolve pending work and queued messages before switching or reloading")
+    local draft = ui.composer:text()
+    assert(#ui.composer.pastes:images(draft) == 0, "submit or remove draft image attachments before switching or reloading")
+    draft = ui.composer.pastes:expand(draft)
+    local argv = { app.argv[1] or "uji", session and "resume" or "new" }
+    if session then argv[#argv + 1] = "--id"; argv[#argv + 1] = session.id end
+    for _, flag in ipairs({ "config-dir", "data-dir", "db" }) do
+        if app.flags[flag] then argv[#argv + 1] = "--" .. flag; argv[#argv + 1] = app.flags[flag] end
+    end
+    local carry = { draft = draft }
+    if not session and app.session and app.session.pending then
+        carry.session = { id = app.session.id, title = app.session.title, directory = app.session.directory }
+    end
+    sys.os.restart({ args = argv, roots = require("uji.core.packs").expected(), carry = sys.json.encode(carry) })
+end
+
+function M.switch(session)
+    assert(not M.busy(), "resolve pending work and queued messages before switching sessions")
+    if app.session and session.id == app.session.id then return end
+    return M.restart(session)
 end
 
 return M

@@ -93,10 +93,13 @@ function Agent:finish(turn)
 end
 
 function Agent:append(message)
-    local _, err = self.session:append(message)
-    if err then
-        notices.push(err)
+    local entry, err = self.session:append(message)
+    if not entry then
+        -- A background shell must not discard another running turn's task.
+        if not self.task or self.task.done then self:finish(false) end
+        error(err, 0)
     end
+    return entry
 end
 
 function Agent:clear_stream()
@@ -126,22 +129,22 @@ function Agent:queued()
 end
 
 function Agent:steer()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if not queued then
         return nil
     end
     self:clear_stream()
     local message = said(queued.text, queued.images)
     self:append(message)
+    table.remove(self.queue, 1)
     self:sync_queue()
     return message
 end
 
 function Agent:send_queued()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if queued then
-        self:sync_queue()
-        self:submit(queued.text, queued.images)
+        self:submit(queued.text, queued.images, queued)
     end
 end
 
@@ -164,15 +167,21 @@ function Agent:prompt(text)
     return system, turn
 end
 
-function Agent:submit(text, images)
+function Agent:submit(text, images, queued)
     if self:working() then
-        return self:enqueue(text, images)
+        if not queued then return self:enqueue(text, images) end
+        return
     end
     if self:compact_if_needed() then
-        return self:enqueue(text, images)
+        if not queued then return self:enqueue(text, images) end
+        return
     end
     event.emit("message_submitted", { text = text })
     self:append(said(text, images))
+    if queued then
+        table.remove(self.queue, 1)
+        self:sync_queue()
+    end
     self:maybe_title(text)
     local system, turn = self:prompt(text)
     for _, message in ipairs(turn) do
@@ -206,7 +215,8 @@ end
 
 function Agent:failed(message)
     self:clear_stream()
-    self:append({ type = "error", text = message })
+    local entry, err = self.session:append({ type = "error", text = message })
+    if not entry then notices.push(err) end
     self:finish(true)
 end
 

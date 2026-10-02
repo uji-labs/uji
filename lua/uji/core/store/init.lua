@@ -31,13 +31,14 @@ local MIGRATIONS = {
     [[ALTER TABLE sessions ADD COLUMN parent TEXT REFERENCES sessions(id) ON DELETE CASCADE]],
 }
 
-local COLUMNS = "id, title, directory, time_created, time_updated"
+local COLUMNS = "id, title, directory, parent, time_created, time_updated"
 
 local Store = class()
 
 Store.UNTITLED = UNTITLED
 
 function Store:init(path)
+    self.drafts = {}
     local parent = path:match("^(.*)/[^/]*$")
     if parent and parent ~= "" then
         sys.fs.mkdir(parent)
@@ -77,45 +78,75 @@ function Store:set_setting(key, value)
     )
 end
 
-function Store:create_session(title, parent)
+function Store:create_session(title, parent, key)
     local now = sys.os.now()
     local row = {
-        id = id.new(),
+        id = key or id.new(),
         title = title or UNTITLED,
         directory = sys.os.cwd(),
         time_created = now,
         time_updated = now,
+        parent = parent,
     }
-    self.db:exec(
+    local session = Session(self, row)
+    session.pending = true
+    self.drafts[session.id] = session
+    return session
+end
+
+-- Commit ancestors and the first message in the same transaction.
+function Store:persist(session, inserted)
+    if not session.pending then return end
+    if session.parent then
+        self:persist(assert(self:session(session.parent), "missing parent session"), inserted)
+    end
+    assert(self.db:exec(
         "INSERT INTO sessions (id, title, directory, parent, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?)",
-        { row.id, row.title, row.directory, parent or sys.db.null, now, now }
-    )
-    return Session(self, row)
+        { session.id, session.title, session.directory, session.parent or sys.db.null, session.created, session.updated }
+    ))
+    inserted[#inserted + 1] = session
 end
 
 function Store:session(key)
+    if self.drafts[key] then return self.drafts[key] end
     local row = self.db:query("SELECT " .. COLUMNS .. " FROM sessions WHERE id = ?", { key })[1]
     return row and Session(self, row)
 end
 
 function Store:latest(directory)
-    local row = self.db:query(
-        "SELECT " .. COLUMNS .. " FROM sessions WHERE directory = ? AND parent IS NULL ORDER BY time_updated DESC, id DESC LIMIT 1",
-        { directory }
-    )[1]
-    return row and Session(self, row)
+    for _, session in ipairs(self:sessions()) do
+        if session.directory == directory and self:has_history(session.id) then return session end
+    end
+end
+
+function Store:tree(key)
+    return self.db:query([[
+        WITH RECURSIVE tree(id) AS (
+            SELECT id FROM sessions WHERE id = ?
+            UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
+        ) SELECT id FROM tree
+    ]], { key })
+end
+
+function Store:has_history(key)
+    for _, row in ipairs(self:tree(key)) do
+        if self.db:query("SELECT 1 FROM messages WHERE session_id = ? LIMIT 1", { row.id })[1] then return true end
+    end
+    return false
 end
 
 function Store:sessions()
     local out = {}
-    for _, row in ipairs(self.db:query("SELECT " .. COLUMNS .. " FROM sessions WHERE parent IS NULL ORDER BY time_updated DESC")) do
+    for _, row in ipairs(self.db:query("SELECT " .. COLUMNS .. " FROM sessions WHERE parent IS NULL ORDER BY time_updated DESC, id DESC")) do
         out[#out + 1] = Session(self, row)
     end
     return out
 end
 
 function Store:delete(key)
-    return self.db:exec("DELETE FROM sessions WHERE id = ?", { key }) > 0
+    local changed, err = self.db:exec("DELETE FROM sessions WHERE id = ?", { key })
+    assert(changed, err)
+    return changed > 0
 end
 
 return Store

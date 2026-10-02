@@ -9,7 +9,6 @@ local tables = require("uji.core.tables")
 local tool = require("uji.core.tool")
 
 local DEFAULTS = "uji.builtin.defaults"
-local FLAGS = { "config-dir", "data-dir", "db" }
 
 local M = { searching = false }
 
@@ -60,26 +59,18 @@ function M.settle(args)
     if tables.same(declared, sys.os.roots) then
         return false
     end
-    sys.os.restart({ args = args, roots = declared })
+    sys.os.restart({ args = args, roots = declared, carry = sys.os.carry })
     return true
 end
 
 function M.reload()
     local app = require("uji.core.app")
-    if app.agent and app.agent:working() then
-        notices.push("finish or interrupt the current turn before reloading")
+    local sessions = require("uji.core.ui.sessions")
+    if sessions.busy() then
+        notices.push("resolve pending work and queued messages before reloading")
         return
     end
-    local argv = { app.argv[1] or "uji", "resume", "--id", app.session.id }
-    for _, flag in ipairs(FLAGS) do
-        local value = app.flags[flag]
-        if value then
-            argv[#argv + 1] = "--" .. flag
-            argv[#argv + 1] = value
-        end
-    end
-    local draft = require("uji.core.ui").composer:text()
-    sys.os.restart({ args = argv, roots = packs.expected(), carry = sys.json.encode({ draft = draft }) })
+    return sessions.restart(not app.session.pending and app.session or nil)
 end
 
 return M

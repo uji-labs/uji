@@ -139,6 +139,8 @@ fn a_module_written_while_uji_runs_is_used_after_a_reload() {
             local app = require("uji.core.app")
             local before = probe.work .. "/before.json"
             if not sys.os.carry then
+                assert(app.session.pending and #app.store:sessions() == 0)
+                app.session:rename("unsaved title")
                 local file = assert(io.open(before, "w"))
                 file:write(sys.json.encode({ lossy = sys.lossy("abc"), session = app.session.id }))
                 file:close()
@@ -151,6 +153,8 @@ fn a_module_written_while_uji_runs_is_used_after_a_reload() {
             local file = assert(io.open(before))
             local earlier = sys.json.decode(file:read("*a"))
             file:close()
+            assert(app.session.pending and app.session.title == "unsaved title")
+            assert(#app.store.db:query("SELECT id FROM sessions") == 0)
             emit(earlier.lossy, sys.lossy("abc"), earlier.session == app.session.id)
             "#,
         )

@@ -5,7 +5,7 @@
 | Run | Does |
 |---|---|
 | `uji`, `uji new` | Starts a new session. |
-| `uji resume` | Resumes the latest session in the current directory. |
+| `uji resume` | Resumes the latest session with history in the current directory. |
 | `uji resume --id <ID>` | Resumes the session with that id. |
 | `uji list` | Opens a picker of the sessions in the current directory. |
 | `uji delete <ID>` | Deletes a session. |
@@ -28,6 +28,7 @@ lists the environment variables that do the same.
 |---|---|
 | `/login` | Adds a provider. |
 | `/models` | Picks the model. |
+| `/sessions` | Resumes or deletes a saved conversation in the current directory. |
 | `/effort` | Sets the reasoning effort, from the levels the current model accepts. |
 | `/thinking` | Shows or hides the model's reasoning. |
 | `/compact` | Summarises earlier messages to free context. |
@@ -35,6 +36,26 @@ lists the environment variables that do the same.
 | `/reload` | Starts uji again with your current config and files, keeping the conversation and your draft. |
 | `/help` | Lists every command, including the ones plugins add. |
 | `/quit` | Quits. |
+
+## Manage sessions
+
+Open `/sessions` inside uji, or run `uji list` from your project directory.
+Press Enter to resume the selected conversation or Esc to cancel.
+Press Ctrl-D to request deletion of the selected conversation and its child history.
+Only unmodified `y` confirms deletion; Enter, Esc, and `n` cancel.
+The in-app picker protects the open conversation and ancestors containing it.
+It cannot detect conversations open in another process.
+The terminal command `uji delete <ID>` does not ask for confirmation.
+
+Blank conversations stay in memory until their first message commits.
+Renaming or reloading a blank conversation does not create a saved record.
+Child history saves its required ancestor records.
+Existing empty records remain available for explicit deletion, but do not win `uji resume`.
+
+Session switching and `/reload` preserve draft text, including expanded multiline pastes.
+They refuse to proceed while a turn or shell command runs, or queued input remains.
+Submit or remove draft image attachments before switching or reloading.
+Restart does not carry their payloads.
 
 ## Keys
 
