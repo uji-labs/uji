@@ -16,4 +16,7 @@ uji.fs = {
     write = task.callback(function(path, content)
         return tool.workspace():write(path, content)
     end),
+    list = task.callback(function(path)
+        return tool.workspace():list(path)
+    end),
 }

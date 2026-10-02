@@ -52,6 +52,7 @@
   - [uji.fs](api/fs.md)
   - [uji.json](api/json.md)
   - [uji.pack](api/pack.md)
+  - [uji.config](api/config.md)
   - [Timers and notices](api/timers.md)
   - [Quitting and reloading](api/app.md)
 - [Runtime](runtime/index.md)

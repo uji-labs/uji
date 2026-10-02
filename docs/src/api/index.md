@@ -165,6 +165,8 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.fs.read(path, on_done)`](fs.md#ujifsreadpath-on_done) | Reads a whole file. |
 | [`uji.fs.lines(path, opts, on_done)`](fs.md#ujifslinespath-opts-on_done) | Reads a range of lines from a text file. |
 | [`uji.fs.write(path, content, on_done)`](fs.md#ujifswritepath-content-on_done) | Writes a file, creating missing directories. |
+| [`uji.fs.list(path, on_done)`](fs.md#ujifslistpath-on_done) | Lists a directory. |
+| [`uji.config.files(folder, opts, on_done)`](config.md#ujiconfigfilesfolder-opts-on_done) | Reads the files in a folder of your config, your packs and, if asked, the project. |
 
 ## JSON
 

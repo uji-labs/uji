@@ -53,3 +53,17 @@ uji.fs.write("notes/todo.md", "- write the docs\n", function(result, err)
   end
 end)
 ```
+
+## uji.fs.list(path, on_done)
+
+Lists a directory. `on_done` receives a list of tables with `name` and
+`type`, which is `"file"`, `"dir"`, `"link"` or `"other"`, sorted by name, or
+`nil` and an error message.
+
+```lua
+uji.fs.list("src", function(entries, err)
+  if entries then
+    uji.notify(#entries .. " entries in src")
+  end
+end)
+```

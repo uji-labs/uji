@@ -83,6 +83,18 @@ function Roots:read(target)
     return bytes
 end
 
+function Roots:list(target)
+    local full, err = self:resolve(target)
+    if not full then
+        return nil, err
+    end
+    local entries, failure = sys.fs.list(full)
+    if not entries then
+        return nil, self:failed("list", target, failure)
+    end
+    return entries
+end
+
 function Roots:excerpt(target, window)
     local full, err = self:resolve(target)
     if not full then

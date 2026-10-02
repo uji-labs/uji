@@ -86,3 +86,43 @@ fn a_preview_drops_carriage_returns_and_refuses_what_it_cannot_show() {
     let directory = files(&sandbox).around("dir", 1, 2).unwrap_err();
     assert_eq!(directory.to_string(), "dir is a directory, not a file");
 }
+
+#[test]
+fn plugins_read_their_files_from_the_config_and_the_nearest_project() {
+    let sandbox = Sandbox::new("files").unwrap();
+    let root = sandbox.root();
+    std::fs::create_dir_all(root.join("cfg/agents/nested")).unwrap();
+    std::fs::write(root.join("cfg/agents/mine.md"), "mine").unwrap();
+    std::fs::create_dir_all(root.join(".uji/agents")).unwrap();
+    std::fs::write(root.join(".uji/agents/repo.md"), "repo").unwrap();
+    sandbox.file("notes/a.txt", "a").unwrap();
+    let seen = sandbox
+        .probe(
+            r#"
+            local found = {}
+            for _, file in ipairs(uji.config.files("agents", { project = true })) do
+                found[#found + 1] = file.name .. "=" .. file.text .. (file.project and " project" or "")
+            end
+            emit(table.concat(found, ","))
+            local mine = {}
+            for _, file in ipairs(uji.config.files("agents")) do
+                mine[#mine + 1] = file.name
+            end
+            emit(table.concat(mine, ","))
+            local entries = uji.fs.list("notes")
+            emit(entries[1].name .. ":" .. entries[1].type)
+            local listed, err = uji.fs.list("..")
+            emit(tostring(listed == nil and err ~= nil))
+            "#,
+        )
+        .unwrap();
+    assert_eq!(
+        seen,
+        [
+            "mine.md=mine,repo.md=repo project",
+            "mine.md",
+            "a.txt:file",
+            "true"
+        ]
+    );
+}
