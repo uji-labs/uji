@@ -6,8 +6,8 @@ use serde_json::{Value, json};
 use uji_tests::{Reply, Request, Sandbox, Server, provider, text, tool_calls};
 
 const MODEL: &str = r#"
-require("uji.model").set_setting("llm.provider", "test")
-require("uji.model").set_setting("llm.model", "m")
+require("uji.core.model").set_setting("llm.provider", "test")
+require("uji.core.model").set_setting("llm.model", "m")
 "#;
 
 fn sandbox(server: &Server) -> Result<Sandbox, Box<dyn Error>> {
@@ -181,7 +181,7 @@ fn run_saves_its_session_under_a_parent() {
     let seen = sandbox
         .probe(
             r#"
-            local rows = require("uji.app").store.db:query("SELECT title, parent FROM sessions WHERE parent IS NOT NULL")
+            local rows = require("uji.core.app").store.db:query("SELECT title, parent FROM sessions WHERE parent IS NOT NULL")
             for _, row in ipairs(rows) do
                 emit(row.title, row.parent)
             end

@@ -19,9 +19,9 @@ Every function lives under the global `uji` table. A function that finishes late
 
 | Name | Does |
 |---|---|
-| [`uji.command.add(name, spec)`](command.md#ujicommandaddname-spec) | Registers `/name`, or replaces the Lua command with the same name. |
-| [`uji.command.remove(name)`](command.md#ujicommandremovename) | Removes a Lua command and returns `true` if it existed. |
-| [`uji.command.list()`](command.md#ujicommandlist) | Returns the names of the Lua commands in alphabetical order. |
+| [`uji.command.add(name, spec)`](command.md#ujicommandaddname-spec) | Registers `/name`, or replaces the command with the same name, built-in or not. |
+| [`uji.command.remove(name)`](command.md#ujicommandremovename) | Removes a command and returns `true` if it existed. |
+| [`uji.command.list()`](command.md#ujicommandlist) | Returns the names of every command in alphabetical order. |
 
 ## Keys
 
@@ -50,9 +50,13 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.ui.set_size(id, size)`](ui.md#ujiuiset_sizeid-size) | Changes a window's size to rows or columns, `"fill"` or `"auto"`. |
 | [`uji.ui.set_title(id, title)`](ui.md#ujiuiset_titleid-title) | Sets the title in a window's border, or removes it when `title` is `nil`. |
 | [`uji.ui.close_win(id)`](ui.md#ujiuiclose_winid) | Closes a window and returns `true` if it was open. |
+| [`uji.ui.list_wins()`](ui.md#ujiuilist_wins) | Returns every open window with its name, place and size. |
+| [`uji.ui.size()`](ui.md#ujiuisize) | Returns the width and height of the terminal. |
 | [`uji.ui.select(opts, on_done)`](ui.md#ujiuiselectopts-on_done) | Shows a list to choose from. |
 | [`uji.ui.pick(opts, on_done)`](ui.md#ujiuipickopts-on_done) | Shows a fuzzy finder with a preview pane. |
 | [`uji.ui.prompt(opts, on_done)`](ui.md#ujiuipromptopts-on_done) | Asks for a line of text. |
+| [`uji.ui.confirm(opts, on_done)`](ui.md#ujiuiconfirmopts-on_done) | Asks a yes or no question, including uji's approval questions. |
+| [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |
 | [`uji.ui.configure(opts)`](ui.md#ujiuiconfigureopts) | Sets colours and screen behaviour. |
 
@@ -71,7 +75,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.status.add(name, render, opts)`](status.md#ujistatusaddname-render-opts) | Registers a footer segment. |
 | [`uji.status.remove(name)`](status.md#ujistatusremovename) | Removes a segment and returns `true` if it existed. |
 | [`uji.status.list()`](status.md#ujistatuslist) | Returns the segment names in priority order. |
-| [`uji.status.render()`](status.md#ujistatusrender) | Calls every segment in priority order and returns the values that are not `nil`. |
+| [`uji.status.render(names)`](status.md#ujistatusrendernames) | Calls every segment, or the ones named, and returns the values that are not `nil`. |
 
 ## Model context
 
@@ -100,6 +104,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.session.set_title(title)`](session.md#ujisessionset_titletitle) | Renames the session, saves the name, and fires `session_titled`. |
 | [`uji.session.submit(text)`](session.md#ujisessionsubmittext) | Sends a message as if you typed it. |
 | [`uji.session.interrupt()`](session.md#ujisessioninterrupt) | Stops the current turn, or the running `!` command. |
+| [`uji.session.compact()`](session.md#ujisessioncompact) | Summarises earlier messages to free context. |
 
 ## Input line
 
@@ -113,22 +118,33 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.input.capture(handler)`](input.md#ujiinputcapturehandler) | Sends every key press to `handler` instead of the normal bindings, until `uji.input.release` runs. |
 | [`uji.input.release()`](input.md#ujiinputrelease) | Returns the keyboard to the normal bindings. |
 
+## Models
+
+| Name | Does |
+|---|---|
+| [`uji.model.current()`](model.md#ujimodelcurrent) | Returns the provider, model, API root and effort the next turn uses. |
+| [`uji.model.use(opts)`](model.md#ujimodeluseopts) | Changes the provider, model, API root or effort, and saves the choice. |
+| [`uji.model.efforts()`](model.md#ujimodelefforts) | Returns the reasoning efforts the current model accepts. |
+
 ## Providers
 
 | Name | Does |
 |---|---|
 | [`uji.provider.add(spec)`](provider.md#ujiprovideraddspec) | Adds a provider, or merges `spec` into the provider with the same `id`. |
 | [`uji.provider.remove(id)`](provider.md#ujiproviderremoveid) | Removes a provider and returns `true` if it existed. |
-| [`uji.provider.list()`](provider.md#ujiproviderlist) | Returns one table per provider with `id`, `name`, `wire`, `base_url` and `models`. |
+| [`uji.provider.list()`](provider.md#ujiproviderlist) | Returns one table per provider with its settings and models. |
 | [`uji.auth.configure(opts)`](auth.md#ujiauthconfigureopts) | Chooses between `auth.toml` and the system keychain for API keys and sign-ins. |
+| [`uji.auth.authenticated(id)`](auth.md#ujiauthauthenticatedid) | Returns `true` when uji has a key or sign-in for a provider. |
+| [`uji.auth.save_key(id, key)`](auth.md#ujiauthsave_keyid-key) | Saves an API key for a provider. |
+| [`uji.auth.login(id, on_done)`](auth.md#ujiauthloginid-on_done) | Signs in to a provider with its subscription in the browser. |
 
-## Request formats
+## Provider APIs
 
 | Name | Does |
 |---|---|
-| [`uji.wire.add(name, spec)`](wire.md#ujiwireaddname-spec) | Registers a wire, or replaces the wire with the same name. |
-| [`uji.wire.remove(name)`](wire.md#ujiwireremovename) | Removes a wire and returns `true` if it existed. |
-| [`uji.wire.list()`](wire.md#ujiwirelist) | Returns the names of the registered wires. |
+| [`uji.class(parent)`](apis.md#ujiclassparent) | Makes a class, optionally from a parent class whose methods it keeps. |
+| [`uji.api.openai`, `uji.api.responses`, `uji.api.anthropic`, `uji.api.gemini`](apis.md) | The API classes a provider's `api` is made from. |
+| [`uji.api.stream.run(spec, reply)`](apis.md#ujiapistream) | Sends a request to a streaming endpoint and reads the events into an answer. |
 
 ## Processes
 
@@ -173,6 +189,13 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.schedule(callback)`](timers.md#ujischedulecallback) | Runs `callback` once the code that called it has finished. |
 | [`uji.defer(seconds, callback)`](timers.md#ujideferseconds-callback) | Runs `callback` after a delay and returns a function that cancels it. |
 | [`uji.notify(message)`](timers.md#ujinotifymessage) | Shows a notice in the transcript. |
+
+## Quitting and reloading
+
+| Name | Does |
+|---|---|
+| [`uji.quit()`](app.md#ujiquit) | Exits uji. |
+| [`uji.reload()`](app.md#ujireload) | Restarts uji on the same session with your config read again. |
 
 ## Runtime
 

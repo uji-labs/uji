@@ -1,20 +1,20 @@
-local actions = require("uji.ui.actions")
-local app = require("uji.app")
-local check = require("uji.check")
-local images = require("uji.images")
-local keys = require("uji.ui.keys")
-local Keymap = require("uji.ui.keymap")
-local model = require("uji.model")
-local notices = require("uji.notices")
-local Pick = require("uji.ui.views.pick")
-local plugin = require("uji.plugin")
-local process = require("uji.system.process")
-local Prompt = require("uji.ui.views.prompt")
-local Registry = require("uji.registry")
-local Select = require("uji.ui.views.select")
-local task = require("uji.task")
-local ui = require("uji.ui")
-local Window = require("uji.ui.window")
+local actions = require("uji.core.ui.actions")
+local app = require("uji.core.app")
+local check = require("uji.core.check")
+local images = require("uji.core.images")
+local keys = require("uji.core.ui.keys")
+local Keymap = require("uji.core.ui.keymap")
+local model = require("uji.core.model")
+local notices = require("uji.core.notices")
+local Pick = require("uji.core.ui.views.pick")
+local plugin = require("uji.core.plugin")
+local process = require("uji.core.system.process")
+local Prompt = require("uji.core.ui.views.prompt")
+local Registry = require("uji.core.registry")
+local Select = require("uji.core.ui.views.select")
+local task = require("uji.core.task")
+local ui = require("uji.core.ui")
+local Window = require("uji.core.ui.window")
 
 local segments = plugin.track(Registry(plugin.current))
 
@@ -40,6 +40,15 @@ local function strings(list, what)
     return list
 end
 
+local function draw(name, render, out)
+    local ok, value = pcall(render)
+    if not ok then
+        notices.push("status segment " .. name .. ": " .. tostring(value))
+    elseif value ~= nil then
+        out[#out + 1] = value
+    end
+end
+
 local function window(id)
     local found = ui:window(id)
     return found
@@ -53,6 +62,31 @@ M.ui = {
     end,
     close_win = function(id)
         return ui:close_window(id)
+    end,
+    list_wins = function()
+        local out = {}
+        for index, found in ipairs(ui.windows) do
+            local area = found.area or {}
+            out[index] = {
+                id = found.id,
+                name = found.name,
+                view = found.view,
+                split = found.split,
+                size = found.size,
+                priority = found.priority,
+                float = found.float ~= nil,
+                x = area.x,
+                y = area.y,
+                width = area.width,
+                height = area.height,
+            }
+        end
+        return out
+    end,
+    size = function()
+        if ui.screen then
+            return ui.screen:size()
+        end
     end,
     set_lines = function(id, lines)
         local parsed = raise(pcall(Window.lines, lines))
@@ -98,8 +132,15 @@ M.ui = {
         check.options(opts, "uji.ui.prompt")
         return ui:ask(Prompt(opts))
     end),
+    confirm = task.callback(function(opts)
+        check.options(opts, "uji.ui.confirm")
+        return ui:confirm(opts)
+    end),
     exec = function(cmd)
         ui:exec(process.argv(cmd))
+    end,
+    toggle_thinking = function()
+        ui:toggle_thinking()
     end,
     configure = function(opts)
         raise(pcall(ui.theme.configure, ui.theme, opts))
@@ -152,14 +193,18 @@ M.status = {
     list = function()
         return segments:names()
     end,
-    render = function()
+    render = function(names)
         local out = {}
-        for name, render in segments:each() do
-            local ok, value = pcall(render)
-            if not ok then
-                notices.push("status segment " .. name .. ": " .. tostring(value))
-            elseif value ~= nil then
-                out[#out + 1] = value
+        if names == nil then
+            for name, render in segments:each() do
+                draw(name, render, out)
+            end
+            return out
+        end
+        for _, name in ipairs(strings(names, "uji.status.render")) do
+            local render = segments:get(name)
+            if render then
+                draw(name, render, out)
             end
         end
         return out

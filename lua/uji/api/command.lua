@@ -1,4 +1,4 @@
-local command = require("uji.command")
+local command = require("uji.core.command")
 
 uji.command = {
     add = command.add,

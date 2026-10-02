@@ -103,11 +103,13 @@ Gives the segment names in priority order.
 local segments = uji.status.list()
 ```
 
-## uji.status.render()
+## uji.status.render(names)
 
 Calls every segment in priority order and returns the values that are not
-`nil`. Footer plugins draw from it.
+`nil`. With a list of names, it calls only those segments, in that order, and
+skips names that are not segments. Footer plugins draw from it.
 
 ```lua
 local parts = uji.status.render()
+local right = uji.status.render({ "effort", "context" })
 ```

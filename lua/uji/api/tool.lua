@@ -1,4 +1,4 @@
-local tool = require("uji.tool")
+local tool = require("uji.core.tool")
 
 uji.tool = {
     add = tool.add,

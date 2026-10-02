@@ -1,4 +1,4 @@
-local plugin = require("uji.plugin")
+local plugin = require("uji.core.plugin")
 
 uji.plugin = {
     list = plugin.list,

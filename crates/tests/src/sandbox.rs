@@ -50,22 +50,22 @@ BODY
 end
 
 uji.schedule(function()
-    require("uji.app").session.directory = probe.work
+    require("uji.core.app").session.directory = probe.work
     local ok, err = pcall(body)
     if not ok then
         emit({ probe_error = tostring(err) })
     end
     seen:close()
-    require("uji.ui"):quit()
+    require("uji.core.ui"):quit()
 end)
 "##;
 
 const HARNESS: &str = r#"
 do
-    local app = require("uji.app")
-    local event = require("uji.event")
-    local model = require("uji.model")
-    local notices = require("uji.notices")
+    local app = require("uji.core.app")
+    local event = require("uji.core.event")
+    local model = require("uji.core.model")
+    local notices = require("uji.core.notices")
     local harness = HARNESS
 
     model.set_setting("llm.provider", "test")
@@ -81,7 +81,7 @@ do
     end
 
     local function finish()
-        require("uji.ui"):quit()
+        require("uji.core.ui"):quit()
     end
 
     event.on("before_quit", function()
@@ -352,7 +352,7 @@ impl Drop for Sandbox {
 
 pub fn provider(url: &str, context: u64) -> String {
     format!(
-        r#"uji.provider.add({{ id = "test", name = "Test", wire = "openai-chat", base_url = "{url}/v1", models = {{ {{ id = "m", context = {context}, output = 1000 }} }} }})"#
+        r#"uji.provider.add({{ id = "test", name = "Test", api = uji.api.openai(), base_url = "{url}/v1", models = {{ {{ id = "m", context = {context}, output = 1000 }} }} }})"#
     )
 }
 

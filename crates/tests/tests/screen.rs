@@ -6,14 +6,14 @@ const CURSOR: char = '\u{2588}';
 const MASK: char = '\u{2022}';
 
 const SCREEN: &str = r#"
-local app = require("uji.app")
-local Confirm = require("uji.ui.views.confirm")
-local keys = require("uji.ui.keys")
-local Pick = require("uji.ui.views.pick")
-local Prompt = require("uji.ui.views.prompt")
-local Select = require("uji.ui.views.select")
-local text = require("uji.ui.text")
-local ui = require("uji.ui")
+local app = require("uji.core.app")
+local Confirm = require("uji.core.ui.views.confirm")
+local keys = require("uji.core.ui.keys")
+local Pick = require("uji.core.ui.views.pick")
+local Prompt = require("uji.core.ui.views.prompt")
+local Select = require("uji.core.ui.views.select")
+local text = require("uji.core.ui.text")
+local ui = require("uji.core.ui")
 
 ui:open_window({ view = "messages", size = "fill" })
 ui:open_window({ view = "input", split = "bottom", size = "auto" })
@@ -195,7 +195,7 @@ fn a_tall_confirm_keeps_its_choices_on_screen_and_scrolls_its_body() {
 fn a_copied_selection_has_no_empty_line_at_either_end() {
     let seen = uji_tests::probe(
         r#"
-        local Selection = require("uji.ui.selection")
+        local Selection = require("uji.core.ui.selection")
         local selection = Selection()
         selection.rows = { [0] = "first line", [1] = "second", [2] = "", [3] = "fourth" }
         selection:press(0, 0, 0)
@@ -416,4 +416,134 @@ fn new_output_does_not_move_a_transcript_scrolled_up() {
     let followed = &rows[5];
     assert!(followed.iter().any(|row| row.contains("new 20")));
     assert!(!followed.iter().any(|row| row.contains("Jump to bottom")));
+}
+
+#[test]
+fn fill_spans_share_the_room_a_line_leaves() {
+    let width = 30;
+    let seen = screen(
+        width,
+        6,
+        r#"
+        local bar = uji.ui.open_win({ split = "bottom", size = 2 })
+        uji.ui.set_lines(bar, {
+            { "left", { fill = true }, "right" },
+            { "a", { fill = true }, "b", { fill = true }, "c" },
+        })
+        emit(screen())
+        "#,
+    )
+    .unwrap();
+    let rows: Vec<String> = seen[0]
+        .chars()
+        .collect::<Vec<_>>()
+        .chunks(usize::from(width))
+        .map(|row| row.iter().collect())
+        .collect();
+    assert!(rows.contains(&format!("left{}right", " ".repeat(21))));
+    assert!(rows.contains(&format!("a{}b{}c", " ".repeat(13), " ".repeat(14))));
+}
+
+#[test]
+fn plugins_can_list_windows_with_their_size_and_hear_when_it_changes() {
+    let seen = screen(
+        40,
+        10,
+        r#"
+        local changed = 0
+        uji.on("layout_changed", function()
+            changed = changed + 1
+        end)
+        ui.windows = {}
+        uji.ui.open_win({ name = "transcript", view = "messages", size = "fill" })
+        local bar = uji.ui.open_win({ name = "bar", split = "bottom", size = 4, border = "horizontal" })
+        screen()
+        screen()
+        emit(tostring(changed))
+        for _, win in ipairs(uji.ui.list_wins()) do
+            emit(win.name, tostring(win.x), tostring(win.y), tostring(win.width), tostring(win.height))
+        end
+        local width, height = uji.ui.size()
+        emit(tostring(width), tostring(height))
+        uji.ui.set_size(bar, 5)
+        screen()
+        emit(tostring(changed))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(seen[0], "1", "drawing the same layout again says nothing");
+    assert_eq!(seen[1..6], ["transcript", "0", "0", "40", "6"]);
+    assert_eq!(seen[6..11], ["bar", "0", "7", "40", "2"]);
+    assert_eq!(seen[11..13], ["40", "10"]);
+    assert_eq!(seen[13], "2");
+}
+
+#[test]
+fn core_commands_use_the_picker_a_plugin_puts_in_place() {
+    let seen = screen(
+        40,
+        10,
+        r#"
+        local asked
+        uji.model.use({ provider = "anthropic", model = "claude-sonnet-5" })
+        uji.ui.select = function(opts)
+            asked = opts.title
+            return "high"
+        end
+        require("uji.core.command").run("effort")
+        emit(asked, require("uji.core.model").setting("llm.effort"))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(seen, ["Reasoning effort", "high"]);
+}
+
+#[test]
+fn the_models_command_switches_to_a_model_of_a_provider_with_a_key() {
+    let seen = screen(
+        40,
+        10,
+        r#"
+        uji.auth.save_key("groq", "test-key")
+        local want
+        for _, provider in ipairs(uji.provider.list()) do
+            if provider.id == "groq" then
+                want = provider.models[2].id
+            end
+        end
+        uji.ui.select = function(opts)
+            for _, item in ipairs(opts.items) do
+                if item:sub(-#want) == want then
+                    return item
+                end
+            end
+        end
+        require("uji.core.command").run("models")
+        local current = uji.model.current()
+        emit(current.provider, tostring(current.model == want), tostring(uji.auth.authenticated("groq")))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(seen, ["groq", "true", "true"]);
+}
+
+#[test]
+fn a_plugin_replaces_a_built_in_command_by_adding_its_name() {
+    let seen = screen(
+        40,
+        10,
+        r#"
+        uji.command.add("help", function()
+            emit("mine")
+        end)
+        require("uji.core.command").run("help")
+        local listed = {}
+        for _, name in ipairs(uji.command.list()) do
+            listed[name] = true
+        end
+        emit(tostring(listed.help and listed.login))
+        "#,
+    )
+    .unwrap();
+    assert_eq!(seen, ["mine", "true"]);
 }

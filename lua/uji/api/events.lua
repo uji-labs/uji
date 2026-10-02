@@ -1,4 +1,4 @@
-local event = require("uji.event")
+local event = require("uji.core.event")
 
 uji.on = event.on
 uji.off = event.off

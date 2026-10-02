@@ -71,27 +71,6 @@ pub struct ToolSpec {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Effort {
-    Off,
-    Minimal,
-    Low,
-    Medium,
-    High,
-}
-
-impl Effort {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Off => "off",
-            Self::Minimal => "minimal",
-            Self::Low => "low",
-            Self::Medium => "medium",
-            Self::High => "high",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Retention {
     Off,
     Short,

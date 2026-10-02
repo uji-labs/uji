@@ -1,5 +1,5 @@
-local app = require("uji.app")
-local tokens = require("uji.agent.tokens")
+local app = require("uji.core.app")
+local tokens = require("uji.core.agent.tokens")
 
 local M = {}
 
@@ -61,6 +61,10 @@ end
 
 function M.interrupt()
     app.agent:interrupt()
+end
+
+function M.compact()
+    return app.agent:compact() == true
 end
 
 uji.session = M

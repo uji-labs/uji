@@ -1,5 +1,5 @@
-local notices = require("uji.notices")
-local task = require("uji.task")
+local notices = require("uji.core.notices")
+local task = require("uji.core.task")
 
 uji.notify = notices.push
 

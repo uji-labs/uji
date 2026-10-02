@@ -2,16 +2,18 @@
 
 ## uji.ui.open_win(opts)
 
-Opens a window and returns its id. The default config opens three.
+Opens a window and returns its id. The default config opens these four.
 
 ```lua
-uji.ui.open_win({ view = "messages", split = "top", size = "fill", wrap = true })
-uji.ui.open_win({ view = "input", split = "bottom", size = "auto", border = "horizontal" })
-uji.ui.open_win({ view = "modal", split = "bottom", size = "auto" })
+uji.ui.open_win({ name = "messages", view = "messages", split = "top", size = "fill", wrap = true })
+uji.ui.open_win({ name = "input", view = "input", split = "bottom", size = "auto", border = "horizontal" })
+uji.ui.open_win({ name = "modal", view = "modal", split = "bottom", size = "auto" })
+uji.ui.open_win({ name = "activity", split = "bottom", size = 0, padding = 1 })
 ```
 
 | Option | Values | Default |
 |---|---|---|
+| `name` | a name that [`uji.ui.list_wins`](#ujiuilist_wins) reports, so another plugin can find the window | none |
 | `view` | `"messages"` for the transcript, `"input"` for the input line, `"modal"` for pickers, prompts and approval questions. Leave it out for a window you draw into. | none |
 | `split` | `"top"`, `"bottom"`, `"left"` or `"right"` | `"top"` |
 | `size` | rows or columns, `"fill"`, or `"auto"` to fit the content | `"fill"` |
@@ -25,11 +27,57 @@ uji.ui.open_win({ view = "modal", split = "bottom", size = "auto" })
 
 Raises an error for an unknown view, split, border or size.
 
+## uji.ui.list_wins()
+
+Returns one table per open window, in layout order.
+
+| Field | Meaning |
+|---|---|
+| `id` | The id that `uji.ui.open_win` returned. |
+| `name` | The `name` the window was opened with, or `nil`. |
+| `view` | `"messages"`, `"input"`, `"modal"`, or `nil` for a window a plugin draws into. |
+| `split` | The side the window sits on. |
+| `size` | The size it was given, such as `3`, `"fill"` or `"auto"`. |
+| `priority` | Its layout order. |
+| `float` | `true` for a floating window. |
+| `x`, `y` | The column and row of its content, counted from 0 at the top left. |
+| `width`, `height` | The size of its content in cells. |
+
+The position and size fields stay `nil` until uji first draws the window.
+uji fires [`layout_changed`](events.md#layout_changed) when any of them
+changes.
+
+```lua
+for _, win in ipairs(uji.ui.list_wins()) do
+  if win.name == "input" then
+    uji.notify("the input line is " .. win.width .. " columns wide")
+  end
+end
+```
+
+## uji.ui.size()
+
+Returns the width and height of the terminal in cells, or nothing when the
+screen is not open, as in `uji run`.
+
+```lua
+local width, height = uji.ui.size()
+```
+
 ## uji.ui.set_lines(id, lines)
 
 Replaces a window's content. Each line is a list of spans. A span is a string,
 or a table with `text` and any of `color`, `bg`, `bold`, `italic` and
 `underline`. A line may also be a single span.
+
+`{ fill = true }` is a span that takes the room the rest of the line leaves,
+so the spans after it sit at the right edge. Several fills share that room
+equally. A line too long for its window leaves them none.
+
+```lua
+local bar = uji.ui.open_win({ split = "bottom", size = 1 })
+uji.ui.set_lines(bar, { { "main", { fill = true }, { text = "3 files", color = "gray" } } })
+```
 
 ```lua
 local panel = uji.ui.open_win({ split = "bottom", size = 2 })
@@ -135,6 +183,44 @@ uji.ui.prompt({ title = "Commit message" }, function(message)
   if message and message ~= "" then
     uji.session.submit("Commit the staged changes with the message: " .. message)
   end
+end)
+```
+
+## uji.ui.confirm(opts, on_done)
+
+Asks a yes or no question and gives `true` for yes and `false` for no. uji
+asks its approval questions through this function, so a plugin that replaces
+`uji.ui.confirm` answers them, or shows them its own way.
+
+| Field | Meaning |
+|---|---|
+| `title` | The question. |
+| `body` | Text under the question, such as the command a tool wants to run. |
+| `timeout` | Seconds to wait. When they pass, the question closes and gives `nil`. |
+
+```lua
+local yes = uji.ui.confirm({ title = "Delete the build folder?" })
+```
+
+This replacement rings the terminal bell before each question, then asks it
+the usual way:
+
+```lua
+local ask = uji.ui.confirm
+uji.ui.confirm = function(request)
+  io.stdout:write("\a")
+  return ask(request)
+end
+```
+
+## uji.ui.toggle_thinking()
+
+Shows the model's reasoning in the transcript, or hides it again, and says
+which in a notice. `/thinking` calls this.
+
+```lua
+uji.keymap.add("normal", "<C-t>", function()
+  uji.ui.toggle_thinking()
 end)
 ```
 

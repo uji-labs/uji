@@ -1,19 +1,18 @@
 # uji.command
 
-These functions manage the slash commands that your config and plugins add.
-[Slash commands](../getting-started/commands.md#slash-commands) lists the
-built-in ones.
+These functions manage the slash commands. The built-in ones, listed in
+[Slash commands](../getting-started/commands.md#slash-commands), are added the
+same way, so a plugin can replace or remove any of them.
 
 ## uji.command.add(name, spec)
 
-Registers `/name`, or replaces the Lua command with the same name. `spec` is a
-function, or a table with these fields.
+Registers `/name`, or replaces the command with the same name, built-in or
+not. `spec` is a function, or a table with these fields.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `handler` | function | yes | Runs the command. It receives the text typed after the name. |
 | `desc` | string | no | The description in the suggestion list. |
-| `force` | boolean | no | With `true`, replaces a built-in command with the same name. |
 
 Raises an error when `spec` is neither a function nor a table with a
 `handler`.
@@ -27,9 +26,20 @@ uji.command.add("standup", {
 })
 ```
 
+This replaces `/help` with a notice that names every command:
+
+```lua
+uji.command.add("help", {
+  desc = "list commands",
+  handler = function()
+    uji.notify(table.concat(uji.command.list(), "  "))
+  end,
+})
+```
+
 ## uji.command.remove(name)
 
-Removes a Lua command and returns `true` if it existed.
+Removes a command and returns `true` if it existed.
 
 ```lua
 uji.command.remove("standup")
@@ -37,8 +47,8 @@ uji.command.remove("standup")
 
 ## uji.command.list()
 
-Returns the names of the Lua commands in alphabetical order. Built-in commands
-are not in the list.
+Returns the names of every command, built-in and added, in alphabetical
+order.
 
 ```lua
 local names = uji.command.list()

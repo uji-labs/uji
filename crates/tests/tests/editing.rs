@@ -4,8 +4,8 @@ use serde_json::Value;
 use uji_tests::probe;
 
 const EDITING: &str = r#"
-local Composer = require("uji.ui.composer")
-local Line = require("uji.ui.line")
+local Composer = require("uji.core.ui.composer")
+local Line = require("uji.core.ui.line")
 
 local function typed(text)
     local line = Line()

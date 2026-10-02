@@ -1,0 +1,21 @@
+uji.provider.add({
+    id = "xai",
+    name = "xAI",
+    api = uji.api.responses({ cache_key = false }),
+    base_url = "https://api.x.ai/v1",
+    auth_env = { "XAI_API_KEY" },
+    models = {
+        { id = "grok-4.6", context = 500000, output = 500000, reasoning = true, images = true },
+        { id = "grok-4.3", context = 1000000, output = 30000, reasoning = true, images = true },
+        { id = "grok-4.5", context = 500000, output = 500000, reasoning = true, images = true },
+        { id = "grok-4.20-0309-reasoning", context = 1000000, output = 30000, reasoning = true, images = true },
+        { id = "grok-4.20-multi-agent-0309", context = 1000000, output = 30000, reasoning = true, images = true },
+        { id = "grok-imagine-image", context = 16000, images = true },
+        { id = "grok-imagine-video", context = 1024, images = true },
+        { id = "grok-build-0.1", context = 256000, output = 256000, reasoning = true, images = true },
+        { id = "grok-imagine-video-1.5", context = 1024, images = true },
+        { id = "grok-imagine-image-2.0", context = 64000 },
+        { id = "grok-imagine-image-quality", context = 16000, images = true },
+        { id = "grok-4.20-0309-non-reasoning", context = 1000000, output = 30000, images = true },
+    },
+})

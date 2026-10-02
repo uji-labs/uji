@@ -3,7 +3,7 @@
 A one-line footer with the model and the tokens spent.
 
 ```lua
-require("uji.defaults")
+require("uji.builtin.defaults")
 
 local footer = uji.ui.open_win({ split = "bottom", size = 1, priority = 10 })
 

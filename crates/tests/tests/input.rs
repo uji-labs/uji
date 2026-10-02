@@ -4,16 +4,16 @@ use serde_json::Value;
 use uji_tests::probe;
 
 const INPUT: &str = r#"
-local app = require("uji.app")
-local command = require("uji.command")
-local Confirm = require("uji.ui.views.confirm")
-local keys = require("uji.ui.keys")
-local Keymap = require("uji.ui.keymap")
-local Modal = require("uji.ui.views.modal")
-local Prompt = require("uji.ui.views.prompt")
-local Select = require("uji.ui.views.select")
-local text = require("uji.ui.text")
-local ui = require("uji.ui")
+local app = require("uji.core.app")
+local command = require("uji.core.command")
+local Confirm = require("uji.core.ui.views.confirm")
+local keys = require("uji.core.ui.keys")
+local Keymap = require("uji.core.ui.keymap")
+local Modal = require("uji.core.ui.views.modal")
+local Prompt = require("uji.core.ui.views.prompt")
+local Select = require("uji.core.ui.views.select")
+local text = require("uji.core.ui.text")
+local ui = require("uji.core.ui")
 
 local action
 

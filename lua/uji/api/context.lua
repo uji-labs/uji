@@ -1,4 +1,4 @@
-local context = require("uji.context")
+local context = require("uji.core.context")
 
 uji.context = {
     add = context.add,

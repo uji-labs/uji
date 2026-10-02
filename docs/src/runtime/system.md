@@ -27,7 +27,7 @@ command line for the new run, `opts.roots` sets `uji.os.roots` for it, and
 
 ## uji.modules(namespace)
 
-Lists the modules directly inside `namespace`, such as `"uji.commands"`, as
+Lists the modules directly inside `namespace`, such as `"uji.builtin.commands"`, as
 full names in alphabetical order. It looks in the `lua/` folder of every
 directory in `uji.os.roots` and in the built-in modules. A folder with an
 `init.lua` counts as one module.

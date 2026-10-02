@@ -17,7 +17,7 @@ fn build(history: &[StoredMessage]) -> Result<Vec<Message>, Box<dyn Error>> {
     let history = serde_json::to_string(history)?;
     let seen = probe(&format!(
         r#"
-        local view = require("uji.agent.view")
+        local view = require("uji.core.agent.view")
         local stored = uji.json.decode({history:?}, {{ nulls = false }})
         for _, message in ipairs(view.build(stored)) do
             emit(message)

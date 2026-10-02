@@ -1,5 +1,5 @@
-local task = require("uji.task")
-local tool = require("uji.tool")
+local task = require("uji.core.task")
+local tool = require("uji.core.tool")
 
 uji.fs = {
     read = task.callback(function(path)

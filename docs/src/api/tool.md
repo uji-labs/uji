@@ -27,7 +27,7 @@ the result in one of three ways:
 
 A result may also be a table with `text` and `images`, in any of the three
 ways. `images` is a list in the format the
-[`uji.wire.add`](wire.md#ujiwireaddname-spec) request describes. The model gets
+[provider API request](apis.md#the-request) describes. The model gets
 the images with the text, and `after_tool` handlers see only the text. An
 image with no supported `media_type`, no `data` or more than 5 MB is left out,
 and a note at the end of the text says so.

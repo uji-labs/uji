@@ -9,7 +9,7 @@ uji is a coding agent for your terminal, configured in Lua. This is a
 complete `~/.config/uji/init.lua`:
 
 ```lua
-require("uji.defaults")
+require("uji.builtin.defaults")
 
 uji.pack.add({ "uji-labs/uji-plugins" })
 require("statusline").setup({})

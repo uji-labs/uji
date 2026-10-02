@@ -1,7 +1,7 @@
 # uji.session
 
-These functions read the open conversation, and can post to it, rename it or
-stop the running turn.
+These functions read the open conversation, and can post to it, rename it,
+compact it or stop the running turn.
 
 ## uji.session.info()
 
@@ -61,4 +61,17 @@ Stops the current turn, or the running `!` command.
 
 ```lua
 uji.session.interrupt()
+```
+
+## uji.session.compact()
+
+Starts summarising the earlier messages to free context, the way `/compact`
+does, and returns `true`. It returns `false` when a turn is running or there
+is nothing to compact yet. uji fires
+[`session_compacted`](events.md#session_compacted) when the summary is saved.
+
+```lua
+if not uji.session.compact() then
+  uji.notify("nothing to compact")
+end
 ```

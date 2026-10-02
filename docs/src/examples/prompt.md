@@ -41,5 +41,5 @@ uji.on("before_turn", function(turn)
 end)
 ```
 
-To replace the prompt entirely, override the built-in `uji.prompt` module, as
-[Rebuilding uji](../rebuilding/index.md) shows.
+To replace the prompt entirely, override the built-in `uji.core.prompt`
+module, as [Rebuilding uji](../rebuilding/index.md) shows.

@@ -1,5 +1,5 @@
 local sys = require("uji.sys")
-local task = require("uji.task")
+local task = require("uji.core.task")
 
 uji.task = {
     spawn = task.spawn,

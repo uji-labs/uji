@@ -136,16 +136,16 @@ fn a_module_written_while_uji_runs_is_used_after_a_reload() {
         .probe(
             r#"
             local sys = require("uji.sys")
-            local app = require("uji.app")
+            local app = require("uji.core.app")
             local before = probe.work .. "/before.json"
             if not sys.os.carry then
                 local file = assert(io.open(before, "w"))
                 file:write(sys.json.encode({ lossy = sys.lossy("abc"), session = app.session.id }))
                 file:close()
-                local folder = require("uji.paths").config() .. "/lua/uji/sys"
+                local folder = require("uji.core.paths").config() .. "/lua/uji/sys"
                 sys.fs.mkdir(folder)
                 sys.fs.write(folder .. "/lossy.lua", "return function(data) return 'reloaded ' .. data end")
-                require("uji.config").reload()
+                require("uji.core.config").reload()
                 return
             end
             local file = assert(io.open(before))

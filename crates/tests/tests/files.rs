@@ -13,8 +13,8 @@ impl Files<'_> {
             .sandbox
             .probe(&format!(
                 r#"
-                local Roots = require("uji.system.roots")
-                local roots = Roots(require("uji.app").session.directory, {{}}, false)
+                local Roots = require("uji.core.system.roots")
+                local roots = Roots(require("uji.core.app").session.directory, {{}}, false)
                 local lines, err = roots:around({target:?}, {line}, {count})
                 emit(lines and {{ ok = uji.json.array(lines) }} or {{ err = err }})
             "#

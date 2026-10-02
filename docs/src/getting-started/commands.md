@@ -28,7 +28,7 @@ lists the environment variables that do the same.
 |---|---|
 | `/login` | Adds a provider. |
 | `/models` | Picks the model. |
-| `/effort` | Sets reasoning effort: off, minimal, low, medium or high. |
+| `/effort` | Sets the reasoning effort, from the levels the current model accepts. |
 | `/thinking` | Shows or hides the model's reasoning. |
 | `/compact` | Summarises earlier messages to free context. |
 | `/sync` | Updates installed packs and reloads. |

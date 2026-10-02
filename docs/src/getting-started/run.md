@@ -17,7 +17,7 @@ model answers and `1` when the turn fails, with the reason on standard error.
 |---|---|
 | `--json` | Prints every event as a line of JSON instead of the answer alone. |
 | `--model <PROVIDER/ID>` | Uses this model instead of the one you picked with `/models`. |
-| `--effort <LEVEL>` | Uses this reasoning effort: `off`, `minimal`, `low`, `medium` or `high`. |
+| `--effort <LEVEL>` | Uses this reasoning effort: `off`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max`. uji uses the nearest level the model accepts. |
 | `--tools <A,B>` | Offers the model only these tools, separated by commas. |
 | `--append-prompt <TEXT>` | Adds the text to the end of the system prompt. |
 | `--title <TEXT>` | Titles the session. The default is the first line of the prompt. |

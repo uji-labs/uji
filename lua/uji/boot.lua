@@ -1,10 +1,10 @@
-local cli = require("uji.cli")
-local notices = require("uji.notices")
+local cli = require("uji.core.cli")
+local notices = require("uji.core.notices")
 local sys = require("uji.sys")
-local tables = require("uji.tables")
+local tables = require("uji.core.tables")
 
 local function open_session(store, parsed)
-    local Store = require("uji.store")
+    local Store = require("uji.core.store")
     if parsed.command == "new" then
         return store:create_session(Store.UNTITLED), "session_created"
     end
@@ -18,23 +18,23 @@ end
 local function restore()
     local ok, carried = pcall(sys.json.decode, sys.os.carry or "null", { nulls = false })
     if ok and type(carried) == "table" and type(carried.draft) == "string" and carried.draft ~= "" then
-        require("uji.ui"):set_input(carried.draft)
+        require("uji.core.ui"):set_input(carried.draft)
     end
 end
 
 local function start(session, created)
-    local agent = require("uji.app").attach(session)
-    require("uji.event").emit(created, { session_id = session.id })
-    require("uji.ui"):start()
+    local agent = require("uji.core.app").attach(session)
+    require("uji.core.event").emit(created, { session_id = session.id })
+    require("uji.core.ui"):start()
     restore()
     agent:repair()
-    require("uji.config").refresh()
-    require("uji.task").release()
+    require("uji.core.config").refresh()
+    require("uji.core.task").release()
 end
 
 local function run(args)
-    local cli = require("uji.cli")
-    local paths = require("uji.paths")
+    local cli = require("uji.core.cli")
+    local paths = require("uji.core.paths")
     local parsed = cli.parse(args)
     paths.overrides.config = parsed.flags["config-dir"]
     paths.overrides.data = parsed.flags["data-dir"]
@@ -47,7 +47,7 @@ local function run(args)
         io.stdout:write("uji ", require("uji.version"), "\n")
         return
     end
-    local packs = require("uji.packs")
+    local packs = require("uji.core.packs")
     local expected = packs.expected()
     if not tables.same(expected, sys.os.roots) then
         return sys.os.restart({ args = args, roots = expected })
@@ -57,7 +57,7 @@ local function run(args)
     if not db then
         return cli.fail("$HOME is not set")
     end
-    local Store = require("uji.store")
+    local Store = require("uji.core.store")
     local ok, store = pcall(Store, db)
     if not ok then
         return cli.fail(sys.message(store))
@@ -74,25 +74,25 @@ local function run(args)
     if command ~= "new" and command ~= "resume" and command ~= "list" and command ~= "run" then
         return cli.fail("unrecognized subcommand '" .. command .. "'")
     end
-    require("uji.task").hold()
-    local app = require("uji.app")
+    require("uji.core.task").hold()
+    local app = require("uji.core.app")
     app.store = store
     app.argv = args
     app.flags = parsed.flags
-    require("uji.model").attach(store)
-    require("uji.commands")
-    local config = require("uji.config")
+    require("uji.core.model").attach(store)
+    require("uji.builtin.commands")
+    local config = require("uji.core.config")
     config.load()
     if config.settle(args) then
         return
     end
     if command == "run" then
-        return require("uji.run")(store, parsed)
+        return require("uji.core.run")(store, parsed)
     end
     if command == "list" then
-        local session = require("uji.ui.sessions").pick(store)
+        local session = require("uji.core.ui.sessions").pick(store)
         if not session then
-            return require("uji.ui"):quit()
+            return require("uji.core.ui"):quit()
         end
         return start(session, "session_resumed")
     end

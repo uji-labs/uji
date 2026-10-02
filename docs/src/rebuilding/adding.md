@@ -1,19 +1,24 @@
 # Adding a module
 
-uji loads every file in the `commands/`, `tools/`, `wires/`, `providers/` and
-`api/` folders of `lua/uji/`, and each file registers itself. A new file such
-as `~/.config/uji/lua/uji/commands/hello.lua` adds a command without a change
-to any other file, and the same works in a pack.
+uji loads every file in the `builtin/commands/`, `builtin/tools/`,
+`builtin/providers/` and `api/` folders of `lua/uji/`, and each file registers
+itself. A new file such as
+`~/.config/uji/lua/uji/builtin/commands/hello.lua` adds a command without a
+change to any other file, and the same works in a pack.
+
+The files in `builtin/` use only the `uji.*` API, the same calls a plugin
+makes.
 
 | Folder | What a file there calls |
 |---|---|
-| `commands/` | `require("uji.command").builtin(name, description, handler)`. The handler receives the text typed after the name. |
-| `tools/` | `require("uji.tool").add(name, spec)`, with the fields of [`uji.tool.add`](../api/tool.md#ujitooladdname-spec). |
-| `wires/` | `require("uji.wire").add(name, spec)`, with the fields of [`uji.wire.add`](../api/wire.md#ujiwireaddname-spec). |
-| `providers/` | `require("uji.catalog").builtin(spec)`, with the fields of [`uji.provider.add`](../api/provider.md#ujiprovideraddspec). |
+| `builtin/commands/` | [`uji.command.add(name, spec)`](../api/command.md#ujicommandaddname-spec). |
+| `builtin/tools/` | [`uji.tool.add(name, spec)`](../api/tool.md#ujitooladdname-spec). |
+| `builtin/providers/` | [`uji.provider.add(spec)`](../api/provider.md#ujiprovideraddspec), with an `api` made from a class in `builtin/apis/`, or from a class of its own. |
 | `api/` | Nothing. It sets its own table on `uji`, such as `uji.session`. |
 
-Files in a folder load in alphabetical order, so `/login` lists providers and
-the command list shows built-in commands in that order.
-[`uji.modules`](../runtime/system.md#ujimodulesnamespace) gives the same list
-uji loads from.
+Files in a folder load in alphabetical order, so `/login` lists providers in
+that order. [`uji.modules`](../runtime/system.md#ujimodulesnamespace) gives
+the same list uji loads from.
+
+`builtin/apis/` holds the [API classes](../api/apis.md). uji loads one the
+first time something reads `uji.api.<name>`.

@@ -5,7 +5,7 @@ use serde_json::Value;
 use uji_tests::probe;
 
 const PROCESS: &str = r#"
-local process = require("uji.system.process")
+local process = require("uji.core.system.process")
 
 local function ignore() end
 

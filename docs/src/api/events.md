@@ -107,6 +107,12 @@ The provider or model changed. The payload has `provider` and `model`.
 Something the footer shows changed, such as the running state, the model or
 the queue.
 
+### layout_changed
+
+Fires when a window moves or changes size, including when the terminal is
+resized. The payload is empty. Read the new places with
+[`uji.ui.list_wins`](ui.md#ujiuilist_wins).
+
 ### loader_ticked
 
 Fires on every loader frame while the model works, for redrawing an animation.

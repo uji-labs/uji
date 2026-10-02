@@ -1,4 +1,4 @@
-local packs = require("uji.packs")
+local packs = require("uji.core.packs")
 
 uji.pack = {
     add = packs.add,

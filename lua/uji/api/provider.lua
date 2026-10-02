@@ -1,15 +1,30 @@
-local catalog = require("uji.catalog")
+local catalog = require("uji.core.catalog")
+
+local function model_row(entry)
+    return {
+        id = entry.id,
+        context = entry.context,
+        output = entry.output,
+        reasoning = entry.reasoning,
+        cache = entry.cache,
+        images = entry.images,
+        efforts = entry.efforts and { unpack(entry.efforts) },
+    }
+end
 
 local function provider_row(provider)
     local models = {}
     for index, entry in ipairs(provider.models) do
-        models[index] = { id = entry.id, context = entry.context, output = entry.output }
+        models[index] = model_row(entry)
     end
     return {
         id = provider.id,
         name = provider.name,
-        wire = provider.wire,
+        api = provider.api,
         base_url = provider.base_url,
+        auth_env = { unpack(provider.auth_env) },
+        oauth = provider.oauth ~= nil,
+        context_window = provider.context_window,
         models = models,
     }
 end

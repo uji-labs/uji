@@ -286,14 +286,7 @@ fn a_stream_that_only_sends_keepalives_is_given_up_and_retried() {
         every: Duration::from_millis(200),
     })
     .unwrap();
-    run(
-        &server,
-        100_000,
-        r#"require("uji.wires.stream").idle = 1"#,
-        &[],
-        6,
-    )
-    .unwrap();
+    run(&server, 100_000, "uji.api.stream.idle = 1", &[], 6).unwrap();
     assert!(server.turns().len() >= 2);
 }
 
@@ -329,4 +322,28 @@ fn a_message_that_waits_for_compaction_is_sent_once_it_is_done() {
     let last = &sent[sent.as_array().unwrap().len() - 1];
     assert_eq!(last["content"], "go");
     assert_eq!(last_answer(&messages), Some("done"));
+}
+
+#[test]
+fn a_plugin_can_answer_approval_questions() {
+    let echo = || {
+        serve(|round| match round {
+            0 => tool_calls(0, &[("run_command", r#"{"command":"echo hi"}"#)]),
+            _ => text("done"),
+        })
+        .unwrap()
+    };
+    let answer = |allow: bool| {
+        format!(
+            r#"uji.ui.confirm = function(request)
+                return request.body:find("echo hi", 1, true) ~= nil and {allow}
+            end"#
+        )
+    };
+    let server = echo();
+    let allowed = run(&server, 100_000, &answer(true), &[], 10).unwrap();
+    assert!(tool_results(&allowed)[0].contains("hi"));
+    let server = echo();
+    let denied = run(&server, 100_000, &answer(false), &[], 10).unwrap();
+    assert_eq!(tool_results(&denied), ["denied: user denied"]);
 }

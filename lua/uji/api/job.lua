@@ -1,8 +1,8 @@
-local app = require("uji.app")
-local check = require("uji.check")
-local notices = require("uji.notices")
-local process = require("uji.system.process")
-local task = require("uji.task")
+local app = require("uji.core.app")
+local check = require("uji.core.check")
+local notices = require("uji.core.notices")
+local process = require("uji.core.system.process")
+local task = require("uji.core.task")
 
 local function call(handler, ...)
     if handler then
