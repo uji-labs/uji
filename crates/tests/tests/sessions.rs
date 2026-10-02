@@ -1,6 +1,40 @@
 use std::error::Error;
 use uji_tests::Sandbox;
 
+#[test]
+fn latest_selects_directory_roots_with_descendant_history() -> Result<(), Box<dyn Error>> {
+    sandbox("session-latest-subtrees")?.probe(
+        r#"
+        local store = require('uji.core.app').store
+        local root = store:create_session('root')
+        local child = root:child('child')
+        local grandchild = child:child('grandchild')
+        assert(grandchild:append({type='user',text='deep history'}))
+        local direct = store:create_session('direct')
+        assert(direct:append({type='user',text='direct history'}))
+        local foreign = store:create_session('foreign')
+        foreign.directory = root.directory .. '/other'
+        assert(foreign:append({type='user',text='other directory'}))
+        store.db:exec('UPDATE sessions SET time_updated = ? WHERE id = ?', {100, root.id})
+        store.db:exec('UPDATE sessions SET time_updated = ? WHERE id = ?', {50, direct.id})
+        store.db:exec('UPDATE sessions SET time_updated = ? WHERE id = ?', {1000, foreign.id})
+        for index=1,40 do
+            store.db:exec([[INSERT INTO sessions
+                (id,title,directory,time_created,time_updated) VALUES (?,?,?,?,?)]],
+                {'empty-'..index,'empty',root.directory,0,2000+index})
+        end
+        assert(store:latest(root.directory).id == root.id)
+        assert(store:latest(foreign.directory).id == foreign.id)
+        assert(not store:latest(root.directory .. '/missing'))
+        assert(store:has_history(root.id) and store:has_history(child.id))
+        assert(store:has_history(grandchild.id) and store:has_history(direct.id))
+        assert(not store:has_history('empty-1') and not store:has_history('missing'))
+        emit(true)
+    "#,
+    )?;
+    Ok(())
+}
+
 fn sandbox(name: &str) -> Result<Sandbox, Box<dyn Error>> {
     Ok(Sandbox::new(name)?)
 }

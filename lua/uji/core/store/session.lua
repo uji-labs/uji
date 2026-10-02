@@ -91,11 +91,11 @@ function Session:append(message)
     local ok, err = pcall(db.transaction, db, function()
         entered = true
         self.store:persist(self, inserted)
-        assert(db:exec(
+        db:exec(
             "INSERT INTO messages (id, session_id, seq, type, time_created, data) VALUES (?, ?, ?, ?, ?, ?)",
             { entry.id, self.id, entry.seq, message.type, now, encode(message) }
-        ))
-        assert(db:exec("UPDATE sessions SET time_updated = ? WHERE id = ?", { now, self.id }))
+        )
+        db:exec("UPDATE sessions SET time_updated = ? WHERE id = ?", { now, self.id })
     end)
     if not ok then
         if entered then pcall(db.exec, db, "ROLLBACK") end
@@ -117,7 +117,7 @@ end
 
 function Session:rename(title)
     if not self.pending then
-        assert(self.store.db:exec("UPDATE sessions SET title = ? WHERE id = ?", { title, self.id }))
+        self.store.db:exec("UPDATE sessions SET title = ? WHERE id = ?", { title, self.id })
     end
     self.title = title
 end

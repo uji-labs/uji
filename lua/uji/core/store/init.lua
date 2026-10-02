@@ -100,10 +100,10 @@ function Store:persist(session, inserted)
     if session.parent then
         self:persist(assert(self:session(session.parent), "missing parent session"), inserted)
     end
-    assert(self.db:exec(
+    self.db:exec(
         "INSERT INTO sessions (id, title, directory, parent, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?)",
         { session.id, session.title, session.directory, session.parent or sys.db.null, session.created, session.updated }
-    ))
+    )
     inserted[#inserted + 1] = session
 end
 
@@ -114,9 +114,19 @@ function Store:session(key)
 end
 
 function Store:latest(directory)
-    for _, session in ipairs(self:sessions()) do
-        if session.directory == directory and self:has_history(session.id) then return session end
-    end
+    local row = self.db:query([[
+        WITH RECURSIVE tree(root, id) AS (
+            SELECT id, id FROM sessions WHERE directory = ? AND parent IS NULL
+            UNION ALL
+            SELECT tree.root, sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
+        )
+        SELECT sessions.* FROM sessions
+        WHERE id IN (
+            SELECT tree.root FROM tree JOIN messages ON messages.session_id = tree.id
+        )
+        ORDER BY time_updated DESC, id DESC LIMIT 1
+    ]], { directory })[1]
+    return row and Session(self, row)
 end
 
 function Store:tree(key)
@@ -129,10 +139,13 @@ function Store:tree(key)
 end
 
 function Store:has_history(key)
-    for _, row in ipairs(self:tree(key)) do
-        if self.db:query("SELECT 1 FROM messages WHERE session_id = ? LIMIT 1", { row.id })[1] then return true end
-    end
-    return false
+    return self.db:query([[
+        WITH RECURSIVE tree(id) AS (
+            SELECT id FROM sessions WHERE id = ?
+            UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
+        )
+        SELECT 1 FROM tree JOIN messages ON messages.session_id = tree.id LIMIT 1
+    ]], { key })[1] ~= nil
 end
 
 function Store:sessions()
@@ -144,8 +157,7 @@ function Store:sessions()
 end
 
 function Store:delete(key)
-    local changed, err = self.db:exec("DELETE FROM sessions WHERE id = ?", { key })
-    assert(changed, err)
+    local changed = self.db:exec("DELETE FROM sessions WHERE id = ?", { key })
     return changed > 0
 end
 
