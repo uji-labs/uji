@@ -5,7 +5,7 @@
 
 God's chosen harness.
 
-Read the [documentation](https://uji-labs.github.io/uji).
+Read the [documentation](https://docs.uji.sh).
 
 ## License
 
