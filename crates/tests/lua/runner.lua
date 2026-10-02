@@ -36,8 +36,6 @@ local function collect(file)
     local env = setmetatable({
         assert = require("luassert"),
         spy = require("luassert.spy"),
-        stub = require("luassert.stub"),
-        mock = require("luassert.mock"),
         match = require("luassert.match"),
     }, { __index = _G })
     function env.describe(name, body)

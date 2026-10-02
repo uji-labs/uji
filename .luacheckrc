@@ -19,8 +19,6 @@ files["crates/tests/lua/*_spec.lua"] = {
         "it",
         assert = { other_fields = true },
         match = { other_fields = true },
-        mock = { other_fields = true },
         spy = { other_fields = true },
-        stub = { other_fields = true },
     },
 }
