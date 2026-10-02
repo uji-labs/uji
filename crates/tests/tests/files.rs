@@ -63,11 +63,9 @@ fn a_preview_numbers_the_lines_around_a_hit() {
     );
     let early = files(&sandbox).around("rows.txt", 1, 3).unwrap();
     assert_eq!(early, ["    1| row 1", "    2| row 2", "    3| row 3"]);
-    assert!(
-        files(&sandbox)
-            .around("rows.txt", 400, 4)
-            .unwrap()
-            .is_empty()
+    assert_eq!(
+        files(&sandbox).around("rows.txt", 400, 4).unwrap(),
+        Vec::<String>::new()
     );
 }
 

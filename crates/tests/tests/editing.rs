@@ -131,11 +131,11 @@ fn a_multi_line_draft_moves_by_line_and_keeps_its_column() {
     "#)
     .unwrap();
     assert_eq!(seen[0], 7, "column 2 of the second line");
-    assert!(seen[1] == true);
+    assert_eq!(seen[1], true);
     assert_eq!(seen[2], 2);
-    assert!(seen[3] == true);
+    assert_eq!(seen[3], true);
     assert_eq!(seen[4], 7);
-    assert!(seen[5] == true);
+    assert_eq!(seen[5], true);
     assert_eq!(seen[6], 2, "clamped to the shorter line");
     assert!(seen[7] != true);
     assert!(seen[8] != true);
@@ -248,7 +248,7 @@ fn a_trailing_backslash_continues_the_line() {
         emit(composer:continue_line())
     "#)
     .unwrap();
-    assert!(seen[0] == true);
+    assert_eq!(seen[0], true);
     assert_eq!(seen[1], "first \n");
     assert!(seen[2] != true);
 }
@@ -271,11 +271,11 @@ fn history_recall_comes_back_to_the_draft() {
         emit(composer:text())
     "#)
     .unwrap();
-    assert!(seen[0] == true);
+    assert_eq!(seen[0], true);
     assert_eq!(seen[1], "newest");
-    assert!(seen[2] == true);
+    assert_eq!(seen[2], true);
     assert_eq!(seen[3], "older");
-    assert!(seen[4] == true);
-    assert!(seen[5] == true);
+    assert_eq!(seen[4], true);
+    assert_eq!(seen[5], true);
     assert_eq!(seen[6], "draft");
 }
