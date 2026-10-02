@@ -8,11 +8,10 @@ local text = require("uji.core.ui.text")
 local ui = require("uji.core.ui")
 
 local Picker = class(Select)
-Picker.float = true
 
 function Picker:init(store, directory, active)
     self.store, self.directory, self.active = store, directory, active
-    Select.init(self, { title = "Sessions · Enter resume · Ctrl-D delete · Esc cancel" })
+    Select.init(self, { title = "Sessions" })
     self:refresh()
 end
 
@@ -20,7 +19,9 @@ function Picker:refresh()
     self.records, self.items = {}, {}
     for _, session in ipairs(self.store:sessions()) do
         if session.directory == self.directory then
-            local label = session.title .. " · " .. session.id
+            local title = (session.title == "" or session.title == "untitled") and "Untitled session" or session.title
+            local label = title .. " · " .. session.id
+            if session.id == self.active then label = label .. " (current)" end
             self.items[#self.items + 1] = label
             self.records[label] = session
         end
@@ -68,6 +69,10 @@ function Picker:line()
     return not self.deleting and self.query or nil
 end
 
+function Picker:rows()
+    return Select.rows(self) + 1
+end
+
 function Picker:accept()
     if self.deleting then self.deleting = nil; return end
     self:settle(self.records[self:chosen()])
@@ -105,7 +110,10 @@ function Picker:draw(owner, screen, area)
             { { text.clip(self.problem or "No saved sessions · Esc cancel", area.width), owner.palette.muted } },
         }, 1)
     end
-    Select.draw(self, owner, screen, area)
+    Select.draw(self, owner, screen, layout.rect(area.x, area.y, area.width, math.max(area.height - 1, 0)))
+    canvas.write(screen, area.y + area.height - 1, area.x, {
+        { text.clip("  Enter resume · Ctrl-D delete · Esc close", area.width), owner.palette.muted },
+    }, area.width)
 end
 
 local M = { Picker = Picker }
@@ -142,7 +150,7 @@ function M.busy()
     return ui:working() or (app.agent and (app.agent.shell ~= nil or #app.agent.queue > 0))
 end
 
-function M.restart(session)
+function M.restart(session, fresh)
     assert(not M.busy(), "resolve pending work and queued messages before switching or reloading")
     local draft = ui.composer:text()
     assert(#ui.composer.pastes:images(draft) == 0, "submit or remove draft image attachments before switching or reloading")
@@ -153,7 +161,7 @@ function M.restart(session)
         if app.flags[flag] then argv[#argv + 1] = "--" .. flag; argv[#argv + 1] = app.flags[flag] end
     end
     local carry = { draft = draft }
-    if not session and app.session and app.session.pending then
+    if not fresh and not session and app.session and app.session.pending then
         carry.session = { id = app.session.id, title = app.session.title, directory = app.session.directory }
     end
     sys.os.restart({ args = argv, roots = require("uji.core.packs").expected(), carry = sys.json.encode(carry) })

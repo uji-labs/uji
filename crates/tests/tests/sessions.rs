@@ -228,6 +228,38 @@ fn switching_preserves_drafts_and_blocks_running_shells() -> Result<(), Box<dyn 
 }
 
 #[test]
+fn new_starts_fresh_without_losing_drafts_or_pending_work() -> Result<(), Box<dyn Error>> {
+    sandbox("new-session")?.probe(
+        r#"
+        local app = require('uji.core.app')
+        local ui = require('uji.core.ui')
+        local command = require('uji.core.command')
+        local sys = require('uji.sys')
+        local restarted
+        sys.os.restart = function(options) restarted = options end
+        assert(app.session.pending)
+        ui.composer:paste('first line\nsecond line')
+        command.run('new')
+        assert(restarted.args[2] == 'new')
+        local carried = sys.json.decode(restarted.carry)
+        assert(carried.draft == 'first line\nsecond line' and carried.session == nil)
+        assert(#app.store:sessions() == 0)
+        restarted = nil
+        app.agent:enqueue('pending input')
+        command.run('new')
+        assert(not restarted and app.agent.queue[1].text == 'pending input')
+        app.agent.queue = {}
+        ui.composer:attach({name='fixture image'})
+        command.run('new')
+        assert(not restarted and #ui.composer.pastes:images(ui.composer:text()) == 1)
+        assert(#app.store:sessions() == 0)
+        emit(true)
+    "#,
+    )?;
+    Ok(())
+}
+
+#[test]
 fn failed_compaction_and_interrupt_writes_leave_the_agent_idle() -> Result<(), Box<dyn Error>> {
     sandbox("session-operation-failures")?.probe(
         r#"

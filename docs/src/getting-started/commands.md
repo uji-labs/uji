@@ -29,6 +29,7 @@ lists the environment variables that do the same.
 | `/login` | Adds a provider. |
 | `/models` | Picks the model. |
 | `/sessions` | Resumes or deletes a saved conversation in the current directory. |
+| `/new` | Starts a fresh conversation and carries your text draft. Pending work or draft images block the switch. |
 | `/effort` | Sets the reasoning effort, from the levels the current model accepts. |
 | `/thinking` | Shows or hides the model's reasoning. |
 | `/compact` | Summarises earlier messages to free context. |
