@@ -51,10 +51,7 @@ function Session:entries()
         return self.stored
     end
     local stored = {}
-    local rows = self.store.db:query(
-        "SELECT id, seq, time_created, data FROM messages WHERE session_id = ? ORDER BY seq",
-        { self.id }
-    )
+    local rows = self.store.db:query("SELECT id, seq, time_created, data FROM messages WHERE session_id = ? ORDER BY seq", { self.id })
     for index, row in ipairs(rows) do
         stored[index] = {
             id = row.id,

@@ -17,6 +17,8 @@ env:
   CARGO_TERM_COLOR: always
   LINUX_LIBRARIES: libsqlite3-dev libssl-dev pkg-config
   MDBOOK: https://github.com/rust-lang/mdBook/releases/download/v0.5.4/mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz
+  STYLUA: https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip
+  LUACHECK: 1.2.0
 
 jobs:
   fmt:
@@ -46,6 +48,28 @@ jobs:
       - run: npm install --global @ast-grep/cli@0.45.3
       - run: ast-grep scan crates/kernel/src crates/uji/src
 
+  stylua:
+    name: stylua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install StyLua
+        run: |
+          curl -sSLo "$RUNNER_TEMP/stylua.zip" "$STYLUA"
+          unzip -q "$RUNNER_TEMP/stylua.zip" -d /usr/local/bin
+      - run: stylua --check lua/uji crates/kernel/src crates/tests/lua
+
+  luacheck:
+    name: luacheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install luacheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y luarocks
+          sudo luarocks install luacheck "$LUACHECK"
+      - run: luacheck lua/uji crates/kernel/src crates/tests/lua
+
   test:
     name: test
     runs-on: ubuntu-latest
@@ -55,10 +79,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y $LINUX_LIBRARIES
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
-      - run: cargo nextest run --workspace
+      - run: cargo run -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua
 
   docs:
     name: docs
@@ -72,7 +93,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [fmt, clippy, ast-grep, test, docs]
+    needs: [fmt, clippy, ast-grep, stylua, luacheck, test, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Every check passed

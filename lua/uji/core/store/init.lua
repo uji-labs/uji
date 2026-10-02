@@ -71,10 +71,7 @@ function Store:setting(key)
 end
 
 function Store:set_setting(key, value)
-    self.db:exec(
-        "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        { key, value }
-    )
+    self.db:exec("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", { key, value })
 end
 
 function Store:create_session(title, parent)

@@ -3646,9 +3646,6 @@ dependencies = [
 name = "uji-tests"
 version = "0.1.0"
 dependencies = [
- "crossterm",
- "serde",
- "serde_json",
  "uji-kernel",
  "uji-lua",
 ]

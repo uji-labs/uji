@@ -3,6 +3,6 @@ uji.provider.add({
     name = "Custom",
     api = uji.api.openai(),
     base_url = "",
-    auth_env = {  },
-    models = {  },
+    auth_env = {},
+    models = {},
 })

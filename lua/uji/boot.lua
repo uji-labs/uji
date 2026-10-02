@@ -33,7 +33,6 @@ local function start(session, created)
 end
 
 local function run(args)
-    local cli = require("uji.core.cli")
     local paths = require("uji.core.paths")
     local parsed = cli.parse(args)
     paths.overrides.config = parsed.flags["config-dir"]

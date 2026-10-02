@@ -148,7 +148,6 @@ local function fold(chars, start, finish, width, rows)
         local hard = math.min(at + width, content)
         if hard == content then
             rows[#rows + 1] = { at, content }
-            at = content
             break
         end
         local stop = hard

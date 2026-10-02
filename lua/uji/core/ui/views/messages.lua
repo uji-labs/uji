@@ -38,18 +38,23 @@ function Messages:draw(ui, screen, area, window)
     local blocks = self.blocks
     local split = not blocks:prepare(palette, ui.styles)
     local committed, partial = split_committed(ui.stream:visible())
-    local parts = self.transcript:frame({
-        entries = app.session and app.session:entries() or {},
-        notices = ui.notices,
-        queued = app.agent and app.agent.queue or {},
-        thinking = ui.theme.show_thinking,
-        pending = committed,
-        reasoning = ui.reasoning,
-        width = width,
-        revision = ui.theme.revision,
-    }, split, function(out, block)
-        blocks:render(out, block, width)
-    end, height + (ui.scroll.anchor or 0))
+    local parts = self.transcript:frame(
+        {
+            entries = app.session and app.session:entries() or {},
+            notices = ui.notices,
+            queued = app.agent and app.agent.queue or {},
+            thinking = ui.theme.show_thinking,
+            pending = committed,
+            reasoning = ui.reasoning,
+            width = width,
+            revision = ui.theme.revision,
+        },
+        split,
+        function(out, block)
+            blocks:render(out, block, width)
+        end,
+        height + (ui.scroll.anchor or 0)
+    )
     if parts.prepended then
         self.base = self.base + parts.prepended
     else

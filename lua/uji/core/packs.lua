@@ -312,8 +312,7 @@ end
 function M.overriding(roots)
     local out = {}
     for _, root in ipairs(roots) do
-        if is_dir(root .. "/" .. paths.MODULE_DIR .. "/uji") or is_dir(root .. "/" .. paths.NATIVE_DIR .. "/uji")
-        then
+        if is_dir(root .. "/" .. paths.MODULE_DIR .. "/uji") or is_dir(root .. "/" .. paths.NATIVE_DIR .. "/uji") then
             out[#out + 1] = root
         end
     end

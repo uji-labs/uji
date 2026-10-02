@@ -91,8 +91,13 @@ fn child(rest: &str) -> Option<String> {
 }
 
 #[allow(unsafe_code)]
-fn lua() -> Lua {
-    unsafe { Lua::unsafe_new_with(StdLib::ALL_SAFE, LuaOptions::new()) }
+fn lua(debug: bool) -> Lua {
+    let libraries = if debug {
+        StdLib::ALL_SAFE | StdLib::DEBUG
+    } else {
+        StdLib::ALL_SAFE
+    };
+    unsafe { Lua::unsafe_new_with(libraries, LuaOptions::new()) }
 }
 
 pub(crate) fn layers(sources: &Sources, roots: &[PathBuf]) -> Vec<Sources> {
@@ -116,8 +121,8 @@ fn natives(roots: &[PathBuf]) -> String {
         .join(";")
 }
 
-pub(crate) fn create(layers: Vec<Sources>, roots: &[PathBuf]) -> mlua::Result<Lua> {
-    let lua = lua();
+pub(crate) fn create(layers: Vec<Sources>, roots: &[PathBuf], debug: bool) -> mlua::Result<Lua> {
+    let lua = lua(debug);
     let package: Table = lua.globals().get("package")?;
     package.set("path", "")?;
     package.set("cpath", natives(roots))?;

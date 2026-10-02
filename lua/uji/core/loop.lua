@@ -73,8 +73,7 @@ local function arguments(raw)
     if type(value) == "table" and getmetatable(value) ~= ARRAY then
         return value
     end
-    return nil,
-        "error: arguments must be a JSON object, got " .. kind(value) .. ". Send a single object matching the tool schema."
+    return nil, "error: arguments must be a JSON object, got " .. kind(value) .. ". Send a single object matching the tool schema."
 end
 
 local function fresh_id()
@@ -154,11 +153,7 @@ end
 
 function Loop:execute(call)
     if not self.known[call.name] then
-        return string.format(
-            "error: unknown tool `%s`. Available tools: %s.",
-            call.name,
-            table.concat(self.names, ", ")
-        )
+        return string.format("error: unknown tool `%s`. Available tools: %s.", call.name, table.concat(self.names, ", "))
     end
     local args, problem = arguments(call.arguments)
     if not args then

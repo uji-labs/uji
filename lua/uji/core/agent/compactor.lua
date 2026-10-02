@@ -40,8 +40,8 @@ local UPDATE_PROMPT = "You maintain a rolling checkpoint of a coding session. Th
     .. "to fold in.\n\n"
     .. "RULES:\n"
     .. "- PRESERVE every fact from the previous checkpoint unless it became wrong.\n"
-    .. "- MOVE items from \"In Progress\" to \"Done\" as they complete.\n"
-    .. "- UPDATE \"Next Steps\" to reflect the current state.\n"
+    .. '- MOVE items from "In Progress" to "Done" as they complete.\n'
+    .. '- UPDATE "Next Steps" to reflect the current state.\n'
     .. "- PRESERVE exact file paths, function names, commands and error strings.\n"
     .. "- Drop items only when they are no longer relevant.\n\n"
     .. "Reply with the updated checkpoint alone, no preamble.\n\n"

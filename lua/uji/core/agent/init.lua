@@ -116,8 +116,8 @@ local function said(text, attached)
     return { type = "user", text = text, images = images.checked(attached) }
 end
 
-function Agent:enqueue(text, images)
-    self.queue[#self.queue + 1] = { text = text, images = images }
+function Agent:enqueue(text, attached)
+    self.queue[#self.queue + 1] = { text = text, images = attached }
     self:sync_queue()
 end
 
@@ -164,15 +164,15 @@ function Agent:prompt(text)
     return system, turn
 end
 
-function Agent:submit(text, images)
+function Agent:submit(text, attached)
     if self:working() then
-        return self:enqueue(text, images)
+        return self:enqueue(text, attached)
     end
     if self:compact_if_needed() then
-        return self:enqueue(text, images)
+        return self:enqueue(text, attached)
     end
     event.emit("message_submitted", { text = text })
-    self:append(said(text, images))
+    self:append(said(text, attached))
     self:maybe_title(text)
     local system, turn = self:prompt(text)
     for _, message in ipairs(turn) do
@@ -366,7 +366,10 @@ function Agent:run_tool(call, args)
             self.turn.cancel_tool = result
         end
     elseif result ~= nil then
-        return "error: " .. call.name .. " returned a " .. type(result)
+        return "error: "
+            .. call.name
+            .. " returned a "
+            .. type(result)
             .. "; run returns its result, a function that cancels it, or nothing"
     end
     local value = promise:await()
@@ -408,10 +411,7 @@ function Agent:compact_if_needed()
     if self:compact(self:keep_recent()) then
         return true
     end
-    notices.push(string.format(
-        "context is over the %d token budget but the latest turn cannot be compacted",
-        model.usable(budget)
-    ))
+    notices.push(string.format("context is over the %d token budget but the latest turn cannot be compacted", model.usable(budget)))
     return false
 end
 
