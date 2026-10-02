@@ -30,25 +30,8 @@ uji.provider.add({
 
 ## uji.class(parent)
 
-Makes a class. Calling the class makes an object and runs its `init` method
-with the arguments. A class made with a `parent` uses the parent's methods
-until it defines its own, and a method can call the parent's version as
-`Parent.method(self, ...)`.
-
-```lua
-local Counter = uji.class()
-
-function Counter:init(start)
-  self.count = start or 0
-end
-
-function Counter:add()
-  self.count = self.count + 1
-end
-
-local counter = Counter(10)
-counter:add()
-```
+Makes a class from `parent`, such as `uji.api.openai`, that keeps the parent's
+methods until it defines its own. The next section shows it in use.
 
 ## Changing an API for one provider
 

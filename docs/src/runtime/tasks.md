@@ -1,18 +1,13 @@
 # Tasks
 
-Tasks let Lua functions wait without holding up uji. When one waits on the
-network, a process, the keychain or a timer, the others and the screen carry
-on. Your config, slash commands, key bindings, actions, tool functions and the
-timers from `uji.schedule` and `uji.defer` are all tasks, so any of them can
-wait.
+Your config, slash commands, key bindings, actions, tool functions and the
+timers from `uji.schedule` and `uji.defer` run as tasks. Any of them can wait
+on the network, a process, the keychain or a timer while the screen keeps
+working.
 
-Only one task runs at a time. It keeps running until it waits in a runtime
-function that finishes later, in `uji.sleep`, in `promise:await()`, or in
-`uji.task.race` and `uji.task.timeout`, and then another task gets its turn.
-So a loop that never waits holds up everything. Waiting outside a task raises
-an error. A coroutine you create yourself cannot wait either. A wait inside one
-does not finish, and the coroutine hands an internal value back to whoever
-resumed it.
+One task runs at a time, until it waits, so a loop that never waits holds up
+the screen and every other task. Waiting outside a task raises an error, and a
+coroutine you create yourself cannot wait.
 
 ## uji.task.spawn(fn, ...)
 

@@ -28,7 +28,7 @@ in the system keychain instead, call
 ## Choosing a model
 
 `/models` lists the models of every provider you are signed in to. `/effort`
-sets how much the model reasons, from off to high.
+sets how much the model reasons, from the levels that model accepts.
 
 ## Working with the model
 

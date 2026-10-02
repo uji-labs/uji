@@ -20,7 +20,7 @@ passwords and to what you last copied.
 
 ## uji.os.restart(opts)
 
-Starts uji's Lua side again once the current code yields, keeping the screen.
+Restarts uji once the current code waits, keeping the screen.
 Every task, connection and process from this run stops. `opts.args` is the
 command line for the new run, `opts.roots` sets `uji.os.roots` for it, and
 `opts.carry` is text it can read from `uji.os.carry`.

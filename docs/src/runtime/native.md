@@ -22,7 +22,7 @@ screen until it returns.
 ## Loading
 
 uji loads a library the first time `require` asks for it, and keeps it until
-uji's Lua starts again. After you rebuild a library, `/reload` loads the new
+uji restarts. After you rebuild a library, `/reload` loads the new
 one.
 
 ## Errors
@@ -32,7 +32,7 @@ type, reaches Lua like any other error. `pcall` catches it, and
 `uji.message(err)` gives its text without a stack trace.
 
 ```lua
-local ok, err = pcall(require("hello").greet)
+local ok, err = pcall(require("loadavg").get)
 if not ok then
     uji.notify(uji.message(err))
 end
@@ -41,22 +41,27 @@ end
 ## Writing one in C
 
 The module needs LuaJIT's headers, for example from `brew install luajit` or a
-`libluajit-5.1-dev` package.
+`libluajit-5.1-dev` package. This one gives a status segment the system's load
+average.
 
 ```c
+#include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
 
-static int greet(lua_State *L) {
-    const char *name = luaL_checkstring(L, 1);
-    lua_pushfstring(L, "hello %s", name);
+static int get(lua_State *L) {
+    double average;
+    if (getloadavg(&average, 1) != 1) {
+        return luaL_error(L, "the load average is not available");
+    }
+    lua_pushnumber(L, average);
     return 1;
 }
 
-int luaopen_hello(lua_State *L) {
+int luaopen_loadavg(lua_State *L) {
     lua_newtable(L);
-    lua_pushcfunction(L, greet);
-    lua_setfield(L, -2, "greet");
+    lua_pushcfunction(L, get);
+    lua_setfield(L, -2, "get");
     return 1;
 }
 ```
@@ -64,22 +69,22 @@ int luaopen_hello(lua_State *L) {
 On macOS:
 
 ```sh
-cc -shared -undefined dynamic_lookup -I"$(brew --prefix luajit)/include/luajit-2.1" -o hello.dylib hello.c
-mkdir -p ~/.config/uji/native && cp hello.dylib ~/.config/uji/native/
+cc -shared -undefined dynamic_lookup -I"$(brew --prefix luajit)/include/luajit-2.1" -o loadavg.dylib loadavg.c
+mkdir -p ~/.config/uji/native && cp loadavg.dylib ~/.config/uji/native/
 ```
 
 On Linux:
 
 ```sh
-cc -shared -fPIC -I/usr/include/luajit-2.1 -o hello.so hello.c
-mkdir -p ~/.config/uji/native && cp hello.so ~/.config/uji/native/
+cc -shared -fPIC -I/usr/include/luajit-2.1 -o loadavg.so loadavg.c
+mkdir -p ~/.config/uji/native && cp loadavg.so ~/.config/uji/native/
 ```
 
 ```lua
-uji.notify(require("hello").greet("uji"))
+uji.status.add("load", function()
+  return { text = string.format("load %.2f", require("loadavg").get()), color = "gray" }
+end)
 ```
-
-The notice reads `hello uji`.
 
 ## Writing one in Rust
 
@@ -87,15 +92,14 @@ A Rust module is a crate with `crate-type = ["cdylib"]` that depends on mlua
 with the `luajit52` and `module` features. `#[mlua::lua_module]` on a function
 that takes `&Lua` and returns the module exports it as `luaopen_` followed by
 the function's name, and `#[mlua::lua_module(name = "tools_fast")]` exports it
-under the name you give instead. Functions, objects and conversions follow
-mlua's own documentation. An object that Lua no longer holds is dropped in
-Rust once Lua collects it.
+under the name you give instead. This one gives the number of CPU cores, which
+sizes how many subagents run at once.
 
 `Cargo.toml`:
 
 ```toml
 [package]
-name = "counter"
+name = "cpus"
 version = "0.1.0"
 edition = "2024"
 
@@ -122,41 +126,30 @@ fn main() {
 ```rust
 use mlua::prelude::*;
 
-struct Counter {
-    value: i64,
-}
-
-impl LuaUserData for Counter {
-    fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        methods.add_method_mut("bump", |_, this, ()| {
-            this.value += 1;
-            Ok(this.value)
-        });
-    }
-}
-
 #[mlua::lua_module]
-fn counter(lua: &Lua) -> LuaResult<LuaTable> {
+fn cpus(lua: &Lua) -> LuaResult<LuaTable> {
     let module = lua.create_table()?;
-    module.set("new", lua.create_function(|_, start: i64| Ok(Counter { value: start }))?)?;
+    module.set(
+        "count",
+        lua.create_function(|_, ()| {
+            Ok(std::thread::available_parallelism().map_or(1, std::num::NonZero::get))
+        })?,
+    )?;
     Ok(module)
 }
 ```
 
-Build it and copy the library under the module's name, `counter.dylib` on
-macOS or `counter.so` on Linux:
+Build it and copy the library under the module's name, `cpus.dylib` on macOS
+or `cpus.so` on Linux:
 
 ```sh
 cargo build --release
-cp target/release/libcounter.dylib ~/.config/uji/native/counter.dylib
+cp target/release/libcpus.dylib ~/.config/uji/native/cpus.dylib
 ```
 
 ```lua
-local counter = require("counter").new(10)
-uji.notify(tostring(counter:bump()))
+require("subagent").setup({ concurrency = require("cpus").count() })
 ```
-
-The notice reads `11`.
 
 ## Replacing a built-in module
 
