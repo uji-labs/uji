@@ -29,8 +29,7 @@ end
 
 local function truncated_call(name)
     return provider(
-        "the reply was cut off while calling `" .. name .. "`, so its arguments are incomplete - raise "
-            .. "the model's max output"
+        "the reply was cut off while calling `" .. name .. "`, so its arguments are incomplete - raise " .. "the model's max output"
     )
 end
 
@@ -137,14 +136,14 @@ function Parts:answer(calls)
     }
 end
 
-local function finished(parts)
-    if not parts.complete then
+local function finished(state)
+    if not state.complete then
         return { kind = "http", message = "the provider closed the stream before the reply finished" }
     end
 end
 
-local function settle(parts, calls)
-    if #calls == 0 and parts.hit_limit then
+local function settle(state, calls)
+    if #calls == 0 and state.hit_limit then
         return provider("response hit the model's output limit and was cut off")
     end
 end

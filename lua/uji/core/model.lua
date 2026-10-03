@@ -177,9 +177,9 @@ function M.stream(request, reply)
         return nil, { kind = "provider", message = NOT_CONFIGURED }
     end
     local api = provider.api
-    local credentials, failure = auth.resolve(provider)
+    local credentials, missing = auth.resolve(provider)
     if not credentials then
-        return nil, failure
+        return nil, missing
     end
     request.model = request.model or current.model
     request.provider = { id = provider.id, base_url = current.base_url or "" }

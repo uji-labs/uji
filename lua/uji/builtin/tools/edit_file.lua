@@ -85,7 +85,9 @@ uji.tool.add("edit_file", {
         end
         local first = text:find(old, 1, true)
         if not first then
-            return "error: old_string was not found in " .. path .. ". Read the file again and copy the "
+            return "error: old_string was not found in "
+                .. path
+                .. ". Read the file again and copy the "
                 .. "snippet exactly, without line-number prefixes."
         end
         local count = occurrences(text, old)

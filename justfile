@@ -22,9 +22,14 @@ lint: scan
 scan:
     ast-grep scan crates/kernel/src crates/uji/src
 
-# Unit + integration tests.
-test:
-    cargo nextest run --workspace
+# Lua formatting and lint (needs stylua and luacheck).
+lua:
+    stylua --check lua/uji crates/kernel/src crates/tests/lua
+    luacheck lua/uji crates/kernel/src crates/tests/lua
+
+# The Lua specs; filters pick tests by name, like `just test screen::`.
+test *filters:
+    cargo run -q -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua {{filters}}
 
 # Build the documentation site into docs/book.
 docs:
@@ -35,4 +40,4 @@ docs-serve:
     mdbook serve docs --open
 
 # Everything CI would run.
-check: fmt lint test
+check: fmt lint lua test

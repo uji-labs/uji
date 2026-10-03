@@ -14,6 +14,7 @@ fn main() -> ExitCode {
         entry: String::from(ENTRY),
         args: std::env::args().collect(),
         terminal: Terminal::Real,
+        debug: false,
     });
     for error in &outcome.errors {
         eprintln!("uji: error: {error}");

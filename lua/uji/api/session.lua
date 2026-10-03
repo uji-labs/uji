@@ -33,11 +33,12 @@ function M.messages()
 end
 
 function M.usage()
-    local tally = app.session and app.session.tally or {
-        usage = { input = 0, output = 0, cache_read = 0, cache_write = 0 },
-        last = { input = 0, output = 0, cache_read = 0, cache_write = 0 },
-        turns = 0,
-    }
+    local tally = app.session and app.session.tally
+        or {
+            usage = { input = 0, output = 0, cache_read = 0, cache_write = 0 },
+            last = { input = 0, output = 0, cache_read = 0, cache_write = 0 },
+            turns = 0,
+        }
     local out = usage(tally.usage)
     out.last = usage(tally.last)
     out.requests = tally.turns

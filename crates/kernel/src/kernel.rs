@@ -16,6 +16,7 @@ pub struct Options {
     pub entry: String,
     pub args: Vec<String>,
     pub terminal: Terminal,
+    pub debug: bool,
 }
 
 pub struct Outcome {
@@ -123,6 +124,7 @@ fn drive(options: Options) -> Result<Outcome, Error> {
         entry,
         args,
         terminal,
+        debug,
     } = options;
     let mut next = Restart {
         args,
@@ -132,7 +134,7 @@ fn drive(options: Options) -> Result<Outcome, Error> {
     let mut terminal = Some(Tty::Fresh(terminal));
     let mut errors = Vec::new();
     let code = loop {
-        let life = live(&runtime, (&sources, &entry), next, terminal.take())?;
+        let life = live(&runtime, (&sources, &entry, debug), next, terminal.take())?;
         errors.extend(life.errors);
         terminal = life.terminal;
         match life.restart {
@@ -148,12 +150,12 @@ fn drive(options: Options) -> Result<Outcome, Error> {
 
 fn live(
     runtime: &Runtime,
-    (sources, entry): (&Sources, &str),
+    (sources, entry, debug): (&Sources, &str, bool),
     boot: Restart,
     terminal: Option<Tty>,
 ) -> Result<Life, Error> {
     let layers = vm::layers(sources, &boot.roots);
-    let lua = vm::create(layers.clone(), &boot.roots)?;
+    let lua = vm::create(layers.clone(), &boot.roots, debug)?;
     let wake = Arc::new(Notify::new());
     lua.set_app_data(State {
         args: boot.args.clone(),

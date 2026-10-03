@@ -21,7 +21,9 @@ function Picker:refresh()
         if session.directory == self.directory then
             local title = (session.title == "" or session.title == "untitled") and "Untitled session" or session.title
             local label = title .. " · " .. session.id
-            if session.id == self.active then label = label .. " (current)" end
+            if session.id == self.active then
+                label = label .. " (current)"
+            end
             self.items[#self.items + 1] = label
             self.records[label] = session
         end
@@ -41,7 +43,9 @@ end
 
 function Picker:delete_prompt()
     local session = self.records[self:chosen()]
-    if not session then return end
+    if not session then
+        return
+    end
     for _, row in ipairs(self.store:tree(session.id)) do
         if row.id == self.active then
             self.problem = "The open session cannot be deleted. Switch sessions first."
@@ -54,14 +58,22 @@ end
 
 function Picker:confirm_delete()
     local session = self.deleting
-    if not session then return end
+    if not session then
+        return
+    end
     -- Recheck ownership immediately before deletion, not only when opening confirmation.
     for _, row in ipairs(self.store:tree(session.id)) do
-        if row.id == self.active then self.deleting = nil; return end
+        if row.id == self.active then
+            self.deleting = nil
+            return
+        end
     end
     local ok, err = pcall(self.store.delete, self.store, session.id)
     self.deleting = nil
-    if not ok then self.problem = tostring(err); return end
+    if not ok then
+        self.problem = tostring(err)
+        return
+    end
     self:refresh()
 end
 
@@ -74,19 +86,28 @@ function Picker:rows()
 end
 
 function Picker:accept()
-    if self.deleting then self.deleting = nil; return end
+    if self.deleting then
+        self.deleting = nil
+        return
+    end
     self:settle(self.records[self:chosen()])
 end
 
 function Picker:cancel()
-    if self.deleting then self.deleting = nil; return end
+    if self.deleting then
+        self.deleting = nil
+        return
+    end
     self:settle(nil)
 end
 
 function Picker:key(chord, owner)
     if self.deleting then
-        if chord.key == "y" and not chord.ctrl and not chord.alt then self:confirm_delete()
-        elseif chord.key == "esc" or chord.key == "enter" or chord.key == "n" then self.deleting = nil end
+        if chord.key == "y" and not chord.ctrl and not chord.alt then
+            self:confirm_delete()
+        elseif chord.key == "esc" or chord.key == "enter" or chord.key == "n" then
+            self.deleting = nil
+        end
     elseif chord.key == "d" and chord.ctrl then
         self:delete_prompt()
     else
@@ -101,7 +122,8 @@ function Picker:draw(owner, screen, area)
             { { "Delete session and all child history?", owner.palette.accent } },
             { { text.clip(session.title, area.width), owner.palette.text } },
             { { text.clip(session.id, area.width), owner.palette.muted } },
-            {}, { { "y delete · Enter/Esc cancel", owner.palette.text } },
+            {},
+            { { "y delete · Enter/Esc cancel", owner.palette.text } },
         }
         return canvas.popup(screen, area, lines, math.min(#lines, area.height))
     end
@@ -137,12 +159,16 @@ function M.pick(store)
             else
                 ui:handle(incoming)
             end
-            if picker.answer.settled then return picker.answer:await() end
+            if picker.answer.settled then
+                return picker.answer:await()
+            end
             draw()
         end
     end)
     ui.modal = previous
-    if not ok then error(result, 0) end
+    if not ok then
+        error(result, 0)
+    end
     return result
 end
 
@@ -156,9 +182,15 @@ function M.restart(session, fresh)
     assert(#ui.composer.pastes:images(draft) == 0, "submit or remove draft image attachments before switching or reloading")
     draft = ui.composer.pastes:expand(draft)
     local argv = { app.argv[1] or "uji", session and "resume" or "new" }
-    if session then argv[#argv + 1] = "--id"; argv[#argv + 1] = session.id end
+    if session then
+        argv[#argv + 1] = "--id"
+        argv[#argv + 1] = session.id
+    end
     for _, flag in ipairs({ "config-dir", "data-dir", "db" }) do
-        if app.flags[flag] then argv[#argv + 1] = "--" .. flag; argv[#argv + 1] = app.flags[flag] end
+        if app.flags[flag] then
+            argv[#argv + 1] = "--" .. flag
+            argv[#argv + 1] = app.flags[flag]
+        end
     end
     local carry = { draft = draft }
     if not fresh and not session and app.session and app.session.pending then
@@ -169,7 +201,9 @@ end
 
 function M.switch(session)
     assert(not M.busy(), "resolve pending work and queued messages before switching sessions")
-    if app.session and session.id == app.session.id then return end
+    if app.session and session.id == app.session.id then
+        return
+    end
     return M.restart(session)
 end
 

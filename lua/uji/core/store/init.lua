@@ -72,10 +72,7 @@ function Store:setting(key)
 end
 
 function Store:set_setting(key, value)
-    self.db:exec(
-        "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        { key, value }
-    )
+    self.db:exec("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", { key, value })
 end
 
 function Store:create_session(title, parent, key)
@@ -96,7 +93,9 @@ end
 
 -- Commit ancestors and the first message in the same transaction.
 function Store:persist(session, inserted)
-    if not session.pending then return end
+    if not session.pending then
+        return
+    end
     if session.parent then
         self:persist(assert(self:session(session.parent), "missing parent session"), inserted)
     end
@@ -108,13 +107,16 @@ function Store:persist(session, inserted)
 end
 
 function Store:session(key)
-    if self.drafts[key] then return self.drafts[key] end
+    if self.drafts[key] then
+        return self.drafts[key]
+    end
     local row = self.db:query("SELECT " .. COLUMNS .. " FROM sessions WHERE id = ?", { key })[1]
     return row and Session(self, row)
 end
 
 function Store:latest(directory)
-    local row = self.db:query([[
+    local row = self.db:query(
+        [[
         WITH RECURSIVE tree(root, id) AS (
             SELECT id, id FROM sessions WHERE directory = ? AND parent IS NULL
             UNION ALL
@@ -125,27 +127,35 @@ function Store:latest(directory)
             SELECT tree.root FROM tree JOIN messages ON messages.session_id = tree.id
         )
         ORDER BY time_updated DESC, id DESC LIMIT 1
-    ]], { directory })[1]
+    ]],
+        { directory }
+    )[1]
     return row and Session(self, row)
 end
 
 function Store:tree(key)
-    return self.db:query([[
+    return self.db:query(
+        [[
         WITH RECURSIVE tree(id) AS (
             SELECT id FROM sessions WHERE id = ?
             UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
         ) SELECT id FROM tree
-    ]], { key })
+    ]],
+        { key }
+    )
 end
 
 function Store:has_history(key)
-    return self.db:query([[
+    return self.db:query(
+        [[
         WITH RECURSIVE tree(id) AS (
             SELECT id FROM sessions WHERE id = ?
             UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
         )
         SELECT 1 FROM tree JOIN messages ON messages.session_id = tree.id LIMIT 1
-    ]], { key })[1] ~= nil
+    ]],
+        { key }
+    )[1] ~= nil
 end
 
 function Store:sessions()

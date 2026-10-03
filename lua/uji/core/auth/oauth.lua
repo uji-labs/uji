@@ -62,12 +62,14 @@ local function html(message)
 end
 
 local function respond(conn, status, message)
-    local body = '<!doctype html><meta charset=utf-8><title>uji</title>'
+    local body = "<!doctype html><meta charset=utf-8><title>uji</title>"
         .. '<body style="font:16px system-ui;padding:3rem;color:#111">'
         .. html(message)
         .. "</body>"
     conn:write(
-        "HTTP/1.1 " .. status .. "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "
+        "HTTP/1.1 "
+            .. status
+            .. "\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "
             .. #body
             .. "\r\nConnection: close\r\n\r\n"
             .. body

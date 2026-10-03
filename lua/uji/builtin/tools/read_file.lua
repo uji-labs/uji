@@ -27,8 +27,7 @@ local function page(path, offset, read)
     local text = table.concat(rows)
     local last = offset + #rows - 1
     if last < read.total then
-        text = text
-            .. string.format("\n[showed lines %d-%d of %d; continue with offset %d]", offset, last, read.total, last + 1)
+        text = text .. string.format("\n[showed lines %d-%d of %d; continue with offset %d]", offset, last, read.total, last + 1)
     end
     return text
 end

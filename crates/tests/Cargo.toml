@@ -9,17 +9,11 @@ repository.workspace = true
 publish = false
 build = "../uji/build.rs"
 
-[lib]
-path = "src/lib.rs"
-
 [[bin]]
 name = "uji-test"
 path = "src/bin/uji-test.rs"
 
 [dependencies]
-crossterm = "0.29"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 uji-kernel = { path = "../kernel" }
 uji-lua = { path = "../../lua" }
 

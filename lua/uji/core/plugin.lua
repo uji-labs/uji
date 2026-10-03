@@ -8,7 +8,6 @@ local M = {
     cleanups = {},
 }
 
-
 function M.current()
     return M.stack[#M.stack]
 end

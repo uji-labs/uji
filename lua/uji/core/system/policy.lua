@@ -66,7 +66,11 @@ function Policy.tool_rules(name, value, notices)
         if ACTIONS[value.default] then
             out.default = value.default
         else
-            notices[#notices + 1] = "tool policy: `" .. name .. "` default `" .. value.default .. "` is not allow, ask or deny; asking instead"
+            notices[#notices + 1] = "tool policy: `"
+                .. name
+                .. "` default `"
+                .. value.default
+                .. "` is not allow, ask or deny; asking instead"
             out.default = "ask"
         end
     end
@@ -80,7 +84,13 @@ function Policy.tool_rules(name, value, notices)
                     out.rules[#out.rules + 1] = { matcher = found, action = action }
                 else
                     unreadable = true
-                    notices[#notices + 1] = "tool policy: `" .. name .. "` " .. action .. " rule `" .. tostring(entry) .. "` is not a valid pattern"
+                    notices[#notices + 1] = "tool policy: `"
+                        .. name
+                        .. "` "
+                        .. action
+                        .. " rule `"
+                        .. tostring(entry)
+                        .. "` is not a valid pattern"
                 end
             end
         end

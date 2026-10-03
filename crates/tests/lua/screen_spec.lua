@@ -1,0 +1,323 @@
+local app = require("uji.core.app")
+local Confirm = require("uji.core.ui.views.confirm")
+local Pick = require("uji.core.ui.views.pick")
+local Prompt = require("uji.core.ui.views.prompt")
+local screen = require("support.ui")
+local Select = require("uji.core.ui.views.select")
+local sys = require("uji.sys")
+local ui = require("uji.core.ui")
+
+local CURSOR = "\226\150\136"
+local MASK = "\226\128\162"
+
+local function has(text, part)
+    return text:find(part, 1, true) ~= nil
+end
+
+local function any(rows, part)
+    for _, row in ipairs(rows) do
+        if has(row, part) then
+            return true
+        end
+    end
+    return false
+end
+
+local function split(text, width)
+    local rows, row, count = {}, {}, 0
+    for char in text:gmatch(require("uji.core.ui.text").CHAR) do
+        row[#row + 1] = char
+        count = count + 1
+        if count == width then
+            rows[#rows + 1] = table.concat(row)
+            row, count = {}, 0
+        end
+    end
+    return rows
+end
+
+local function trimmed(rows)
+    local out = {}
+    for index, row in ipairs(rows) do
+        out[index] = row:gsub("%s+$", "")
+    end
+    return out
+end
+
+local function copied_to()
+    local copied = {}
+    sys.clipboard.set = function(value)
+        copied.value = value
+        return true
+    end
+    return copied
+end
+
+describe("the screen", function()
+    before_each(screen.open)
+
+    it("draws the draft with the cursor in it", { size = { 40, 8 } }, function()
+        screen.typing("hello")
+        screen.press("left")
+        screen.press("left")
+        assert.is_true(has(screen.screen(), "hel" .. CURSOR .. "lo"), "the draft and its cursor should be on screen")
+    end)
+
+    it("shows no characters in a hidden prompt", { size = { 40, 10 } }, function()
+        ui:present(Prompt({ title = "api key", value = "", hidden = true }))
+        screen.typing("hunter2")
+        screen.press("left")
+        local text = screen.screen()
+        assert.is_true(has(text, "api key"), "the title should be drawn")
+        assert.is_true(has(text, MASK), "the value should be masked")
+        assert.is_false(has(text, "hunter2"))
+        assert.is_false(has(text, "2"))
+        assert.is_true(has(text, CURSOR), "the cursor should still be drawn")
+    end)
+
+    it("draws the items and the query of a select", { size = { 40, 12 } }, function()
+        ui:present(Select({ title = "pick one", items = { "alpha", "beta" } }))
+        screen.typing("al")
+        local text = screen.screen()
+        assert.is_true(has(text, "pick one"), "title missing")
+        assert.is_true(has(text, "alpha"), "the matching item is missing")
+        assert.is_false(has(text, "beta"), "a filtered item is still drawn")
+        assert.is_true(has(text, "al" .. CURSOR), "the query and cursor are missing")
+    end)
+
+    it("draws the counts and the preview of a picker", { size = { 60, 20 } }, function()
+        ui:present(Pick({ title = "files", items = { "one", "two" } }))
+        screen.typing("on")
+        ui.modal.preview = { "a preview line" }
+        ui.modal.previewed = ui.modal:chosen()
+        local text = screen.screen()
+        assert.is_true(has(text, "files"), "title missing")
+        assert.is_true(has(text, "1/2"), "the match counts are missing")
+        assert.is_true(has(text, "a preview line"), "the preview is missing")
+    end)
+
+    it("wraps a long message to the width", { size = { 30, 20 } }, function()
+        app.session:append({ type = "user", text = string.rep("wrap ", 40) })
+        local wrapped = 0
+        for _, row in ipairs(split(screen.screen(), 30)) do
+            if has(row, "wrap") then
+                wrapped = wrapped + 1
+            end
+            assert.is_true(uji.width(row) <= 30, "a row should never run past the width")
+        end
+        assert.is_true(wrapped > 1, "a long message should take more than one row")
+    end)
+
+    it("keeps the choices of a tall confirm on screen and scrolls its body", { size = { 60, 20 } }, function()
+        local body = {}
+        for n = 1, 200 do
+            body[n] = "content line " .. n
+        end
+        ui:present(Confirm({ title = "Write big.txt?", body = table.concat(body, "\n") }))
+        local top = screen.screen()
+        assert.is_true(has(top, "content line 1 "))
+        assert.is_true(has(top, "of 200, scroll for more"))
+        assert.is_true(has(top, "1. Yes, proceed"))
+        assert.is_true(has(top, "2. No, and tell uji"))
+        screen.press("end")
+        local bottom = screen.screen()
+        assert.is_true(has(bottom, "content line 200"))
+        assert.is_false(has(bottom, "content line 1 "))
+        assert.is_true(has(bottom, "1. Yes, proceed"))
+    end)
+
+    it("leaves the transcript in place when it copies a selection", { size = { 40, 12 } }, function()
+        local copied = copied_to()
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "line " .. index })
+        end
+        local before = screen.rows(true)
+        local row = screen.find("line 29")
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        screen.rows(true)
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 8 })
+        screen.rows(true)
+        ui:mouse({ kind = "up", button = "left", row = row, col = 8 })
+        local flashed = screen.rows(true)
+        assert.equal("line 29", copied.value)
+        assert.is_true(has(flashed[1], "copied 1 line(s)"))
+        assert.same({ unpack(before, 2) }, { unpack(flashed, 2) }, "the copy message does not push the transcript up")
+        sys.sleep(1.2)
+        assert.same(before, screen.rows(true), "the copy message goes away")
+    end)
+
+    it("keeps a selection on its text when the transcript moves", { size = { 40, 24 } }, function()
+        local copied = copied_to()
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "line " .. index })
+        end
+        local function find(label)
+            for row, line in ipairs(screen.rows(true)) do
+                if line:find(label .. "$") or line:find(label .. " ") then
+                    return row - 1
+                end
+            end
+        end
+        local row = find("line 28")
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        screen.rows(true)
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 3 })
+        screen.rows(true)
+        app.session:append({ type = "user", text = "line 31" })
+        app.session:append({ type = "user", text = "line 32" })
+        local moved = find("line 28")
+        assert.are_not.equal(row, moved, "the new messages move the transcript up")
+        ui:mouse({ kind = "drag", button = "left", row = moved, col = 8 })
+        screen.rows(true)
+        ui:mouse({ kind = "up", button = "left", row = moved, col = 8 })
+        assert.equal("line 28", copied.value, "the selection follows its text as the transcript moves")
+        copied.value = nil
+        row = find("line 30")
+        ui:mouse({ kind = "down", button = "left", row = row, col = 1 })
+        screen.rows(true)
+        ui:mouse({ kind = "drag", button = "left", row = row, col = 8 })
+        ui.theme.revision = ui.theme.revision + 1
+        screen.rows(true)
+        ui:mouse({ kind = "up", button = "left", row = row, col = 8 })
+        assert.is_nil(copied.value, "redrawing the whole transcript drops the selection")
+    end)
+
+    it("does not move a transcript scrolled up for new output", { size = { 40, 16 } }, function()
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "old " .. index })
+        end
+        local function rows()
+            return trimmed(screen.rows(true))
+        end
+        local at_bottom = rows()
+        assert.is_true(any(at_bottom, "old 30"))
+        assert.is_false(any(at_bottom, "Jump to bottom"))
+        ui:mouse({ kind = "scroll_up" })
+        ui:mouse({ kind = "scroll_up" })
+        local scrolled = rows()
+        assert.are_not.equal(at_bottom[1], scrolled[1])
+        assert.is_true(any(scrolled, "Jump to bottom"))
+        ui.theme.revision = ui.theme.revision + 1
+        assert.same(scrolled, rows(), "redrawing everything keeps the view where it was")
+        local reply = {}
+        for index = 1, 20 do
+            reply[index] = "new " .. index
+            ui:delta({ text = reply[index] .. "\n\n" })
+            ui.stream:reveal_all()
+            rows()
+        end
+        assert.same(scrolled, rows(), "a reply streaming in keeps the view where it was")
+        ui:clear_stream()
+        rows()
+        app.session:append({ type = "assistant", text = table.concat(reply, "\n\n") })
+        local finished = rows()
+        assert.same(scrolled, finished, "the finished reply keeps the view where it was")
+        assert.is_true(any(finished, "Jump to bottom"))
+        local jump = ui.views.messages.jump
+        ui:mouse({ kind = "down", button = "left", row = jump.row, col = jump.col })
+        local followed = rows()
+        assert.is_true(any(followed, "new 20"))
+        assert.is_false(any(followed, "Jump to bottom"))
+    end)
+
+    it("shares the room a line leaves between its fill spans", { size = { 30, 6 } }, function()
+        local bar = uji.ui.open_win({ split = "bottom", size = 2 })
+        uji.ui.set_lines(bar, {
+            { "left", { fill = true }, "right" },
+            { "a", { fill = true }, "b", { fill = true }, "c" },
+        })
+        local rows = {}
+        for _, row in ipairs(split(screen.screen(), 30)) do
+            rows[row] = true
+        end
+        assert.is_true(rows["left" .. string.rep(" ", 21) .. "right"])
+        assert.is_true(rows["a" .. string.rep(" ", 13) .. "b" .. string.rep(" ", 14) .. "c"])
+    end)
+
+    it("lists windows with their size to plugins and tells them when it changes", { size = { 40, 10 } }, function()
+        local changed = 0
+        uji.on("layout_changed", function()
+            changed = changed + 1
+        end)
+        ui.windows = {}
+        uji.ui.open_win({ name = "transcript", view = "messages", size = "fill" })
+        local bar = uji.ui.open_win({ name = "bar", split = "bottom", size = 4, border = "horizontal" })
+        screen.screen()
+        screen.screen()
+        assert.equal(1, changed, "drawing the same layout again says nothing")
+        local listed = {}
+        for _, win in ipairs(uji.ui.list_wins()) do
+            listed[#listed + 1] = { win.name, win.x, win.y, win.width, win.height }
+        end
+        assert.same({ { "transcript", 0, 0, 40, 6 }, { "bar", 0, 7, 40, 2 } }, listed)
+        assert.same({ 40, 10 }, { uji.ui.size() })
+        uji.ui.set_size(bar, 5)
+        screen.screen()
+        assert.equal(2, changed)
+    end)
+
+    it("uses the picker a plugin puts in place for core commands", { size = { 40, 10 } }, function()
+        local asked
+        uji.model.use({ provider = "anthropic", model = "claude-sonnet-5" })
+        uji.ui.select = function(opts)
+            asked = opts.title
+            return "high"
+        end
+        require("uji.core.command").run("effort")
+        assert.equal("Reasoning effort", asked)
+        assert.equal("high", require("uji.core.model").setting("llm.effort"))
+    end)
+
+    it("switches to a model of a provider with a key from the models command", { size = { 40, 10 } }, function()
+        uji.auth.save_key("groq", "test-key")
+        local want
+        for _, provider in ipairs(uji.provider.list()) do
+            if provider.id == "groq" then
+                want = provider.models[2].id
+            end
+        end
+        uji.ui.select = function(opts)
+            for _, item in ipairs(opts.items) do
+                if item:sub(-#want) == want then
+                    return item
+                end
+            end
+        end
+        require("uji.core.command").run("models")
+        local current = uji.model.current()
+        assert.equal("groq", current.provider)
+        assert.equal(want, current.model)
+        assert.is_true(uji.auth.authenticated("groq"))
+    end)
+
+    it("replaces a built in command when a plugin adds its name", { size = { 40, 10 } }, function()
+        local ran = false
+        uji.command.add("help", function()
+            ran = true
+        end)
+        require("uji.core.command").run("help")
+        assert.is_true(ran)
+        local listed = {}
+        for _, name in ipairs(uji.command.list()) do
+            listed[name] = true
+        end
+        assert.is_true(listed.help and listed.login)
+    end)
+end)
+
+it("drops the empty line at either end of a copied selection", function()
+    local Selection = require("uji.core.ui.selection")
+    local selection = Selection()
+    selection.rows = { [0] = "first line", [1] = "second", [2] = "", [3] = "fourth" }
+    selection:press(0, 0, 0)
+    selection:drag(0, 1)
+    assert.equal("first line", selection:release(), "a drag that ends at the start of the next row")
+    selection:clear()
+    selection:press(10, 0, 10)
+    selection:drag(6, 1)
+    assert.equal("second", selection:release(), "a drag that starts past the end of a line")
+    selection:clear()
+    selection:press(0, 1, 20)
+    selection:drag(6, 3)
+    assert.equal("second\n\nfourth", selection:release(), "blank lines inside the selection stay")
+end)

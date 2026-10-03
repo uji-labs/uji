@@ -53,10 +53,7 @@ function Session:entries()
         return self.stored
     end
     local stored = {}
-    local rows = self.store.db:query(
-        "SELECT id, seq, time_created, data FROM messages WHERE session_id = ? ORDER BY seq",
-        { self.id }
-    )
+    local rows = self.store.db:query("SELECT id, seq, time_created, data FROM messages WHERE session_id = ? ORDER BY seq", { self.id })
     for index, row in ipairs(rows) do
         stored[index] = {
             id = row.id,
@@ -98,7 +95,9 @@ function Session:append(message)
         db:exec("UPDATE sessions SET time_updated = ? WHERE id = ?", { now, self.id })
     end)
     if not ok then
-        if entered then pcall(db.exec, db, "ROLLBACK") end
+        if entered then
+            pcall(db.exec, db, "ROLLBACK")
+        end
         return nil, "failed to persist " .. message.type .. " message: " .. tostring(err)
     end
     for _, session in ipairs(inserted) do

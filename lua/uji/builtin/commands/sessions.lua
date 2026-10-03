@@ -11,6 +11,8 @@ uji.command.add("sessions", {
             return
         end
         local chosen = ui:ask(sessions.Picker(app.store, app.session.directory, app.session.id))
-        if chosen then sessions.switch(chosen) end
+        if chosen then
+            sessions.switch(chosen)
+        end
     end,
 })

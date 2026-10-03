@@ -96,7 +96,9 @@ function Agent:append(message)
     local entry, err = self.session:append(message)
     if not entry then
         -- A background shell must not discard another running turn's task.
-        if not self.task or self.task.done then self:finish(false) end
+        if not self.task or self.task.done then
+            self:finish(false)
+        end
         error(err, 0)
     end
     return entry
@@ -119,8 +121,8 @@ local function said(text, attached)
     return { type = "user", text = text, images = images.checked(attached) }
 end
 
-function Agent:enqueue(text, images)
-    self.queue[#self.queue + 1] = { text = text, images = images }
+function Agent:enqueue(text, attached)
+    self.queue[#self.queue + 1] = { text = text, images = attached }
     self:sync_queue()
 end
 
@@ -167,17 +169,21 @@ function Agent:prompt(text)
     return system, turn
 end
 
-function Agent:submit(text, images, queued)
+function Agent:submit(text, attached, queued)
     if self:working() then
-        if not queued then return self:enqueue(text, images) end
+        if not queued then
+            return self:enqueue(text, attached)
+        end
         return
     end
     if self:compact_if_needed() then
-        if not queued then return self:enqueue(text, images) end
+        if not queued then
+            return self:enqueue(text, attached)
+        end
         return
     end
     event.emit("message_submitted", { text = text })
-    self:append(said(text, images))
+    self:append(said(text, attached))
     if queued then
         table.remove(self.queue, 1)
         self:sync_queue()
@@ -216,7 +222,9 @@ end
 function Agent:failed(message)
     self:clear_stream()
     local entry, err = self.session:append({ type = "error", text = message })
-    if not entry then notices.push(err) end
+    if not entry then
+        notices.push(err)
+    end
     self:finish(true)
 end
 
@@ -376,7 +384,10 @@ function Agent:run_tool(call, args)
             self.turn.cancel_tool = result
         end
     elseif result ~= nil then
-        return "error: " .. call.name .. " returned a " .. type(result)
+        return "error: "
+            .. call.name
+            .. " returned a "
+            .. type(result)
             .. "; run returns its result, a function that cancels it, or nothing"
     end
     local value = promise:await()
@@ -418,10 +429,7 @@ function Agent:compact_if_needed()
     if self:compact(self:keep_recent()) then
         return true
     end
-    notices.push(string.format(
-        "context is over the %d token budget but the latest turn cannot be compacted",
-        model.usable(budget)
-    ))
+    notices.push(string.format("context is over the %d token budget but the latest turn cannot be compacted", model.usable(budget)))
     return false
 end
 

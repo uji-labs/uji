@@ -35,12 +35,7 @@ end
 function M.centered(area, width, height)
     width = math.min(width, area.width)
     height = math.min(height, area.height)
-    return rect(
-        area.x + math.floor((area.width - width) / 2),
-        area.y + math.floor((area.height - height) / 2),
-        width,
-        height
-    )
+    return rect(area.x + math.floor((area.width - width) / 2), area.y + math.floor((area.height - height) / 2), width, height)
 end
 
 function M.float(area, float)

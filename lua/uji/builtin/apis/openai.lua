@@ -150,8 +150,7 @@ end
 
 function OpenAI:usage(reported)
     local details = reported.prompt_tokens_details or {}
-    local cache_read =
-        math.max(details.cached_tokens or 0, reported.prompt_cache_hit_tokens or 0, reported.cached_tokens or 0)
+    local cache_read = math.max(details.cached_tokens or 0, reported.prompt_cache_hit_tokens or 0, reported.cached_tokens or 0)
     local cache_write = details.cache_write_tokens or 0
     return {
         input = math.max((reported.prompt_tokens or 0) - cache_read - cache_write, 0),

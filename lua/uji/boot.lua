@@ -8,11 +8,17 @@ local function open_session(store, parsed)
     if parsed.command == "new" then
         local ok, carry = pcall(sys.json.decode, sys.os.carry or "null", { nulls = false })
         local pending = ok and type(carry) == "table" and carry.session
-        if type(pending) == "table" and cli.valid_id(pending.id)
-            and type(pending.title) == "string" and type(pending.directory) == "string"
-            and pending.directory ~= "" then
+        if
+            type(pending) == "table"
+            and cli.valid_id(pending.id)
+            and type(pending.title) == "string"
+            and type(pending.directory) == "string"
+            and pending.directory ~= ""
+        then
             local saved = store:session(pending.id)
-            if saved then return saved, "session_resumed" end
+            if saved then
+                return saved, "session_resumed"
+            end
             local session = store:create_session(pending.title, nil, pending.id)
             session.directory = pending.directory
             return session, "session_created"
@@ -44,7 +50,6 @@ local function start(session, created)
 end
 
 local function run(args)
-    local cli = require("uji.core.cli")
     local paths = require("uji.core.paths")
     local parsed = cli.parse(args)
     paths.overrides.config = parsed.flags["config-dir"]
