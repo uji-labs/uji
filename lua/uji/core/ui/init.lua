@@ -68,6 +68,7 @@ function Ui:init()
     self.theme = Theme()
     self.composer = Composer()
     self.sends = task.sequence()
+    self.pending_sends = {}
     self.stream = Stream()
     self.reasoning = ""
     self.notices = {}
@@ -313,11 +314,22 @@ end
 
 function Ui:send(value, attached)
     local directory = app.directory()
+    local pending = { text = value, images = attached }
+    self.pending_sends[#self.pending_sends + 1] = pending
     self.sends(function()
         for _, image in ipairs(images.mentioned(value, directory)) do
             attached[#attached + 1] = image
         end
-        app.agent:submit(value, attached)
+        app.agent:enqueue(value, attached)
+        for index, entry in ipairs(self.pending_sends) do
+            if entry == pending then
+                table.remove(self.pending_sends, index)
+                break
+            end
+        end
+        if not app.agent:working() then
+            app.agent:send_queued()
+        end
     end)
 end
 

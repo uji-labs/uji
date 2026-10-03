@@ -103,7 +103,7 @@ end
 
 function Picker:key(chord, owner)
     if self.deleting then
-        if chord.key == "y" and not chord.ctrl and not chord.alt then
+        if chord.key == "y" and not chord.ctrl and not chord.alt and not chord.shift then
             self:confirm_delete()
         elseif chord.key == "esc" or chord.key == "enter" or chord.key == "n" then
             self.deleting = nil
@@ -173,7 +173,7 @@ function M.pick(store)
 end
 
 function M.busy()
-    return ui:working() or (app.agent and (app.agent.shell ~= nil or #app.agent.queue > 0))
+    return #ui.pending_sends > 0 or ui:working() or (app.agent and (app.agent.shell ~= nil or #app.agent.queue > 0))
 end
 
 function M.restart(session, fresh)

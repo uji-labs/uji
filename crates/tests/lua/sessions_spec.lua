@@ -183,6 +183,143 @@ it("stops inference on failed writes, carries drafts on reload, and retries", fu
     assert.equal(2, #app.session:messages())
 end)
 
+it("retains rejected UI submissions without overwriting newer drafts or replaying committed input", function()
+    local app, ui, event = core("app"), core("ui"), core("event")
+    local image = { media_type = "image/png", data = "opaque-image", name = "draft.png" }
+    local calls = 0
+    uji.provider.add({
+        id = "ui-retry",
+        name = "Fixture",
+        base_url = "https://fixture.invalid",
+        auth_env = { "FIXTURE_KEY" },
+        models = { { id = "m", images = true, context = 10000, output = 1000 } },
+        api = {
+            stream = function(_, request, reply)
+                calls = calls + 1
+                assert.same(image, request.messages[1].images[1])
+                reply.fail({ kind = "provider", message = "failure after committed input" })
+            end,
+        },
+    })
+    core("auth").save_key("ui-retry", "synthetic-test-key")
+    uji.model.use({ provider = "ui-retry", model = "m" })
+    app.session:rename("fixture")
+    app.store.db:exec([[CREATE TRIGGER reject_ui BEFORE INSERT ON messages
+        WHEN NEW.type='user' BEGIN SELECT RAISE(ABORT,'UI write rejected'); END]])
+    local rejected = sys.promise()
+    event.on("notice", function(payload)
+        if payload.text:find("UI write rejected", 1, true) then
+            rejected:resolve()
+        end
+    end)
+    ui.composer:paste("first line\nsecond line")
+    ui.composer:attach(image)
+    local original = ui.composer.pastes:expand(ui.composer:text())
+    ui:submit()
+    uji.input.set("newer draft")
+    rejected:await()
+    assert.equal(0, calls)
+    assert.equal(0, #app.session:messages())
+    assert.equal(0, #app.store:sessions())
+    assert.equal("newer draft", ui.composer:text())
+    assert.equal(1, #app.agent.queue)
+    assert.equal(original, app.agent.queue[1].text)
+    assert.same(image, app.agent.queue[1].images[1])
+    app.store.db:exec("DROP TRIGGER reject_ui")
+    local finished = sys.promise()
+    event.on("turn_finished", function()
+        finished:resolve()
+    end)
+    app.agent:send_queued()
+    finished:await()
+    assert.equal(1, calls)
+    assert.equal(0, #app.agent.queue)
+    assert.equal("newer draft", ui.composer:text())
+    local messages = app.session:messages()
+    assert.equal(2, #messages)
+    assert.equal("user", messages[1].type)
+    assert.equal(original, messages[1].text)
+    assert.same(image, messages[1].images[1])
+    assert.equal("error", messages[2].type)
+end)
+
+it("blocks navigation while submitted images are being prepared", function()
+    local app, ui, manager = core("app"), core("ui"), core("ui.sessions")
+    local preparing, release, completed = sys.promise(), sys.promise(), sys.promise()
+    local image = { media_type = "image/png", data = "synthetic-image", name = "diagram.png" }
+    core("images").mentioned = function()
+        preparing:resolve()
+        release:await()
+        return { image }
+    end
+    local calls, restarts = 0, 0
+    sys.os.restart = function()
+        restarts = restarts + 1
+    end
+    uji.provider.add({
+        id = "preparation-fixture",
+        name = "Fixture",
+        base_url = "https://fixture.invalid",
+        models = { { id = "m", images = true, context = 10000, output = 1000 } },
+        api = {
+            stream = function(_, request, reply)
+                calls = calls + 1
+                assert.equal("read @diagram.png", request.messages[1].text)
+                assert.same(image, request.messages[1].images[1])
+                reply.done({ text = "done", tool_calls = {} })
+            end,
+        },
+    })
+    core("auth").save_key("preparation-fixture", "synthetic-test-key")
+    uji.model.use({ provider = "preparation-fixture", model = "m" })
+    app.session:rename("fixture")
+    core("event").on("turn_finished", function()
+        completed:resolve()
+    end)
+    uji.input.set("read @diagram.png")
+    ui:submit()
+    uji.input.set("newer draft")
+    preparing:await()
+    assert.equal(0, #app.agent.queue)
+    assert.is_true(manager.busy())
+    for _, operation in ipairs({
+        function()
+            manager.restart(nil, true)
+        end,
+        function()
+            manager.switch({ id = "another-session" })
+        end,
+    }) do
+        assert.is_false(pcall(operation))
+    end
+    core("config").reload()
+    assert.equal(0, restarts)
+    assert.equal("newer draft", ui.composer:text())
+    release:resolve()
+    completed:await()
+    assert.equal(1, calls)
+    assert.equal(0, #app.agent.queue)
+    assert.is_false(manager.busy())
+    assert.equal("newer draft", ui.composer:text())
+    assert.equal("read @diagram.png", app.session:messages()[1].text)
+end)
+
+it("requires an unmodified y to delete a selected session", function()
+    local app, ui, manager = core("app"), core("ui"), core("ui.sessions")
+    local saved = app.store:create_session("selected")
+    assert(saved:append({ type = "user", text = "history" }))
+    local picker = manager.Picker(app.store, saved.directory, app.session.id)
+    for _, modifiers in ipairs({ { shift = true }, { alt = true }, { ctrl = true } }) do
+        picker:delete_prompt()
+        ui:present(picker)
+        ui:handle({ type = "key", key = "y", shift = modifiers.shift, alt = modifiers.alt, ctrl = modifiers.ctrl })
+        sys.sleep(0)
+        assert.is_not_nil(app.store:session(saved.id))
+    end
+    picker:key({ key = "y" }, ui)
+    assert.is_nil(app.store:session(saved.id))
+end)
+
 it("carries drafts on switching and blocks running shells and attached images", function()
     local app, manager, ui = core("app"), core("ui.sessions"), core("ui")
     local saved = app.store:create_session("target")

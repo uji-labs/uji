@@ -97,6 +97,8 @@ A tool call passed approval and started. The payload has `name`.
 ### turn_finished
 
 The model finished its turn, or you interrupted it.
+When the turn fails, the payload has `error`, the failure message.
+The failure remains available even if its transcript entry cannot be saved.
 
 ### model_changed
 

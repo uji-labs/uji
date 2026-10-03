@@ -62,18 +62,26 @@ local function listen(session, json)
         notice = function(payload)
             notice(payload.text)
         end,
-        turn_finished = function()
+        turn_finished = function(payload)
             local entries = session:entries()
-            local last = entries[#entries].message
-            local failed = last.type == "error"
+            local last = entries[#entries] and entries[#entries].message
+            local problem = payload.error
+            if not problem and last and last.type == "error" then
+                problem = last.text
+            end
+            if not last and not problem then
+                problem = "the turn finished without a saved result"
+            end
+            local failed = problem ~= nil
+            local result = problem or last.text
             if json then
                 local done = { type = "done", usage = session.tally.usage }
-                done[failed and "error" or "text"] = last.text
+                done[failed and "error" or "text"] = result
                 emit(sys.json.encode(done))
             elseif failed then
-                return cli.fail(last.text)
+                return cli.fail(result)
             else
-                write(io.stdout, last.text)
+                write(io.stdout, result)
             end
             sys.os.exit(failed and 1 or 0)
         end,

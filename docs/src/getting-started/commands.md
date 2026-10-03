@@ -54,7 +54,7 @@ Child history saves its required ancestor records.
 Existing empty records remain available for explicit deletion, but do not win `uji resume`.
 
 Session switching and `/reload` preserve draft text, including expanded multiline pastes.
-They refuse to proceed while a turn or shell command runs, or queued input remains.
+They refuse to proceed while a turn or shell command runs, submitted images are being prepared, or queued input remains.
 Submit or remove draft image attachments before switching or reloading.
 Restart does not carry their payloads.
 

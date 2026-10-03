@@ -79,7 +79,7 @@ function Agent:begin()
     event.emit("status_changed", {})
 end
 
-function Agent:finish(turn)
+function Agent:finish(turn, outcome)
     self.state = "idle"
     self.started = nil
     self.task = nil
@@ -88,7 +88,7 @@ function Agent:finish(turn)
     event.emit("tool_progress", {})
     event.emit("status_changed", {})
     if turn then
-        event.emit("turn_finished", {})
+        event.emit("turn_finished", outcome or {})
     end
 end
 
@@ -225,7 +225,7 @@ function Agent:failed(message)
     if not entry then
         notices.push(err)
     end
-    self:finish(true)
+    self:finish(true, { error = message })
 end
 
 function Agent:restarted(attempt, of, wait)
