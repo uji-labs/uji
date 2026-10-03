@@ -29,7 +29,7 @@ lua:
 
 # The Lua specs; filters pick tests by name, like `just test screen::`.
 test *filters:
-    cargo run -q -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua {{filters}}
+    cargo run --release -q -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua {{filters}}
 
 # Build the documentation site into docs/book.
 docs:
