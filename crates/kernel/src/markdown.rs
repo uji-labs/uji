@@ -1,88 +1,45 @@
-use std::ops::Range;
-
-use mlua::{IntoLua, Lua, Table, Value};
+use mlua::{Lua, Table};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
-use uji_macros::{function, value};
+use uji_macros::function;
 
-#[value]
-#[derive(Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum Kind {
-    Start,
-    End,
-    Text,
-    Code,
-    Html,
-    Break,
-    Rule,
-    Task,
+use crate::stack::{self, Stack};
+
+enum Field<'a> {
+    Nil,
+    Text(&'a str),
+    Integer(i64),
+    Flag(bool),
 }
 
-#[value]
-#[derive(Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-enum Element {
-    Paragraph,
-    Heading,
-    Blockquote,
-    CodeBlock,
-    List,
-    Item,
-    Emphasis,
-    Strong,
-    Strikethrough,
-    Link,
-    Image,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    Other,
-}
-
-impl From<&Tag<'_>> for Element {
-    fn from(tag: &Tag<'_>) -> Self {
-        match tag {
-            Tag::Paragraph => Self::Paragraph,
-            Tag::Heading { .. } => Self::Heading,
-            Tag::BlockQuote(_) => Self::Blockquote,
-            Tag::CodeBlock(_) => Self::CodeBlock,
-            Tag::List(_) => Self::List,
-            Tag::Item => Self::Item,
-            Tag::Emphasis => Self::Emphasis,
-            Tag::Strong => Self::Strong,
-            Tag::Strikethrough => Self::Strikethrough,
-            Tag::Link { .. } => Self::Link,
-            Tag::Image { .. } => Self::Image,
-            Tag::Table(_) => Self::Table,
-            Tag::TableHead => Self::TableHead,
-            Tag::TableRow => Self::TableRow,
-            Tag::TableCell => Self::TableCell,
-            _ => Self::Other,
+impl Field<'_> {
+    fn push(&self, stack: Stack) {
+        match *self {
+            Field::Nil => stack.nil(),
+            Field::Text(text) => stack.string(text),
+            Field::Integer(value) => stack.integer(value),
+            Field::Flag(value) => stack.boolean(value),
         }
     }
 }
 
-impl From<TagEnd> for Element {
-    fn from(tag: TagEnd) -> Self {
-        match tag {
-            TagEnd::Paragraph => Self::Paragraph,
-            TagEnd::Heading(_) => Self::Heading,
-            TagEnd::BlockQuote(_) => Self::Blockquote,
-            TagEnd::CodeBlock => Self::CodeBlock,
-            TagEnd::List(_) => Self::List,
-            TagEnd::Item => Self::Item,
-            TagEnd::Emphasis => Self::Emphasis,
-            TagEnd::Strong => Self::Strong,
-            TagEnd::Strikethrough => Self::Strikethrough,
-            TagEnd::Link => Self::Link,
-            TagEnd::Image => Self::Image,
-            TagEnd::Table => Self::Table,
-            TagEnd::TableHead => Self::TableHead,
-            TagEnd::TableRow => Self::TableRow,
-            TagEnd::TableCell => Self::TableCell,
-            _ => Self::Other,
-        }
+fn name(tag: TagEnd) -> &'static str {
+    match tag {
+        TagEnd::Paragraph => "paragraph",
+        TagEnd::Heading(_) => "heading",
+        TagEnd::BlockQuote(_) => "blockquote",
+        TagEnd::CodeBlock => "code_block",
+        TagEnd::List(_) => "list",
+        TagEnd::Item => "item",
+        TagEnd::Emphasis => "emphasis",
+        TagEnd::Strong => "strong",
+        TagEnd::Strikethrough => "strikethrough",
+        TagEnd::Link => "link",
+        TagEnd::Image => "image",
+        TagEnd::Table => "table",
+        TagEnd::TableHead => "table_head",
+        TagEnd::TableRow => "table_row",
+        TagEnd::TableCell => "table_cell",
+        _ => "other",
     }
 }
 
@@ -97,56 +54,44 @@ fn level(level: HeadingLevel) -> i64 {
     }
 }
 
-fn detail(lua: &Lua, tag: &Tag<'_>) -> mlua::Result<Value> {
+fn detail<'a>(tag: &'a Tag<'_>) -> Field<'a> {
     match tag {
-        Tag::Heading { level: at, .. } => Ok(Value::Integer(level(*at))),
-        Tag::CodeBlock(CodeBlockKind::Fenced(language)) => language.as_ref().into_lua(lua),
-        Tag::List(start) => Ok(start
+        Tag::Heading { level: at, .. } => Field::Integer(level(*at)),
+        Tag::CodeBlock(CodeBlockKind::Fenced(language)) => Field::Text(language),
+        Tag::List(start) => start
             .and_then(|start| i64::try_from(start).ok())
-            .map_or(Value::Nil, Value::Integer)),
-        Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. } => dest_url.as_ref().into_lua(lua),
-        _ => Ok(Value::Nil),
+            .map_or(Field::Nil, Field::Integer),
+        Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. } => Field::Text(dest_url),
+        _ => Field::Nil,
     }
 }
 
-fn entry(
-    lua: &Lua,
-    kind: Kind,
-    first: impl IntoLua,
-    second: impl IntoLua,
-    range: Range<usize>,
-) -> mlua::Result<Table> {
-    let table = lua.create_table()?;
-    table.raw_set(1, kind)?;
-    table.raw_set(2, first)?;
-    table.raw_set(3, second)?;
-    table.raw_set(4, range.start.saturating_add(1))?;
-    table.raw_set(5, range.end)?;
-    Ok(table)
+fn describe<'a>(event: &'a Event<'_>) -> Option<(&'a str, Field<'a>, Field<'a>)> {
+    let described = match event {
+        Event::Start(tag) => ("start", Field::Text(name(tag.to_end())), detail(tag)),
+        Event::End(tag) => ("end", Field::Text(name(*tag)), Field::Nil),
+        Event::Text(body) => ("text", Field::Text(body), Field::Nil),
+        Event::Code(body) => ("code", Field::Text(body), Field::Nil),
+        Event::Html(body) | Event::InlineHtml(body) => ("html", Field::Text(body), Field::Nil),
+        Event::SoftBreak => ("break", Field::Text("soft"), Field::Nil),
+        Event::HardBreak => ("break", Field::Text("hard"), Field::Nil),
+        Event::Rule => ("rule", Field::Nil, Field::Nil),
+        Event::TaskListMarker(done) => ("task", Field::Flag(*done), Field::Nil),
+        _ => return None,
+    };
+    Some(described)
 }
 
-fn event(lua: &Lua, event: Event<'_>, range: Range<usize>) -> mlua::Result<Option<Table>> {
-    let table = match event {
-        Event::Start(tag) => entry(
-            lua,
-            Kind::Start,
-            Element::from(&tag),
-            detail(lua, &tag)?,
-            range,
-        ),
-        Event::End(tag) => entry(lua, Kind::End, Element::from(tag), Value::Nil, range),
-        Event::Text(body) => entry(lua, Kind::Text, body.as_ref(), Value::Nil, range),
-        Event::Code(body) => entry(lua, Kind::Code, body.as_ref(), Value::Nil, range),
-        Event::Html(body) | Event::InlineHtml(body) => {
-            entry(lua, Kind::Html, body.as_ref(), Value::Nil, range)
-        }
-        Event::SoftBreak => entry(lua, Kind::Break, "soft", Value::Nil, range),
-        Event::HardBreak => entry(lua, Kind::Break, "hard", Value::Nil, range),
-        Event::Rule => entry(lua, Kind::Rule, Value::Nil, Value::Nil, range),
-        Event::TaskListMarker(done) => entry(lua, Kind::Task, done, Value::Nil, range),
-        _ => return Ok(None),
-    };
-    table.map(Some)
+fn position(offset: usize) -> Field<'static> {
+    Field::Integer(i64::try_from(offset).unwrap_or(i64::MAX))
+}
+
+fn list(stack: Stack, fields: &[Field<'_>]) {
+    stack.table(fields.len());
+    for (index, field) in (1..).zip(fields) {
+        field.push(stack);
+        stack.set_index(index);
+    }
 }
 
 #[function]
@@ -155,11 +100,18 @@ fn markdown(lua: &Lua, source: &str) -> mlua::Result<Table> {
     extensions.insert(Options::ENABLE_STRIKETHROUGH);
     extensions.insert(Options::ENABLE_TABLES);
     extensions.insert(Options::ENABLE_TASKLISTS);
-    let events = lua.create_table()?;
-    for (parsed, range) in Parser::new_ext(source, extensions).into_offset_iter() {
-        if let Some(table) = event(lua, parsed, range)? {
-            events.raw_push(table)?;
+    stack::build(lua, (), |stack| {
+        stack.table(0);
+        let mut length = 0;
+        for (event, range) in Parser::new_ext(source, extensions).into_offset_iter() {
+            let Some((kind, first, second)) = describe(&event) else {
+                continue;
+            };
+            let start = position(range.start + 1);
+            let end = position(range.end);
+            list(stack, &[Field::Text(kind), first, second, start, end]);
+            length += 1;
+            stack.set_index(length);
         }
-    }
-    Ok(events)
+    })
 }
