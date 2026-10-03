@@ -7,7 +7,7 @@ use serde::de::{DeserializeSeed, Deserializer, Error, MapAccess, SeqAccess, Visi
 use serde_json::Number;
 use uji_macros::{constant, function, options};
 
-use crate::stack::{self, Stack};
+use crate::utils::stack::{self, Stack};
 
 #[function(json, raise)]
 fn encode(value: &Value) -> Result<String, serde_json::Error> {

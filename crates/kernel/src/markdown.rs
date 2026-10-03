@@ -2,7 +2,7 @@ use mlua::{Lua, Table};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use uji_macros::function;
 
-use crate::stack::{self, Stack};
+use crate::utils::stack::{self, Stack};
 
 enum Field<'a> {
     Nil,
