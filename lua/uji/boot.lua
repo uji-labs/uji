@@ -6,6 +6,23 @@ local tables = require("uji.core.tables")
 local function open_session(store, parsed)
     local Store = require("uji.core.store")
     if parsed.command == "new" then
+        local ok, carry = pcall(sys.json.decode, sys.os.carry or "null", { nulls = false })
+        local pending = ok and type(carry) == "table" and carry.session
+        if
+            type(pending) == "table"
+            and cli.valid_id(pending.id)
+            and type(pending.title) == "string"
+            and type(pending.directory) == "string"
+            and pending.directory ~= ""
+        then
+            local saved = store:session(pending.id)
+            if saved then
+                return saved, "session_resumed"
+            end
+            local session = store:create_session(pending.title, nil, pending.id)
+            session.directory = pending.directory
+            return session, "session_created"
+        end
         return store:create_session(Store.UNTITLED), "session_created"
     end
     local id = parsed.flags.id
@@ -49,7 +66,7 @@ local function run(args)
     local packs = require("uji.core.packs")
     local expected = packs.expected()
     if not tables.same(expected, sys.os.roots) then
-        return sys.os.restart({ args = args, roots = expected })
+        return sys.os.restart({ args = args, roots = expected, carry = sys.os.carry })
     end
     require("uji.api")
     local db = paths.db()

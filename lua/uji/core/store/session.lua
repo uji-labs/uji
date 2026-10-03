@@ -40,6 +40,8 @@ function Session:init(store, row)
     self.id = row.id
     self.title = row.title
     self.directory = row.directory
+    self.created = row.time_created
+    self.parent = type(row.parent) == "string" and row.parent or nil
     self.updated = row.time_updated
     self.tally = { usage = usage(), last = usage(), turns = 0 }
     self.reported_input = 0
@@ -82,27 +84,40 @@ function Session:append(message)
     local now = sys.os.now()
     local entry = { id = id.new(), seq = self:last_seq() + 1, time = now, message = message }
     local db = self.store.db
+    local inserted, entered = {}, false
     local ok, err = pcall(db.transaction, db, function()
+        entered = true
+        self.store:persist(self, inserted)
         db:exec(
             "INSERT INTO messages (id, session_id, seq, type, time_created, data) VALUES (?, ?, ?, ?, ?, ?)",
             { entry.id, self.id, entry.seq, message.type, now, encode(message) }
         )
         db:exec("UPDATE sessions SET time_updated = ? WHERE id = ?", { now, self.id })
     end)
+    if not ok then
+        if entered then
+            pcall(db.exec, db, "ROLLBACK")
+        end
+        return nil, "failed to persist " .. message.type .. " message: " .. tostring(err)
+    end
+    for _, session in ipairs(inserted) do
+        session.pending = false
+        self.store.drafts[session.id] = nil
+    end
+    self.updated = now
     if message.type == "compaction" then
         self.reported_input = 0
         self.reported_seq = 0
     end
     stored[#stored + 1] = entry
     event.emit("message_appended", { type = message.type, text = tokens.text(message) })
-    if not ok then
-        return entry, "failed to persist " .. message.type .. " message: " .. sys.message(err)
-    end
     return entry
 end
 
 function Session:rename(title)
-    self.store.db:exec("UPDATE sessions SET title = ? WHERE id = ?", { title, self.id })
+    if not self.pending then
+        self.store.db:exec("UPDATE sessions SET title = ? WHERE id = ?", { title, self.id })
+    end
     self.title = title
 end
 

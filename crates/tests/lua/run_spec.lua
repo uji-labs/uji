@@ -183,6 +183,51 @@ it("reports a failed turn and exits with one", function()
     assert.equal("uji: error:", table.concat(plain.stderr, "\n"):sub(1, 11))
 end)
 
+it("reports headless failure even when its error message cannot be saved", function()
+    local dir = sandbox.dir("rejected-error")
+    sandbox.write(
+        dir.cfg .. "/init.lua",
+        [=[
+uji.provider.add({
+    id = "failure-fixture",
+    name = "Fixture",
+    base_url = "https://fixture.invalid",
+    models = { { id = "m", context = 100000, output = 1000 } },
+    api = {
+        stream = function(_, _, reply)
+            reply.fail({ kind = "provider", message = "fixture failure" })
+        end,
+    },
+})
+require("uji.core.model").set_setting("llm.provider", "failure-fixture")
+require("uji.core.model").set_setting("llm.model", "m")
+require("uji.core.app").store.db:exec([[CREATE TRIGGER IF NOT EXISTS reject_error
+    BEFORE INSERT ON messages WHEN NEW.type='error'
+    BEGIN SELECT RAISE(ABORT,'error write rejected'); END]])
+]=]
+    )
+    local output = uji_run(dir, { "--json", "the original prompt" })
+    assert.equal(1, output.code)
+    local seen, completed = events(output), 0
+    for _, entry in ipairs(seen) do
+        if entry.type == "done" then
+            completed = completed + 1
+            assert.truthy(entry.error:find("fixture failure", 1, true))
+            assert.is_nil(entry.text)
+        elseif entry.type == "message" then
+            assert.equal("user", entry.message.type)
+        end
+    end
+    assert.equal(1, completed)
+    local plain = uji_run(dir, { "the original prompt" })
+    assert.equal(1, plain.code)
+    assert.same({}, plain.stdout)
+    assert.truthy(table.concat(plain.stderr, "\n"):find("fixture failure", 1, true))
+    local db = assert(sys.db.open(dir.db))
+    assert.same({ { type = "user" }, { type = "user" } }, db:query("SELECT type FROM messages ORDER BY seq"))
+    db:close()
+end)
+
 it("knows its program and arguments", function()
     assert.is_string(uji.os.executable)
     assert.equal("new", uji.os.argv[2])

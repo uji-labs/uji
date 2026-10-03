@@ -79,7 +79,7 @@ function Agent:begin()
     event.emit("status_changed", {})
 end
 
-function Agent:finish(turn)
+function Agent:finish(turn, outcome)
     self.state = "idle"
     self.started = nil
     self.task = nil
@@ -88,15 +88,20 @@ function Agent:finish(turn)
     event.emit("tool_progress", {})
     event.emit("status_changed", {})
     if turn then
-        event.emit("turn_finished", {})
+        event.emit("turn_finished", outcome or {})
     end
 end
 
 function Agent:append(message)
-    local _, err = self.session:append(message)
-    if err then
-        notices.push(err)
+    local entry, err = self.session:append(message)
+    if not entry then
+        -- A background shell must not discard another running turn's task.
+        if not self.task or self.task.done then
+            self:finish(false)
+        end
+        error(err, 0)
     end
+    return entry
 end
 
 function Agent:clear_stream()
@@ -126,22 +131,22 @@ function Agent:queued()
 end
 
 function Agent:steer()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if not queued then
         return nil
     end
     self:clear_stream()
     local message = said(queued.text, queued.images)
     self:append(message)
+    table.remove(self.queue, 1)
     self:sync_queue()
     return message
 end
 
 function Agent:send_queued()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if queued then
-        self:sync_queue()
-        self:submit(queued.text, queued.images)
+        self:submit(queued.text, queued.images, queued)
     end
 end
 
@@ -164,15 +169,25 @@ function Agent:prompt(text)
     return system, turn
 end
 
-function Agent:submit(text, attached)
+function Agent:submit(text, attached, queued)
     if self:working() then
-        return self:enqueue(text, attached)
+        if not queued then
+            return self:enqueue(text, attached)
+        end
+        return
     end
     if self:compact_if_needed() then
-        return self:enqueue(text, attached)
+        if not queued then
+            return self:enqueue(text, attached)
+        end
+        return
     end
     event.emit("message_submitted", { text = text })
     self:append(said(text, attached))
+    if queued then
+        table.remove(self.queue, 1)
+        self:sync_queue()
+    end
     self:maybe_title(text)
     local system, turn = self:prompt(text)
     for _, message in ipairs(turn) do
@@ -206,8 +221,11 @@ end
 
 function Agent:failed(message)
     self:clear_stream()
-    self:append({ type = "error", text = message })
-    self:finish(true)
+    local entry, err = self.session:append({ type = "error", text = message })
+    if not entry then
+        notices.push(err)
+    end
+    self:finish(true, { error = message })
 end
 
 function Agent:restarted(attempt, of, wait)

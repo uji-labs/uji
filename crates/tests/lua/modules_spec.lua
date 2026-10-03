@@ -40,15 +40,18 @@ it("uses a module written while uji runs after a reload", function()
     local app = require("uji.core.app")
     local before = sandbox.work .. "/before.json"
     if not sys.os.carry then
+        assert.is_true(app.session.pending)
+        assert.equal(0, #app.store:sessions())
+        app.session:rename("unsaved title")
         sandbox.write(before, sys.json.encode({ lossy = sys.lossy("abc"), session = app.session.id }))
-        sandbox.write(
-            require("uji.core.paths").config() .. "/lua/uji/sys/lossy.lua",
-            "return function(data) return 'reloaded ' .. data end"
-        )
+        sandbox.write(sandbox.cfg .. "/lua/uji/sys/lossy.lua", "return function(data) return 'reloaded ' .. data end")
         require("uji.core.config").reload()
         return
     end
     local earlier = sys.json.decode(sandbox.read(before))
+    assert.is_true(app.session.pending)
+    assert.equal("unsaved title", app.session.title)
+    assert.equal(0, #app.store.db:query("SELECT id FROM sessions"))
     assert.equal("abc", earlier.lossy, "the built-in module ran before the reload")
     assert.equal("reloaded abc", sys.lossy("abc"), "the file written while uji ran replaced it")
     assert.equal(earlier.session, app.session.id, "the reload kept the session")
