@@ -191,10 +191,14 @@ function Gemini:read(event, parts)
     end
 end
 
+function Gemini:headers(request)
+    return { ["x-goog-api-key"] = request.auth.key }
+end
+
 function Gemini:stream(request, reply)
     return stream.run({
         url = request.provider.base_url .. "/models/" .. request.model .. ":streamGenerateContent?alt=sse",
-        headers = { ["x-goog-api-key"] = request.auth.key },
+        headers = self:headers(request),
         body = self:body(request),
         read = function(event, parts)
             self:read(event, parts)

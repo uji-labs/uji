@@ -57,7 +57,7 @@ function M.resolve(choice)
     local saved = M.setting("llm.provider") or ""
     local id = choice.provider or saved
     local provider = catalog.get(id)
-    local stored = M.setting("llm.model")
+    local stored = M.setting("llm.model." .. id) or (id == saved and M.setting("llm.model") or nil)
     local model = choice.model or provider and provider:usable_model(stored) or stored or ""
     local base_url = id == saved and M.setting("llm.base_url") or nil
     if base_url == "" then
@@ -67,7 +67,8 @@ function M.resolve(choice)
         base_url = provider.base_url
     end
     local efforts = provider and provider:efforts(model) or {}
-    local effort = M.nearest(efforts, choice.effort or M.setting("llm.effort") or "off")
+    local wanted_effort = choice.effort or M.setting("llm.effort") or "off"
+    local effort = M.nearest(efforts, wanted_effort)
     M.current = {
         id = id,
         provider = provider,
@@ -75,6 +76,7 @@ function M.resolve(choice)
         model = model,
         base_url = base_url,
         effort = effort,
+        wanted_effort = wanted_effort,
         efforts = efforts,
         reasoning = #efforts > 0,
         caches = provider ~= nil and provider:caches(model),
@@ -90,8 +92,30 @@ function M.remember(provider_id, model)
 end
 
 function M.model_for(provider)
-    local stored = M.setting("llm.model." .. provider.id) or M.setting("llm.model")
+    local stored = M.setting("llm.model." .. provider.id) or (M.setting("llm.provider") == provider.id and M.setting("llm.model") or nil)
     return provider:usable_model(stored)
+end
+
+function M.ready()
+    local current = M.current
+    local provider = current.provider
+    if current.id == "" or not provider then
+        return nil, { kind = "provider", message = NOT_CONFIGURED }
+    end
+    local api = provider.api
+    if api.ready then
+        local ok, available, failure = pcall(api.ready, api, current.model)
+        if not ok then
+            return nil, { kind = "provider", message = sys.message(available) }
+        end
+        if not available then
+            return nil, failure
+        end
+        if M.current.provider ~= provider or catalog.get(current.id) ~= provider or provider.api ~= api then
+            return nil, { kind = "provider", message = "the provider changed while its models were loading" }
+        end
+    end
+    return M.current
 end
 
 function M.max_output()
@@ -171,11 +195,11 @@ function M.call(stream, request, reply)
 end
 
 function M.stream(request, reply)
-    local current = M.current
-    local provider = current.provider
-    if current.id == "" or not provider then
-        return nil, { kind = "provider", message = NOT_CONFIGURED }
+    local current, unavailable = M.ready()
+    if not current then
+        return nil, unavailable
     end
+    local provider = current.provider
     local api = provider.api
     local credentials, missing = auth.resolve(provider)
     if not credentials then
@@ -206,13 +230,18 @@ function M.stream(request, reply)
 end
 
 function M.generate(opts)
+    local current, failure = M.ready()
+    if not current then
+        return nil, failure
+    end
     return M.stream({
-        model = M.current.model,
+        model = current.model,
         system = opts.system,
         messages = opts.messages,
+        session = opts.session,
         tools = {},
-        effort = M.nearest(M.current.efforts, "off"),
-        max_output = DEFAULT_MAX_OUTPUT,
+        effort = M.nearest(current.efforts, "off"),
+        max_output = math.min(DEFAULT_MAX_OUTPUT, M.max_output()),
         cache = "off",
     })
 end

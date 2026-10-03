@@ -105,6 +105,11 @@ level or a budget the same way.
 
 ## The request
 
+An API can define `ready(model)` when it loads model metadata asynchronously.
+Return `true` when loading completes, or `nil, failure` when it fails.
+Uji waits for this method before capturing turn capabilities or preparing an auxiliary request.
+Configuration and model selection do not wait, so start asynchronous loading with `uji.schedule`, outside `require()`.
+
 uji calls `api:stream(request, reply)`. The method may return a function that
 cancels the call. The request has these fields:
 - `model`, the model id

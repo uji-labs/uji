@@ -9,7 +9,10 @@ uji.command.add("models", {
             end
         end
         if #available == 0 then
-            uji.notify("Please run /login to configure a provider")
+            uji.notify(
+                current and current ~= "" and "No models are available for this provider; wait for loading or run /reload to retry"
+                    or "Please run /login to configure a provider"
+            )
             return
         end
         local qualify = #available > 1

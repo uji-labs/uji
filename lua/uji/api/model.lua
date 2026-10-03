@@ -18,6 +18,7 @@ local function use(opts)
     local current = model.setting("llm.provider") or ""
     local id = opts.provider or current
     local switched = id ~= current
+    local selected = opts.model or (switched and model.model_for(catalog.get(id)) or nil)
     if switched then
         model.set_setting("llm.provider", id)
     end
@@ -25,7 +26,7 @@ local function use(opts)
         model.set_setting("llm.base_url", opts.base_url or "")
     end
     if opts.model ~= nil or switched then
-        model.remember(id, opts.model or model.model_for(catalog.get(id)))
+        model.remember(id, selected)
     end
     if opts.effort ~= nil then
         model.set_setting("llm.effort", opts.effort)

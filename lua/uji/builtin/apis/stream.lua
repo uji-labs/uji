@@ -33,17 +33,36 @@ local function truncated_call(name)
     )
 end
 
-local function status_error(response)
+local function diagnostic(body, headers)
+    body = body:gsub("[%z\1-\8\11\12\14-\31\127]", "")
+    local function remove(value)
+        if type(value) == "string" and value ~= "" then
+            local pattern = value:gsub("([^%w])", "%%%1")
+            body = body:gsub(pattern, "[redacted]")
+        end
+    end
+    for name, value in pairs(headers or {}) do
+        local lower = name:lower()
+        if lower == "authorization" or lower == "x-api-key" or lower == "x-goog-api-key" then
+            remove(value)
+            remove(type(value) == "string" and value:match("^[Bb]earer%s+(.+)$"))
+        end
+    end
+    return M.clip(trim(body), MAX_ERROR_BODY)
+end
+
+local function status_error(response, headers)
     local status = response.status
+    local message = diagnostic(response.body, headers)
     if status == 401 or status == 403 then
-        return { kind = "auth", status = status }
+        return { kind = "auth", status = status, message = message ~= "" and message or nil }
     end
     local wait = response.headers["retry-after"]
     return {
         kind = "http",
         status = status,
         retry_after = wait and tonumber(wait:match("^%s*(%d+)%s*$")),
-        message = M.clip(trim(response.body), MAX_ERROR_BODY),
+        message = message,
     }
 end
 
@@ -198,7 +217,7 @@ local function run(spec, reply)
         return nil, { kind = "http", message = err }
     end
     if body.status < 200 or body.status >= 300 then
-        return nil, status_error({ status = body.status, headers = body.headers, body = body:read() or "" })
+        return nil, status_error({ status = body.status, headers = body.headers, body = body:read() or "" }, headers)
     end
     local failure = drain(body, state, spec.read) or state.failure
     if failure then

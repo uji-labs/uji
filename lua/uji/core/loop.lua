@@ -25,6 +25,9 @@ local function describe(failure)
         return tostring(failure)
     end
     if failure.kind == "auth" then
+        if failure.message and failure.message ~= "" then
+            return "request rejected (" .. failure.status .. "): " .. failure.message
+        end
         return "authentication rejected (" .. failure.status .. ") - check the api key for this provider"
     end
     if failure.kind == "provider" then

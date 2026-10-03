@@ -183,21 +183,28 @@ end
 
 function Agent:start(system)
     local Loop = require("uji.core.loop")
-    local loop = Loop(self, {
-        system = system,
-        messages = view.build(self.session:entries()),
-        tools = tool.specs(self.tools),
-        model = model.current.model,
-        effort = model.current.effort,
-        reasoning = model.current.reasoning,
-        max_output = model.max_output(),
-        cache = model.retention(),
-        session = self.session.id,
-    })
     self:begin()
-    self.turn = { loop = loop, calls = {}, answered = {} }
     self.task = task.spawn(function()
-        local ok, err = pcall(loop.run, loop)
+        local ok, err = pcall(function()
+            local current, failure = model.ready()
+            if not current then
+                self:failed(failure.message)
+                return
+            end
+            local loop = Loop(self, {
+                system = system,
+                messages = view.build(self.session:entries()),
+                tools = tool.specs(self.tools),
+                model = current.model,
+                effort = current.effort,
+                reasoning = current.reasoning,
+                max_output = model.max_output(),
+                cache = model.retention(),
+                session = self.session.id,
+            })
+            self.turn = { loop = loop, calls = {}, answered = {} }
+            loop:run()
+        end)
         if not ok then
             self:failed("uji.core.loop: " .. sys.message(err))
         end
@@ -397,7 +404,7 @@ function Agent:fold(messages)
     if not budget then
         return nil
     end
-    return compactor.fold(messages, budget, self:keep_recent())
+    return compactor.fold(messages, budget, self:keep_recent(), self.session.id)
 end
 
 function Agent:compact_if_needed()
@@ -437,7 +444,7 @@ function Agent:compact(keep)
     self:begin()
     task.spawn(function()
         local files = view.merge_files(view.files_touched(earlier), carried)
-        local ok, done = pcall(compactor.generate, earlier, previous)
+        local ok, done = pcall(compactor.generate, earlier, previous, self.session.id)
         if ok and done then
             if done.usage then
                 self.session:add_cost(done.usage)
@@ -459,8 +466,10 @@ function Agent:maybe_title(first)
         return
     end
     task.spawn(function()
-        local titled = title.generate(first)
+        local titled, failure = title.generate(first, self.session.id)
         if not titled then
+            local reason = failure and (failure.message or (failure.kind .. ": " .. tostring(failure.status)))
+            notices.push("could not name the session: " .. (reason or "no title returned"))
             return
         end
         if titled.usage then

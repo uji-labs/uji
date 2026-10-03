@@ -84,7 +84,7 @@ function M.transcript(messages)
     return table.concat(ordered)
 end
 
-function M.generate(messages, previous)
+function M.generate(messages, previous, session)
     local transcript = M.transcript(messages)
     if not transcript:find("%S") then
         return nil
@@ -95,6 +95,7 @@ function M.generate(messages, previous)
         text = "<previous-summary>\n" .. previous .. "\n</previous-summary>\n\n" .. transcript
     end
     local answer = model.generate({
+        session = session,
         system = instructions .. FORMAT,
         messages = { { type = "user", text = text } },
     })
@@ -108,7 +109,7 @@ function M.generate(messages, previous)
     return { summary = summary, usage = answer.usage }
 end
 
-function M.fold(messages, budget, keep_recent)
+function M.fold(messages, budget, keep_recent, session)
     if tokens.messages(messages) < model.usable(budget) then
         return nil
     end
@@ -124,7 +125,7 @@ function M.fold(messages, budget, keep_recent)
         head[#head + 1] = messages[index]
     end
     local files = view.merge_files(view.files_touched(head), carried)
-    local done = M.generate(head, previous)
+    local done = M.generate(head, previous, session)
     if not done then
         return nil
     end
