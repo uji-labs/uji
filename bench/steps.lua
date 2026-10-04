@@ -210,7 +210,8 @@ function STEPS.clear(ctx)
 end
 
 function STEPS.history(ctx, spec)
-    local reply, output = ctx:value(spec.reply), ctx:value(spec.output)
+    spec = ctx:value(spec)
+    local reply, output = spec.reply, spec.output
     for index = 1, spec.turns do
         local call = { id = "call" .. index, name = "read_file", arguments = '{"path":"src/main.rs"}' }
         app.session:append({ type = "user", text = "Question " .. index })
@@ -227,7 +228,8 @@ end
 function STEPS.top(ctx)
     ctx:cold()
     local _, height = ui.screen:size()
-    while ui.scroll.resolved > 0 do
+    local transcript = ui.views.messages.transcript
+    while transcript.first > 1 or ui.scroll.resolved > 0 do
         ui.scroll:up(height)
         ctx:frame()
     end
