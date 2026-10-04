@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,7 +29,8 @@ jobs:
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release -p uji-tests --bin uji-test -- -l bench/main.lua bench --json bench.json
-      - uses: actions/cache/restore@v4
+      - id: baseline
+        uses: actions/cache/restore@v4
         with:
           path: benchmarks
           key: bench-${{ github.run_id }}
@@ -39,12 +41,14 @@ jobs:
           tool: customSmallerIsBetter
           output-file-path: bench.json
           external-data-json-path: benchmarks/data.json
-          save-data-file: ${{ github.event_name == 'push' }}
+          save-data-file: ${{ github.event_name != 'pull_request' }}
           github-token: ${{ github.token }}
           comment-always: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           summary-always: true
           alert-threshold: 120%
-      - if: github.event_name == 'push'
+      - if: github.event_name == 'pull_request' && steps.baseline.outputs.cache-matched-key == ''
+        run: echo "No benchmark results from main to compare against yet. Run the bench workflow on main once." >> "$GITHUB_STEP_SUMMARY"
+      - if: github.event_name != 'pull_request'
         uses: actions/cache/save@v4
         with:
           path: benchmarks
