@@ -127,17 +127,10 @@ end
 
 local M = {}
 
-function M.pick(store)
-    local directory = sys.os.cwd()
-    local sessions = {}
-    for _, session in ipairs(store:sessions()) do
-        if session.directory == directory then
-            sessions[#sessions + 1] = session
-        end
-    end
+function M.pick(sessions)
     local screen = ui:open()
     local palette = ui.styles:sync(ui.theme)
-    local picker = Sessions(sessions, directory)
+    local picker = Sessions(sessions, sys.os.cwd())
     picker:draw(screen, palette)
     for incoming in ui.input:events() do
         if incoming.type == "key" then

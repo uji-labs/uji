@@ -40,6 +40,7 @@ function Session:init(store, row)
     self.id = row.id
     self.title = row.title
     self.directory = row.directory
+    self.parent = row.parent
     self.updated = row.time_updated
     self.tally = { usage = usage(), last = usage(), turns = 0 }
     self.reported_input = 0

@@ -31,7 +31,7 @@ local MIGRATIONS = {
     [[ALTER TABLE sessions ADD COLUMN parent TEXT REFERENCES sessions(id) ON DELETE CASCADE]],
 }
 
-local COLUMNS = "id, title, directory, time_created, time_updated"
+local COLUMNS = "id, title, directory, parent, time_created, time_updated"
 
 local Store = class()
 
@@ -80,6 +80,7 @@ function Store:create_session(title, parent)
         id = id.new(),
         title = title or UNTITLED,
         directory = sys.os.cwd(),
+        parent = parent,
         time_created = now,
         time_updated = now,
     }
@@ -103,9 +104,15 @@ function Store:latest(directory)
     return row and Session(self, row)
 end
 
-function Store:sessions()
+function Store:sessions(directory)
+    local filter, params = "parent IS NULL", {}
+    if directory then
+        filter = filter .. " AND directory = ?"
+        params[1] = directory
+    end
+    local query = "SELECT " .. COLUMNS .. " FROM sessions WHERE " .. filter .. " ORDER BY time_updated DESC, id DESC"
     local out = {}
-    for _, row in ipairs(self.db:query("SELECT " .. COLUMNS .. " FROM sessions WHERE parent IS NULL ORDER BY time_updated DESC")) do
+    for _, row in ipairs(self.db:query(query, params)) do
         out[#out + 1] = Session(self, row)
     end
     return out
