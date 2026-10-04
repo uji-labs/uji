@@ -52,6 +52,7 @@ local function measure(ctx, name, steps)
     local function once()
         ctx.frames = 0
         ctx:run(steps)
+        ctx:frame()
         return ctx.frames
     end
     local count = 1
@@ -74,6 +75,7 @@ local function endure(ctx, name, steps, budget)
     local started = sys.os.clock()
     local ok, err = xpcall(function()
         ctx:run(steps)
+        ctx:frame()
     end, debug.traceback)
     return {
         kind = "torture",
