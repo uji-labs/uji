@@ -5,7 +5,7 @@ local promise = require("uji.sys.promise")
 local system = require("uji.sys.os")
 local task = require("uji.sys.task")
 
-local SUFFIXES = { bench = "_bench.lua", torture = "_torture.lua" }
+local SCENARIOS = "/scenario/scenarios.json"
 local SIZE = "120x40"
 local TIMEOUT = 600
 local STARTS = 10
@@ -72,13 +72,14 @@ end
 local function start(args)
     local dir = assert(fs.realpath(parent(assert(args[3], "usage: uji-test -l main.lua bench|torture [--json file] [filter...]"))))
     local mode = args[4]
-    assert(SUFFIXES[mode], "the mode must be bench or torture")
+    local scenarios = json.decode(assert(fs.read(dir .. SCENARIOS)), { nulls = false })
+    assert(mode ~= "values" and scenarios[mode], "the mode must be bench or torture")
     local filters, json_path = options(args)
     local tmp = (system.env("TMPDIR") or "/tmp"):gsub("/$", "")
     local run = setmetatable({
         dir = dir,
         mode = mode,
-        suffix = SUFFIXES[mode],
+        groups = scenarios[mode],
         support = assert(fs.realpath(dir .. "/../crates/tests/lua")),
         root = string.format("%s/uji-bench-%d", tmp, system.now()),
         bin = assert(system.executable, "uji-test does not know where it is"),
@@ -162,7 +163,7 @@ function Run:fail(name, problem)
     say(string.format("FAIL  %s: %s\n", name, problem))
 end
 
-function Run:file(name)
+function Run:group(name)
     local out = self.root .. "/" .. name .. ".json"
     local root = self:sandbox()
     write(
@@ -171,8 +172,8 @@ function Run:file(name)
             root = root,
             dir = self.dir,
             support = self.support,
-            file = self.dir .. "/" .. name,
-            group = name:sub(1, -#self.suffix - 1),
+            group = name,
+            mode = self.mode,
             filters = json.array(self.filters),
             out = out,
         })
@@ -211,16 +212,14 @@ function Run:report(case)
 end
 
 function Run:all()
-    local files = {}
-    for _, entry in ipairs(assert(fs.list(self.dir))) do
-        if entry.name:sub(-#self.suffix) == self.suffix then
-            files[#files + 1] = entry.name
-        end
+    local groups = {}
+    for name in pairs(self.groups) do
+        groups[#groups + 1] = name
     end
-    table.sort(files)
+    table.sort(groups)
     self:startup()
-    for _, name in ipairs(files) do
-        self:file(name)
+    for _, name in ipairs(groups) do
+        self:group(name)
     end
     if self.json then
         local entries = {}

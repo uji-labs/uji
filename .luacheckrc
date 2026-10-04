@@ -22,11 +22,3 @@ files["crates/tests/lua/*_spec.lua"] = {
         spy = { other_fields = true },
     },
 }
-
-files["bench/*_bench.lua"] = {
-    read_globals = { "bench" },
-}
-
-files["bench/*_torture.lua"] = {
-    read_globals = { "torture" },
-}

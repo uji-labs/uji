@@ -1,0 +1,354 @@
+{
+  "values": {
+    "reply": { "fixture": "reply.md" },
+    "document": { "fixture": "document.md" },
+    "long reply": { "repeat": { "value": "reply" }, "times": 8, "separator": "\n\n" },
+    "output": { "repeat": "src/main.rs:{n}: let value = compute({n});", "times": 60, "separator": "\n" },
+    "history": { "turns": 125, "reply": { "value": "reply" }, "output": { "value": "output" } },
+    "long history": { "turns": 1250, "reply": { "value": "reply" }, "output": { "value": "output" } },
+    "line": "the quick brown fox jumps over the lazy dog, again and again and again\n"
+  },
+  "bench": {
+    "typing": [
+      {
+        "name": "key into an empty draft",
+        "run": [{ "press": "a" }, { "press": "backspace" }]
+      },
+      {
+        "name": "key into a 5,000 character draft",
+        "setup": [{ "input": { "repeat": "refactor the tokenizer so it streams chunks ", "times": 120 } }],
+        "run": [{ "press": "a" }, { "press": "backspace" }],
+        "after": [{ "clear": true }]
+      },
+      {
+        "name": "key with 500 messages on screen",
+        "setup": [{ "history": { "value": "history" } }, { "cold": true }],
+        "run": [{ "press": "a" }, { "press": "backspace" }]
+      },
+      {
+        "name": "paste 100 KB",
+        "run": [
+          { "paste": { "repeat": "fn tokens(source: &str) -> impl Iterator<Item = &str> { source.split(' ') }\n", "times": 1400 } },
+          { "clear": true }
+        ]
+      }
+    ],
+    "stream": [
+      {
+        "name": "draw each token of a reply",
+        "run": [{ "stream": { "value": "long reply" } }]
+      },
+      {
+        "name": "draw each token over 500 messages",
+        "setup": [{ "history": { "value": "history" } }, { "cold": true }],
+        "run": [{ "stream": { "value": "long reply" } }]
+      },
+      {
+        "name": "full turn over HTTP",
+        "setup": [{ "serve": { "text": { "value": "long reply" }, "words": true } }],
+        "run": [{ "turn": "how do tools work?" }]
+      }
+    ],
+    "session": [
+      {
+        "name": "open a 500 message session",
+        "setup": [{ "history": { "value": "history" } }],
+        "run": [{ "cold": true }]
+      },
+      {
+        "name": "scroll to the top of 500 messages",
+        "run": [{ "top": true }]
+      }
+    ],
+    "document": [
+      {
+        "name": "scroll through the docs book as one reply",
+        "setup": [{ "append": { "type": "assistant", "text": { "value": "document" } } }],
+        "run": [{ "top": true }]
+      }
+    ]
+  },
+  "torture": {
+    "agent": [
+      {
+        "name": "a reply in 50,000 one character chunks",
+        "budget": 10,
+        "setup": [{ "serve": { "text": { "repeat": { "repeat": "x", "times": 79 }, "times": 625, "separator": "\n" }, "chunk": 1 } }],
+        "run": [{ "turn": "stream it" }]
+      },
+      {
+        "name": "a 5 MB reply in one event",
+        "budget": 5,
+        "setup": [{ "serve": { "text": { "repeat": { "value": "reply" }, "times": 12000, "separator": "\n\n" } } }],
+        "run": [{ "turn": "one big event" }]
+      },
+      {
+        "name": "garbage between the events",
+        "setup": [
+          {
+            "serve": {
+              "lines": [
+                ": ping",
+                "data: {nope",
+                "event: noise",
+                "data: [1,2",
+                "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"intact\"},\"finish_reason\":\"stop\"}]}",
+                "data: [DONE]"
+              ]
+            }
+          }
+        ],
+        "run": [{ "turn": "survive the noise" }, { "answer": "intact" }]
+      },
+      {
+        "name": "1 MB of reasoning while thinking is shown",
+        "budget": 5,
+        "setup": [
+          { "thinking": true },
+          { "serve": { "reasoning": { "repeat": "think ", "times": 170000 }, "chunk": 1020, "text": "done" } }
+        ],
+        "run": [{ "turn": "think hard" }],
+        "after": [{ "thinking": false }]
+      },
+      {
+        "name": "a 1 MB prompt",
+        "budget": 5,
+        "setup": [{ "serve": { "text": "read it" } }],
+        "run": [{ "turn": { "repeat": "please read this carefully ", "times": 40000 } }]
+      },
+      {
+        "name": "interrupt 20 streaming turns",
+        "budget": 10,
+        "setup": [{ "serve": { "drip": "token ", "every": 0.001 } }],
+        "run": [
+          { "repeat": [{ "submit": "start and stop" }, { "sleep": 0.05 }, { "interrupt": true }], "times": 20 },
+          { "idle": true }
+        ]
+      },
+      {
+        "name": "queue 100 prompts during a turn",
+        "budget": 10,
+        "setup": [{ "serve": { "text": "noted" } }],
+        "run": [{ "repeat": [{ "submit": "another prompt" }], "times": 100 }, { "idle": true }]
+      },
+      {
+        "name": "200 tool calls in one reply",
+        "budget": 10,
+        "run": [{ "call": { "calls": { "repeat": { "tool": "read_file", "args": { "path": "missing-{n}.txt" } }, "times": 200 } } }]
+      },
+      {
+        "name": "a command that prints one 10 MB line",
+        "budget": 10,
+        "run": [{ "call": { "tool": "run_command", "args": { "command": "head -c 10000000 /dev/zero | tr '\\0' x" }, "ok": true } }]
+      },
+      {
+        "name": "a command that prints 1,000,000 lines",
+        "budget": 10,
+        "run": [{ "call": { "tool": "run_command", "args": { "command": "seq 1 1000000" }, "ok": true } }]
+      }
+    ],
+    "input": [
+      {
+        "name": "paste 5 MB",
+        "run": [{ "paste": { "repeat": "let tail = String::with_capacity(CHUNK);\n", "times": 125000 } }, { "clear": true }]
+      },
+      {
+        "name": "a key in a 10,000 line draft",
+        "setup": [{ "input": { "repeat": "refactor the tokenizer so it streams\n", "times": 10000 } }],
+        "run": [{ "press": "a" }],
+        "after": [{ "clear": true }]
+      },
+      {
+        "name": "type 2,000 keys with a frame each",
+        "budget": 5,
+        "run": [{ "type": { "repeat": "a", "times": 2000 } }],
+        "after": [{ "clear": true }]
+      },
+      {
+        "name": "move up through a 2,000 line draft",
+        "budget": 5,
+        "setup": [{ "input": { "repeat": "a line of the draft\n", "times": 2000 } }],
+        "run": [{ "repeat": [{ "press": "up" }], "times": 2000 }],
+        "after": [{ "clear": true }]
+      },
+      {
+        "name": "type 2,000 wide and combining characters",
+        "budget": 5,
+        "run": [{ "type": { "repeat": "世🚀é̃👩‍👩‍👧", "times": 400 } }],
+        "after": [{ "clear": true }]
+      }
+    ],
+    "markdown": [
+      {
+        "name": "the docs book as one reply",
+        "run": [{ "show": { "value": "document" } }]
+      },
+      {
+        "name": "a list nested 1,000 deep",
+        "run": [{ "show": { "repeat": "{indent}- item {n}", "times": 1000, "separator": "\n" } }]
+      },
+      {
+        "name": "quotes nested 1,000 deep",
+        "run": [{ "show": { "join": [{ "repeat": "> ", "times": 1000 }, "deep"] } }]
+      },
+      {
+        "name": "a table with 20,000 rows",
+        "run": [
+          {
+            "show": {
+              "join": [
+                "| name | value | note |\n|------|-------|------|\n",
+                { "repeat": "| row {n} | {n} | `x` |", "times": 20000, "separator": "\n" }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "name": "a 1 MB line",
+        "run": [{ "show": { "repeat": "word ", "times": 200000 } }]
+      },
+      {
+        "name": "an unclosed fence with 50,000 lines",
+        "run": [{ "show": { "join": ["```python\n", { "repeat": "total = total + item * 3.5  # w\n", "times": 50000 }] } }]
+      },
+      {
+        "name": "50,000 emphasis markers",
+        "run": [{ "show": { "repeat": "*a **b ", "times": 50000 } }]
+      },
+      {
+        "name": "10,000 code spans and math brackets",
+        "run": [{ "show": { "repeat": "`\\(x\\)` \\(y ", "times": 10000 } }]
+      },
+      {
+        "name": "math braces 5,000 deep",
+        "run": [{ "show": { "join": ["$", { "repeat": "{", "times": 5000 }, "x", { "repeat": "}", "times": 5000 }, "$"] } }]
+      },
+      {
+        "name": "50,000 unclosed links",
+        "run": [{ "show": { "repeat": "[a](", "times": 50000 } }]
+      },
+      {
+        "name": "100 KB of invalid UTF-8",
+        "run": [{ "show": { "repeat": { "join": [{ "bytes": [255, 254] }, "abc "] }, "times": 20000 } }]
+      },
+      {
+        "name": "100 KB of emoji and combining marks",
+        "run": [{ "show": { "repeat": "👩‍👩‍👧‍👦 é̃ ", "times": 10000 } }]
+      },
+      {
+        "name": "a 1 MB line in a python fence",
+        "run": [{ "show": { "join": ["```python\n", { "repeat": "x = 1; ", "times": 150000 }, "\n```"] } }]
+      },
+      {
+        "name": "1 MB of punctuation in a python fence",
+        "run": [{ "show": { "join": ["```python\n", { "repeat": ".;(", "times": 350000 }, "\n```"] } }]
+      },
+      {
+        "name": "10,000 headings",
+        "run": [{ "show": { "repeat": "# heading\n\n", "times": 10000 } }]
+      },
+      {
+        "name": "20,000 inline math spans",
+        "run": [{ "show": { "repeat": "$x_i^2$ ", "times": 20000 } }]
+      },
+      {
+        "name": "5,000 code blocks",
+        "run": [{ "show": { "repeat": "```lua\nlocal x = 1\n```\n\n", "times": 5000 } }]
+      },
+      {
+        "name": "a 100 KB HTML block",
+        "run": [{ "show": { "join": ["<div>\n", { "repeat": "<span>x</span>", "times": 7000 }, "\n</div>"] } }]
+      }
+    ],
+    "session": [
+      {
+        "name": "open a 5,000 message session",
+        "setup": [{ "history": { "value": "long history" } }],
+        "run": [{ "cold": true }]
+      },
+      {
+        "name": "scroll to the top of 5,000 messages",
+        "budget": 10,
+        "run": [{ "top": true }]
+      },
+      {
+        "name": "a 10 MB tool result",
+        "run": [
+          { "append": { "type": "tool", "tool_call_id": "huge", "name": "run_command", "content": { "repeat": "x", "times": 10000000 } } },
+          { "cold": true }
+        ]
+      },
+      {
+        "name": "5,000 tool calls in one message",
+        "run": [
+          {
+            "append": {
+              "type": "assistant",
+              "text": "",
+              "tool_calls": {
+                "repeat": { "id": "many{n}", "name": "read_file", "arguments": "{\"path\":\"src/file{n}.rs\"}" },
+                "times": 5000
+              }
+            }
+          },
+          { "cold": true }
+        ]
+      }
+    ],
+    "tools": [
+      {
+        "name": "read a 50 MB file",
+        "budget": 5,
+        "setup": [{ "file": { "path": "big.txt", "text": { "repeat": { "value": "line" }, "times": 740000 } } }],
+        "run": [{ "call": { "tool": "read_file", "args": { "path": "big.txt" }, "ok": true } }]
+      },
+      {
+        "name": "read a file with a 10 MB line",
+        "budget": 5,
+        "setup": [{ "file": { "path": "wide.txt", "text": { "join": [{ "repeat": "x", "times": 10485760 }, "\nshort\n"] } } }],
+        "run": [{ "call": { "tool": "read_file", "args": { "path": "wide.txt" }, "ok": true } }]
+      },
+      {
+        "name": "read 1 MB of random bytes",
+        "budget": 5,
+        "setup": [{ "file": { "path": "noise.bin", "text": { "random": 1048576 } } }],
+        "run": [{ "call": { "tool": "read_file", "args": { "path": "noise.bin" } } }]
+      },
+      {
+        "name": "edit the end of a 20 MB file",
+        "budget": 5,
+        "setup": [
+          {
+            "file": {
+              "path": "huge.txt",
+              "text": { "join": [{ "repeat": { "value": "line" }, "times": 295000 }, "the unique ending\n"] }
+            }
+          }
+        ],
+        "run": [
+          {
+            "call": {
+              "tool": "edit_file",
+              "args": { "path": "huge.txt", "old_string": "the unique ending", "new_string": "a new ending" },
+              "ok": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "write a 10 MB file",
+        "budget": 10,
+        "run": [
+          {
+            "call": {
+              "tool": "write_file",
+              "args": { "path": "written.txt", "content": { "repeat": { "value": "line" }, "times": 148000 } },
+              "ok": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

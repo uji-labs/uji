@@ -21,6 +21,12 @@ end
 local params = sys.json.decode(read(root .. "/bench.json"), { nulls = false })
 package.path = table.concat({ params.dir .. "/?.lua", params.support .. "/?.lua" }, ";")
 
+local Context = require("steps")
+local screen = require("support.ui")
+local ui = require("uji.core.ui")
+
+local SCENARIOS = params.dir .. "/scenario"
+
 local function wanted(name)
     if #params.filters == 0 then
         return true
@@ -42,26 +48,33 @@ local function batch(run, count)
     return sys.os.clock() - started, frames
 end
 
-local function measure(name, case)
+local function measure(ctx, name, steps)
+    local function once()
+        ctx.frames = 0
+        ctx:run(steps)
+        return ctx.frames
+    end
     local count = 1
-    while batch(case, count) < BATCH do
+    while batch(once, count) < BATCH do
         count = count * 2
     end
     local samples, frames = {}, nil
     for index = 1, SAMPLES do
         collectgarbage()
         local spent
-        spent, frames = batch(case, count)
+        spent, frames = batch(once, count)
         samples[index] = spent / count
     end
     table.sort(samples)
     return { kind = "bench", name = name, seconds = samples[math.ceil(SAMPLES / 2)], frames = frames }
 end
 
-local function endure(name, case, budget)
+local function endure(ctx, name, steps, budget)
     collectgarbage()
     local started = sys.os.clock()
-    local ok, err = xpcall(case, debug.traceback)
+    local ok, err = xpcall(function()
+        ctx:run(steps)
+    end, debug.traceback)
     return {
         kind = "torture",
         name = name,
@@ -72,25 +85,20 @@ local function endure(name, case, budget)
 end
 
 local function run()
+    local scenarios = sys.json.decode(read(SCENARIOS .. "/scenarios.json"), { nulls = false })
+    local ctx = Context(SCENARIOS, scenarios.values)
+    screen.open()
+    ui:render()
     local results = {}
-    local env = setmetatable({}, { __index = _G })
-    function env.bench(name, case)
-        name = params.group .. "::" .. name
+    for _, scenario in ipairs(scenarios[params.mode][params.group]) do
+        local name = params.group .. "::" .. scenario.name
+        ctx:run(scenario.setup)
         if wanted(name) then
-            results[#results + 1] = measure(name, case)
+            results[#results + 1] = params.mode == "bench" and measure(ctx, name, scenario.run)
+                or endure(ctx, name, scenario.run, scenario.budget or BUDGET)
         end
+        ctx:run(scenario.after)
     end
-    function env.torture(name, case, opts)
-        name = params.group .. "::" .. name
-        if wanted(name) then
-            results[#results + 1] = endure(name, case, opts and opts.budget or BUDGET)
-        end
-    end
-    local chunk, err = loadfile(params.file, "t", env)
-    if not chunk then
-        error(err, 0)
-    end
-    chunk()
     return { cases = sys.json.array(results) }
 end
 
