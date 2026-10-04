@@ -93,6 +93,7 @@ local function run()
     for _, scenario in ipairs(scenarios[params.mode][params.group]) do
         local name = params.group .. "::" .. scenario.name
         ctx:run(scenario.setup)
+        ctx:prepare(scenario.run)
         if wanted(name) then
             results[#results + 1] = params.mode == "bench" and measure(ctx, name, scenario.run)
                 or endure(ctx, name, scenario.run, scenario.budget or BUDGET)

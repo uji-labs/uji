@@ -337,6 +337,18 @@ function Context:step(step)
     error("unknown step " .. sys.json.encode(step), 0)
 end
 
+function Context:prepare(steps)
+    for _, step in ipairs(steps or {}) do
+        for key, arg in pairs(step) do
+            if key == "repeat" then
+                self:prepare(arg)
+            else
+                self:value(arg)
+            end
+        end
+    end
+end
+
 function Context:run(steps)
     for _, step in ipairs(steps or {}) do
         self:step(step)

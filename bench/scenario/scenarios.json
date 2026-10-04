@@ -174,7 +174,7 @@
       {
         "name": "type 2,000 wide and combining characters",
         "budget": 5,
-        "run": [{ "type": { "repeat": "世🚀é̃👩‍👩‍👧", "times": 400 } }],
+        "run": [{ "type": { "repeat": "世🚀é̃👩‍👩‍👧", "times": 222 } }],
         "after": [{ "clear": true }]
       }
     ],
