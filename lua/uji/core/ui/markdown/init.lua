@@ -161,46 +161,6 @@ function Renderer:cell(value, style)
     cell[#cell + 1] = { value, style }
 end
 
-function Renderer:start(tag, detail)
-    if tag == "paragraph" then
-        self:flush()
-        if #self.list == 0 then
-            self:blank()
-        end
-    elseif tag == "item" then
-        self:flush()
-        self.marker = item_marker(self.list)
-    elseif tag == "heading" then
-        self:break_block()
-        self.style = detail <= 2 and self.palette.accent or self.palette.bold
-    elseif MODIFIERS[tag] then
-        self:push_style(MODIFIERS[tag])
-    elseif tag == "list" then
-        self:flush()
-        if #self.list == 0 then
-            self:blank()
-        end
-        self.list[#self.list + 1] = detail or false
-    elseif tag == "blockquote" then
-        self:break_block()
-        self.quote = self.quote + 1
-    elseif tag == "code_block" then
-        self:break_block()
-        self.in_code = true
-        self.highlighter = highlight.new(detail, self.palette)
-        if detail and detail ~= "" then
-            self.lines[#self.lines + 1] = { { "  " .. detail, self.palette.dim } }
-        end
-    elseif tag == "table" then
-        self:break_block()
-    elseif tag == "table_head" or tag == "table_row" then
-        self.row = { cells = {}, head = tag == "table_head" }
-    elseif tag == "table_cell" then
-        local cells = self.row.cells
-        cells[#cells + 1] = {}
-    end
-end
-
 function Renderer:finish_row()
     local row = self.row
     self.row = nil
@@ -214,26 +174,6 @@ function Renderer:finish_row()
         end
     end
     self.lines[#self.lines + 1] = line
-end
-
-function Renderer:stop(tag)
-    if MODIFIERS[tag] then
-        self.style = table.remove(self.stack) or self.palette.text
-    elseif tag == "list" then
-        self.list[#self.list] = nil
-    elseif tag == "blockquote" then
-        self.quote = math.max(self.quote - 1, 0)
-    elseif tag == "code_block" then
-        self.in_code = false
-        self.highlighter = nil
-    elseif tag == "paragraph" or tag == "item" then
-        self:flush()
-    elseif tag == "heading" then
-        self:flush()
-        self.style = self.palette.text
-    elseif tag == "table_head" or tag == "table_row" then
-        self:finish_row()
-    end
 end
 
 function Renderer:inline(value, style)
@@ -263,32 +203,146 @@ function Renderer:math(source, display)
     end
 end
 
-function Renderer:event(event)
-    local kind = event[1]
-    if kind == "start" then
-        self:start(event[2], event[3])
-    elseif kind == "end" then
-        self:stop(event[2])
-    elseif kind == "text" and self.in_code then
-        for _, raw in ipairs(text.lines(event[2])) do
+local START = {}
+local STOP = {}
+
+for tag, extra in pairs(MODIFIERS) do
+    START[tag] = function(self)
+        self:push_style(extra)
+    end
+    STOP[tag] = function(self)
+        self.style = table.remove(self.stack) or self.palette.text
+    end
+end
+
+function START.paragraph(self)
+    self:flush()
+    if #self.list == 0 then
+        self:blank()
+    end
+end
+
+function START.item(self)
+    self:flush()
+    self.marker = item_marker(self.list)
+end
+
+function START.heading(self, level)
+    self:break_block()
+    self.style = level <= 2 and self.palette.accent or self.palette.bold
+end
+
+function START.list(self, start)
+    START.paragraph(self)
+    self.list[#self.list + 1] = start or false
+end
+
+function START.blockquote(self)
+    self:break_block()
+    self.quote = self.quote + 1
+end
+
+function START.code_block(self, language)
+    self:break_block()
+    self.in_code = true
+    self.highlighter = highlight.new(language, self.palette)
+    if language and language ~= "" then
+        self.lines[#self.lines + 1] = { { "  " .. language, self.palette.dim } }
+    end
+end
+
+function START.table(self)
+    self:break_block()
+end
+
+function START.table_head(self)
+    self.row = { cells = {}, head = true }
+end
+
+function START.table_row(self)
+    self.row = { cells = {}, head = false }
+end
+
+function START.table_cell(self)
+    local cells = self.row.cells
+    cells[#cells + 1] = {}
+end
+
+function STOP.paragraph(self)
+    self:flush()
+end
+
+STOP.item = STOP.paragraph
+
+function STOP.heading(self)
+    self:flush()
+    self.style = self.palette.text
+end
+
+function STOP.list(self)
+    self.list[#self.list] = nil
+end
+
+function STOP.blockquote(self)
+    self.quote = math.max(self.quote - 1, 0)
+end
+
+function STOP.code_block(self)
+    self.in_code = false
+    self.highlighter = nil
+end
+
+function STOP.table_head(self)
+    self:finish_row()
+end
+
+STOP.table_row = STOP.table_head
+
+local function run(handlers, self, key, ...)
+    local handle = handlers[key]
+    if handle then
+        handle(self, ...)
+    end
+end
+
+local EVENTS = {
+    start = function(self, tag, detail)
+        run(START, self, tag, detail)
+    end,
+    ["end"] = function(self, tag)
+        run(STOP, self, tag)
+    end,
+    text = function(self, body)
+        if not self.in_code then
+            return self:inline(body, self.style)
+        end
+        for _, raw in ipairs(text.lines(body)) do
             self:code(raw)
         end
-    elseif kind == "text" then
-        self:inline(event[2], self.style)
-    elseif kind == "code" then
-        self:inline(event[2], self.palette.code)
-    elseif kind == "math" then
-        self:math(event[2], event[3])
-    elseif kind == "task" then
-        self:inline(event[2] and "[x] " or "[ ] ", self.style)
-    elseif kind == "break" and event[2] == "soft" then
-        self:inline(" ", self.style)
-    elseif kind == "break" then
+    end,
+    code = function(self, body)
+        self:inline(body, self.palette.code)
+    end,
+    math = function(self, body, display)
+        self:math(body, display)
+    end,
+    task = function(self, done)
+        self:inline(done and "[x] " or "[ ] ", self.style)
+    end,
+    ["break"] = function(self, kind)
+        if kind == "soft" then
+            return self:inline(" ", self.style)
+        end
         self:flush()
-    elseif kind == "rule" then
+    end,
+    rule = function(self)
         self:break_block()
         self.lines[#self.lines + 1] = { { string.rep("─", math.min(self.width, 60)), self.palette.muted } }
-    end
+    end,
+}
+
+function Renderer:event(event)
+    run(EVENTS, self, event[1], event[2], event[3])
 end
 
 function Renderer:finish()

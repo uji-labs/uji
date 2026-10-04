@@ -167,62 +167,63 @@ end
 
 local function quoted(line, at)
     local quote = line:sub(at, at)
+    local stops = "[\\" .. quote .. "]"
     local index = at + 1
-    while index <= #line do
-        local char = line:sub(index, index)
-        if char == "\\" then
-            index = index + 2
-        elseif char == quote then
-            return index
-        else
-            index = index + 1
+    while true do
+        local found = line:find(stops, index)
+        if not found then
+            return #line
         end
+        if line:sub(found, found) == quote then
+            return found
+        end
+        index = found + 2
     end
-    return #line
+end
+
+function Highlighter:inside(block, line, at)
+    local from = self.block and at or at + #block[1]
+    local stop = line:find(block[2], from, true)
+    self.block = not stop and block or nil
+    return stop and stop + #block[2] - 1 or #line, block[3]
+end
+
+function Highlighter:token(line, at)
+    local language = self.language
+    local block = self.block or self:opening(line, at)
+    if block then
+        return self:inside(block, line, at)
+    end
+    if language.comment and line:sub(at, at + #language.comment - 1) == language.comment then
+        return #line, "comment"
+    end
+    if language.quotes:find(line:sub(at, at), 1, true) then
+        return quoted(line, at), "string"
+    end
+    local number = line:match("^%d[%w%.]*", at)
+    if number then
+        return at + #number - 1, "number"
+    end
+    local word = line:match("^[%a_][%w_]*", at)
+    if word then
+        return at + #word - 1, language.keywords[language.lower and word:lower() or word] and "keyword" or "plain"
+    end
+    return at, "plain"
 end
 
 function Highlighter:line(line)
     local spans = {}
-    local function add(piece, kind)
-        local style = self.styles[kind]
+    local at = 1
+    while at <= #line do
+        local finish, kind = self:token(line, at)
+        local piece, style = line:sub(at, finish), self.styles[kind]
         local last = spans[#spans]
         if last and last[2] == style then
             last[1] = last[1] .. piece
         else
             spans[#spans + 1] = { piece, style }
         end
-    end
-    local language = self.language
-    local at = 1
-    while at <= #line do
-        local block = self.block or self:opening(line, at)
-        local char = line:sub(at, at)
-        if block then
-            local from = self.block and at or at + #block[1]
-            local stop = line:find(block[2], from, true)
-            local finish = stop and stop + #block[2] - 1 or #line
-            add(line:sub(at, finish), block[3])
-            self.block = not stop and block or nil
-            at = finish + 1
-        elseif language.comment and line:sub(at, at + #language.comment - 1) == language.comment then
-            add(line:sub(at), "comment")
-            at = #line + 1
-        elseif language.quotes:find(char, 1, true) then
-            local finish = quoted(line, at)
-            add(line:sub(at, finish), "string")
-            at = finish + 1
-        elseif char:match("%d") then
-            local number = line:match("^%d[%w%.]*", at)
-            add(number, "number")
-            at = at + #number
-        elseif char:match("[%a_]") then
-            local word = line:match("^[%w_]+", at)
-            add(word, language.keywords[language.lower and word:lower() or word] and "keyword" or "plain")
-            at = at + #word
-        else
-            add(char, "plain")
-            at = at + 1
-        end
+        at = finish + 1
     end
     return spans
 end

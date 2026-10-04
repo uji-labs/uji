@@ -143,34 +143,6 @@ local SYMBOLS = {
     ["|"] = "‖",
 }
 
-local SILENT = {
-    left = true,
-    right = true,
-    big = true,
-    Big = true,
-    bigg = true,
-    Bigg = true,
-    displaystyle = true,
-    limits = true,
-    nolimits = true,
-}
-
-local STYLES = {
-    text = true,
-    textrm = true,
-    textbf = true,
-    textit = true,
-    mathrm = true,
-    mathbf = true,
-    mathit = true,
-    mathsf = true,
-    mathtt = true,
-    mathcal = true,
-    operatorname = true,
-    boldsymbol = true,
-    bm = true,
-}
-
 local ACCENTS = {
     hat = "\204\130",
     widehat = "\204\130",
@@ -287,6 +259,108 @@ local function script(value, map, mark)
     return table.concat(out)
 end
 
+local COMMANDS = {}
+
+local function argument(reader)
+    return reader:argument()
+end
+
+local function silent(reader)
+    if reader:peek() == "." then
+        reader.at = reader.at + 1
+    end
+    return ""
+end
+
+local function fraction(reader)
+    local top = reader:argument()
+    return atom(top) .. "/" .. atom(reader:argument())
+end
+
+local function environment(reader)
+    reader:argument()
+    return ""
+end
+
+for _, name in ipairs({
+    "text",
+    "textrm",
+    "textbf",
+    "textit",
+    "mathrm",
+    "mathbf",
+    "mathit",
+    "mathsf",
+    "mathtt",
+    "mathcal",
+    "operatorname",
+    "boldsymbol",
+    "bm",
+}) do
+    COMMANDS[name] = argument
+end
+
+for _, name in ipairs({ "left", "right", "big", "Big", "bigg", "Bigg", "displaystyle", "limits", "nolimits" }) do
+    COMMANDS[name] = silent
+end
+
+for _, name in ipairs({ "frac", "dfrac", "tfrac", "cfrac" }) do
+    COMMANDS[name] = fraction
+end
+
+for name, mark in pairs(ACCENTS) do
+    COMMANDS[name] = function(reader)
+        local base = reader:argument()
+        return base:match("^" .. CHARACTER .. "$") and base .. mark or base
+    end
+end
+
+COMMANDS.begin = environment
+COMMANDS["end"] = environment
+
+function COMMANDS.mathbb(reader)
+    return (reader:argument():gsub(CHARACTER, BLACKBOARD))
+end
+
+function COMMANDS.binom(reader)
+    local top = reader:argument()
+    return "(" .. top .. " choose " .. reader:argument() .. ")"
+end
+
+function COMMANDS.sqrt(reader)
+    local degree = ""
+    if reader:peek() == "[" then
+        reader.at = reader.at + 1
+        degree = script(reader:group("]"), SUPERSCRIPTS, "")
+    end
+    return degree .. "√" .. atom(reader:argument())
+end
+
+local function space()
+    return " "
+end
+
+local TOKENS = {
+    ["\\"] = function(reader)
+        return reader:command(reader:name())
+    end,
+    ["{"] = function(reader)
+        return reader:group("}")
+    end,
+    ["}"] = function()
+        return ""
+    end,
+    ["^"] = function(reader)
+        return script(reader:argument(), SUPERSCRIPTS, "^")
+    end,
+    ["_"] = function(reader)
+        return script(reader:argument(), SUBSCRIPTS, "_")
+    end,
+    ["&"] = space,
+    ["~"] = space,
+    ["\n"] = space,
+}
+
 local Reader = class()
 
 function Reader:init(source)
@@ -326,60 +400,21 @@ function Reader:argument()
 end
 
 function Reader:command(name)
-    if STYLES[name] then
-        return self:argument()
-    elseif ACCENTS[name] then
-        local base = self:argument()
-        return base:match("^" .. CHARACTER .. "$") and base .. ACCENTS[name] or base
-    elseif name == "mathbb" then
-        return (self:argument():gsub(CHARACTER, BLACKBOARD))
-    elseif name == "frac" or name == "dfrac" or name == "tfrac" or name == "cfrac" then
-        local top = self:argument()
-        return atom(top) .. "/" .. atom(self:argument())
-    elseif name == "binom" then
-        local top = self:argument()
-        return "(" .. top .. " choose " .. self:argument() .. ")"
-    elseif name == "sqrt" then
-        local degree = ""
-        if self:peek() == "[" then
-            self.at = self.at + 1
-            degree = script(self:group("]"), SUPERSCRIPTS, "")
-        end
-        return degree .. "√" .. atom(self:argument())
-    elseif name == "begin" or name == "end" then
-        self:argument()
-        return ""
-    elseif SILENT[name] then
-        if self:peek() == "." then
-            self.at = self.at + 1
-        end
-        return ""
+    local handle = COMMANDS[name]
+    if handle then
+        return handle(self)
     end
     return SYMBOLS[name] or name
 end
 
 function Reader:token()
-    local char = self:peek()
-    self.at = self.at + 1
-    if char == "" then
-        return ""
-    elseif char == "\\" then
-        return self:command(self:name())
-    elseif char == "{" then
-        return self:group("}")
-    elseif char == "}" then
-        return ""
-    elseif char == "^" then
-        return script(self:argument(), SUPERSCRIPTS, "^")
-    elseif char == "_" then
-        return script(self:argument(), SUBSCRIPTS, "_")
-    elseif char == "&" or char == "~" or char == "\n" then
-        return " "
-    end
-    self.at = self.at - 1
     local character = self.source:match("^" .. CHARACTER, self.at)
+    if not character then
+        return ""
+    end
     self.at = self.at + #character
-    return character
+    local handle = TOKENS[character]
+    return handle and handle(self) or character
 end
 
 local M = {}
