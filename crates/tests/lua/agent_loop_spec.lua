@@ -117,7 +117,7 @@ end)
 it("compacts a turn that outgrows its window mid turn", { timeout = 20 }, function()
     local mock = agent.serve(function(round)
         if round == 0 then
-            return server.tool_calls(0, { { "run_command", '{"command":"seq 1 4000"}' } })
+            return server.tool_calls(0, { { "run_command", '{"command":"yes a long line of command output | head -n 2000"}' } })
         end
         return server.text("done")
     end)

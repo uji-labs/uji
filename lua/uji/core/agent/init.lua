@@ -14,7 +14,6 @@ local view = require("uji.core.agent.view")
 
 local APPROVAL_TIMEOUT = 300
 local KEEP_CEILING_FRACTION = 4
-local SHELL_OUTPUT = 64 * 1024
 local STOPPED = "error: uji stopped before this tool returned a result"
 local WHILE_RUNNING = "error: interrupted by the user while this tool ran"
 local BEFORE_RUNNING = "error: interrupted by the user before this tool ran"
@@ -533,7 +532,7 @@ function Agent:run_shell(command)
     event.emit("tool_progress", { name = name, line = "" })
     event.emit("shell_started", { command = command })
     task.spawn_in(self.ctx, function()
-        local capture = process.Capture(SHELL_OUTPUT)
+        local capture = process.Capture()
         for line in proc:lines() do
             capture:push(line)
             event.emit("tool_progress", { name = name, line = line })

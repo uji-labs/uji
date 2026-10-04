@@ -24,12 +24,20 @@ scan:
 
 # Lua formatting and lint (needs stylua and luacheck).
 lua:
-    stylua --check lua/uji crates/kernel/src crates/tests/lua
-    luacheck lua/uji crates/kernel/src crates/tests/lua
+    stylua --check lua/uji crates/kernel/src crates/tests/lua bench
+    luacheck lua/uji crates/kernel/src crates/tests/lua bench
 
 # The Lua specs; filters pick tests by name, like `just test screen::`.
 test *filters:
     cargo run --release -q -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua {{filters}}
+
+# Benchmarks of what users do, like typing and streaming; filters pick them by name, like `just bench typing`.
+bench *filters:
+    cargo run --release -q -p uji-tests --bin uji-test -- -l bench/main.lua bench {{filters}}
+
+# Pathological inputs that must not crash or stall uji; filters pick them by name.
+torture *filters:
+    cargo run --release -q -p uji-tests --bin uji-test -- -l bench/main.lua torture {{filters}}
 
 # Build the documentation site into docs/book.
 docs:

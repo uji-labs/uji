@@ -1,63 +1,124 @@
 local class = require("uji.core.class")
+local event = require("uji.core.event")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
 
+local MAX_LINES = 2000
+local KILOBYTE = 1024
+local MEGABYTE = 1024 * KILOBYTE
+local MAX_BYTES = 50 * KILOBYTE
+
 local M = {}
+
+M.MAX_LINES = MAX_LINES
+M.MAX_BYTES = MAX_BYTES
+
+local spilled = {}
+
+event.on("before_quit", function()
+    for _, path in ipairs(spilled) do
+        os.remove(path)
+    end
+end)
+
+function M.size(bytes)
+    if bytes < KILOBYTE then
+        return bytes .. "B"
+    end
+    if bytes < MEGABYTE then
+        return string.format("%.1fKB", bytes / KILOBYTE)
+    end
+    return string.format("%.1fMB", bytes / MEGABYTE)
+end
 
 local Capture = class()
 
-function Capture:init(budget, spill)
+function Capture:init(opts)
+    opts = opts or {}
+    self.max_lines = opts.lines or MAX_LINES
+    self.max_bytes = opts.bytes or MAX_BYTES
+    self.path = opts.spill
     self.lines = {}
     self.first = 1
     self.last = 0
     self.bytes = 0
-    self.budget = budget
-    self.dropped = 0
-    if spill then
-        self.spill = io.open(spill, "w")
-        self.spill_path = self.spill and spill or nil
+    self.total = 0
+    self.partial = nil
+end
+
+function Capture:spill()
+    if not self.path then
+        self.path = os.tmpname()
+        spilled[#spilled + 1] = self.path
+    end
+    self.file = io.open(self.path, "w") or false
+    for at = self.first, self.last do
+        self:write(self.lines[at])
     end
 end
 
-function Capture:push(line)
-    if self.spill and not self.spill:write(line, "\n") then
-        self.spill:close()
-        self.spill = nil
-        self.spill_path = nil
+function Capture:write(line)
+    if self.file and not self.file:write(line, "\n") then
+        self.file:close()
+        self.file = false
     end
-    self.bytes = self.bytes + #line + 1
+end
+
+function Capture:drop()
+    self.bytes = self.bytes - #self.lines[self.first] - 1
+    self.lines[self.first] = nil
+    self.first = self.first + 1
+end
+
+function Capture:over()
+    return self.last - self.first + 1 > self.max_lines or self.bytes - 1 > self.max_bytes
+end
+
+function Capture:push(line)
+    if self.file ~= nil then
+        self:write(line)
+    end
+    self.total = self.total + 1
+    if self.partial then
+        self:drop()
+        self.partial = nil
+    end
     self.last = self.last + 1
     self.lines[self.last] = line
-    while self.bytes > self.budget and self.last > self.first do
-        local gone = self.lines[self.first]
-        self.lines[self.first] = nil
-        self.first = self.first + 1
-        self.bytes = self.bytes - (#gone + 1)
-        self.dropped = self.dropped + 1
+    self.bytes = self.bytes + #line + 1
+    if self:over() and self.file == nil then
+        self:spill()
+    end
+    while self:over() and self.last > self.first do
+        self:drop()
+    end
+    if #line > self.max_bytes then
+        local tail = line:sub(-self.max_bytes):gsub("^[\128-\191]+", "")
+        self.partial = #line
+        self.lines[self.last] = tail
+        self.bytes = #tail + 1
     end
 end
 
 function Capture:finish()
-    local spilled
-    if self.spill then
-        self.spill:close()
-        spilled = self.spill_path
-        self.spill = nil
+    if self.file then
+        self.file:close()
     end
-    local head = ""
-    if self.dropped > 0 then
-        head = "… " .. self.dropped .. " earlier lines dropped"
-        if spilled then
-            head = head .. "; full output in " .. spilled .. "\n"
-        else
-            head = head .. "\n"
-        end
+    local text = table.concat(self.lines, "\n", self.first, self.last)
+    local kept = self.last - self.first + 1
+    if kept == self.total and not self.partial then
+        return text
     end
-    local kept = {}
-    for index = self.first, self.last do
-        kept[#kept + 1] = self.lines[index]
+    local saved = self.file and ". Full output: " .. self.path or ""
+    local note
+    if self.partial then
+        local shown = M.size(#self.lines[self.last])
+        note = string.format("[Showing last %s of line %d (line is %s)%s]", shown, self.total, M.size(self.partial), saved)
+    else
+        local limit = kept < self.max_lines and " (" .. M.size(self.max_bytes) .. " limit)" or ""
+        note = string.format("[Showing lines %d-%d of %d%s%s]", self.total - kept + 1, self.total, self.total, limit, saved)
     end
-    return head .. table.concat(kept, "\n")
+    return (text ~= "" and text .. "\n\n" or "") .. note
 end
 
 M.Capture = Capture

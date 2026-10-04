@@ -130,7 +130,7 @@ it("sends the session and its own user agent on chat, title and compaction reque
         end
         round = round + 1
         if round == 1 then
-            return server.tool_calls(0, { { "run_command", '{"command":"seq 1 4000"}' } })
+            return server.tool_calls(0, { { "run_command", '{"command":"yes a long line of command output | head -n 2000"}' } })
         end
         return server.text("done")
     end)

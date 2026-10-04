@@ -24,24 +24,41 @@ it("gives back both streams and the exit code", function()
     assert.same({ "two" }, err)
 end)
 
-it("keeps the end of a long output", function()
-    local capture = process.Capture(40)
-    process.run({ shell = "for i in $(seq 1 100); do echo line-$i; done" }, function(_, line)
+local function captured(opts, shell)
+    local capture = process.Capture(opts)
+    process.run({ shell = shell }, function(_, line)
         capture:push(line)
     end)
-    local text = capture:finish()
-    assert.equal("line-100", text:sub(-8))
-    assert.is_nil(text:find("line-1\n", 1, true), "kept the start instead of the end")
-    assert.truthy(text:find("earlier lines dropped", 1, true))
+    return capture:finish()
+end
+
+local HUNDRED = "for i in $(seq 1 100); do echo line-$i; done"
+
+it("keeps the end of a long output within the byte limit", function()
+    local text = captured({ bytes = 40 }, HUNDRED)
+    local kept = "line-96\nline-97\nline-98\nline-99\nline-100\n\n[Showing lines 96-100 of 100 (40B limit). Full output: "
+    assert.equal(kept, text:sub(1, #kept))
 end)
 
-it("spills what the window drops", function()
+it("keeps the end of a long output within the line limit", function()
+    local text = captured({ lines = 3 }, HUNDRED)
+    local kept = "line-98\nline-99\nline-100\n\n[Showing lines 98-100 of 100. Full output: "
+    assert.equal(kept, text:sub(1, #kept))
+end)
+
+it("keeps the end of a last line longer than the byte limit", function()
+    local text = captured({ bytes = 40 }, "echo first; printf start; head -c 100 /dev/zero | tr '\\0' x; printf end")
+    local kept = string.rep("x", 37) .. "end\n\n[Showing last 40B of line 2 (line is 108B). Full output: "
+    assert.equal(kept, text:sub(1, #kept))
+end)
+
+it("leaves a short output alone", function()
+    assert.equal("line-1\nline-2", captured({}, "echo line-1; echo line-2"))
+end)
+
+it("saves the full output once it cuts", function()
     local path = sandbox.root .. "/spill.log"
-    local capture = process.Capture(40, path)
-    process.run({ shell = "for i in $(seq 1 100); do echo line-$i; done" }, function(_, line)
-        capture:push(line)
-    end)
-    assert.truthy(capture:finish():find(path, 1, true))
+    assert.truthy(captured({ bytes = 40, spill = path }, HUNDRED):find(path, 1, true))
     local spilled = sandbox.lines(path)
     assert.equal(100, #spilled)
     assert.equal("line-1", spilled[1])

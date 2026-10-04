@@ -209,6 +209,7 @@ it("still handles text that is not UTF-8", function()
     assert.same({ 1 }, sys.fuzzy("ab", { "\255xab", "zzz" }))
     assert.is_true(#sys.markdown("\255 *text*") > 0)
     assert.equal("//9hYmM=", sys.base64.encode(bad))
+    assert.equal('{"text":"\239\191\189\239\191\189abc"}', sys.json.encode({ text = bad }))
 end)
 
 it("gives nil for a missing name", function()

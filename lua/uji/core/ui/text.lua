@@ -3,6 +3,8 @@ local sys = require("uji.sys")
 local M = {}
 
 local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+local NEWLINE = ("\n"):byte()
+local RETURN = ("\r"):byte()
 
 M.CHAR = CHAR
 
@@ -61,14 +63,39 @@ end
 
 function M.lines(source)
     local out = {}
-    if source == "" then
-        return out
-    end
-    local text = source:sub(-1) == "\n" and source or source .. "\n"
-    for line in text:gmatch("(.-)\n") do
-        out[#out + 1] = line:sub(-1) == "\r" and line:sub(1, -2) or line
+    local at = 1
+    while at <= #source do
+        local stop = source:find("\n", at, true) or #source + 1
+        local line = source:sub(at, stop - 1)
+        out[#out + 1] = line:byte(-1) == RETURN and line:sub(1, -2) or line
+        at = stop + 1
     end
     return out
+end
+
+function M.line_start(source, at, lines)
+    lines = lines or 1
+    for index = at, 1, -1 do
+        if source:byte(index) == NEWLINE then
+            lines = lines - 1
+            if lines == 0 then
+                return index
+            end
+        end
+    end
+    return 0
+end
+
+function M.line_end(source, at, lines)
+    local index = at
+    for _ = 1, lines or 1 do
+        local found = source:find("\n", index + 1, true)
+        if not found then
+            return #source
+        end
+        index = found
+    end
+    return index - 1
 end
 
 local Row = {}

@@ -1,0 +1,51 @@
+name: bench
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  LINUX_LIBRARIES: libsqlite3-dev libssl-dev pkg-config
+
+jobs:
+  bench:
+    name: bench
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system libraries
+        run: sudo apt-get update && sudo apt-get install -y $LINUX_LIBRARIES
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --release -p uji-tests --bin uji-test -- -l bench/main.lua bench --json bench.json
+      - uses: actions/cache/restore@v4
+        with:
+          path: benchmarks
+          key: bench-${{ github.run_id }}
+          restore-keys: bench-
+      - uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: uji
+          tool: customSmallerIsBetter
+          output-file-path: bench.json
+          external-data-json-path: benchmarks/data.json
+          save-data-file: ${{ github.event_name == 'push' }}
+          github-token: ${{ github.token }}
+          comment-always: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          summary-always: true
+          alert-threshold: 120%
+      - if: github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: benchmarks
+          key: bench-${{ github.run_id }}

@@ -22,15 +22,19 @@ function Input:init()
     self.key = nil
 end
 
-function Input:layout(ui, width)
+function Input:layout(ui, width, height)
     local line = ui.composer.line
     local focused = ui:composing()
-    local key = table.concat({ line.revision, line.cursor, width, tostring(focused) }, ":")
+    local margin = math.max(height or 0, MAX_ROWS) + 1
+    local key = table.concat({ line.revision, line.cursor, width, margin, tostring(focused) }, ":")
     if self.key == key then
         return self.cached
     end
-    local display = text.chars(line.text)
-    local cursor = text.length(line.text:sub(1, line.cursor))
+    local anchor = focused and line.cursor or 0
+    local from = text.line_start(line.text, anchor, margin)
+    local shown = line.text:sub(from + 1, text.line_end(line.text, anchor, margin))
+    local display = text.chars(shown)
+    local cursor = text.length(shown:sub(1, line.cursor - from))
     if focused then
         table.insert(display, cursor + 1, Modal.CURSOR)
     end
@@ -60,7 +64,7 @@ function Input:draw(ui, screen, area, window)
     end
     local palette = ui.palette
     local height = math.max(inner.height, 1)
-    local shape = self:layout(ui, inner.width)
+    local shape = self:layout(ui, inner.width, height)
     local cursor, rows, display = shape.cursor, shape.rows, shape.display
     local cursor_row = 1
     if cursor then

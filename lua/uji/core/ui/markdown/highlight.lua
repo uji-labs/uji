@@ -1,5 +1,14 @@
 local class = require("uji.core.class")
 
+local NUMBER = "^%d[%w%.]*"
+local WORD = "^[%a_][%w_]*"
+local PLAIN = "^[^%%w_%s]+"
+local STRING_STOP = "[\\%s]"
+local ESCAPE_WIDTH = #"\\x"
+local LANGUAGE_NAME = "^[%w_+#-]+"
+local PATTERN_MAGIC = "%p"
+local ESCAPED_MAGIC = "%%%0"
+
 local function words(list)
     local set = {}
     for word in list:gmatch("%S+") do
@@ -8,7 +17,7 @@ local function words(list)
     return set
 end
 
-local C_COMMENTS = { { "/*", "*/", "comment" } }
+local C_COMMENTS = { { open = "/*", close = "*/", kind = "comment" } }
 
 local JAVASCRIPT = "async await break case catch class const continue debugger default delete do else export extends false finally "
     .. "for from function if import in instanceof let new null of return static super switch this throw true try typeof undefined "
@@ -20,7 +29,10 @@ local C = "auto bool break case char const continue default do double else enum 
 local LANGUAGES = {
     python = {
         comment = "#",
-        blocks = { { '"""', '"""', "string" }, { "'''", "'''", "string" } },
+        blocks = {
+            { open = '"""', close = '"""', kind = "string" },
+            { open = "'''", close = "'''", kind = "string" },
+        },
         quotes = "\"'",
         keywords = words(
             "and as assert async await break case class continue def del elif else except False finally for from global if "
@@ -29,7 +41,10 @@ local LANGUAGES = {
     },
     lua = {
         comment = "--",
-        blocks = { { "--[[", "]]", "comment" }, { "[[", "]]", "string" } },
+        blocks = {
+            { open = "--[[", close = "]]", kind = "comment" },
+            { open = "[[", close = "]]", kind = "string" },
+        },
         quotes = "\"'",
         keywords = words(
             "and break do else elseif end false for function goto if in local nil not or repeat return self then true until while"
@@ -143,6 +158,60 @@ local ALIASES = {
     sqlite = "sql",
 }
 
+local NONE = {}
+
+local function starters(pattern)
+    return setmetatable({}, {
+        __index = function(set, byte)
+            local starts = string.char(byte):find(pattern) ~= nil
+            rawset(set, byte, starts)
+            return starts
+        end,
+    })
+end
+
+local STARTS_NUMBER = starters(NUMBER)
+local STARTS_WORD = starters(WORD)
+
+local function escaped(text)
+    return (text:gsub(PATTERN_MAGIC, ESCAPED_MAGIC))
+end
+
+for _, language in pairs(LANGUAGES) do
+    local starts, opens, stops = {}, {}, {}
+    for _, block in ipairs(language.blocks or NONE) do
+        local first = block.open:sub(1, 1)
+        opens[first:byte()] = opens[first:byte()] or {}
+        table.insert(opens[first:byte()], block)
+        starts[#starts + 1] = first
+    end
+    for quote in language.quotes:gmatch(".") do
+        stops[quote:byte()] = STRING_STOP:format(escaped(quote))
+        starts[#starts + 1] = quote
+    end
+    if language.comment then
+        starts[#starts + 1] = language.comment:sub(1, 1)
+    end
+    language.opens = opens
+    language.stops = stops
+    language.plain = PLAIN:format(escaped(table.concat(starts)))
+end
+
+local function quoted(line, at, stops)
+    local quote = line:byte(at)
+    local index = at + 1
+    while true do
+        local found = line:find(stops, index)
+        if not found then
+            return #line
+        end
+        if line:byte(found) == quote then
+            return found
+        end
+        index = found + ESCAPE_WIDTH
+    end
+end
+
 local Highlighter = class()
 
 function Highlighter:init(language, palette)
@@ -157,73 +226,61 @@ function Highlighter:init(language, palette)
     self.block = nil
 end
 
-function Highlighter:opening(line, at)
-    for _, block in ipairs(self.language.blocks or {}) do
-        if line:sub(at, at + #block[1] - 1) == block[1] then
-            return block
-        end
-    end
-end
-
-local function quoted(line, at)
-    local quote = line:sub(at, at)
-    local stops = "[\\" .. quote .. "]"
-    local index = at + 1
-    while true do
-        local found = line:find(stops, index)
-        if not found then
-            return #line
-        end
-        if line:sub(found, found) == quote then
-            return found
-        end
-        index = found + 2
-    end
-end
-
-function Highlighter:inside(block, line, at)
-    local from = self.block and at or at + #block[1]
-    local stop = line:find(block[2], from, true)
+function Highlighter:inside(block, line, from)
+    local stop = line:find(block.close, from, true)
     self.block = not stop and block or nil
-    return stop and stop + #block[2] - 1 or #line, block[3]
+    return stop and stop + #block.close - 1 or #line, block.kind
 end
 
 function Highlighter:token(line, at)
     local language = self.language
-    local block = self.block or self:opening(line, at)
-    if block then
-        return self:inside(block, line, at)
+    if self.block then
+        return self:inside(self.block, line, at)
     end
-    if language.comment and line:sub(at, at + #language.comment - 1) == language.comment then
+    local byte = line:byte(at)
+    for _, block in ipairs(language.opens[byte] or NONE) do
+        if line:sub(at, at + #block.open - 1) == block.open then
+            return self:inside(block, line, at + #block.open)
+        end
+    end
+    local comment = language.comment
+    if comment and comment:byte() == byte and line:sub(at, at + #comment - 1) == comment then
         return #line, "comment"
     end
-    if language.quotes:find(line:sub(at, at), 1, true) then
-        return quoted(line, at), "string"
+    local stops = language.stops[byte]
+    if stops then
+        return quoted(line, at, stops), "string"
     end
-    local number = line:match("^%d[%w%.]*", at)
-    if number then
-        return at + #number - 1, "number"
+    if STARTS_NUMBER[byte] then
+        local _, finish = line:find(NUMBER, at)
+        return finish, "number"
     end
-    local word = line:match("^[%a_][%w_]*", at)
-    if word then
-        return at + #word - 1, language.keywords[language.lower and word:lower() or word] and "keyword" or "plain"
+    if STARTS_WORD[byte] then
+        local _, finish = line:find(WORD, at)
+        local word = line:sub(at, finish)
+        return finish, language.keywords[language.lower and word:lower() or word] and "keyword" or "plain"
     end
-    return at, "plain"
+    local _, finish = line:find(language.plain, at)
+    return finish or at, "plain"
 end
 
 function Highlighter:line(line)
     local spans = {}
+    local from, style = 1, nil
     local at = 1
     while at <= #line do
         local finish, kind = self:token(line, at)
-        local piece, style = line:sub(at, finish), self.styles[kind]
-        local last = spans[#spans]
-        if last and last[2] == style then
-            last[1] = last[1] .. piece
-        else
-            spans[#spans + 1] = { piece, style }
+        local current = self.styles[kind]
+        if current ~= style then
+            if at > from then
+                spans[#spans + 1] = { line:sub(from, at - 1), style }
+            end
+            from, style = at, current
         end
         at = finish + 1
+    end
+    if from <= #line then
+        spans[#spans + 1] = { line:sub(from), style }
     end
     return spans
 end
@@ -231,7 +288,7 @@ end
 local M = {}
 
 function M.new(info, palette)
-    local name = info and info:match("^[%w_+#-]+")
+    local name = info and info:match(LANGUAGE_NAME)
     name = name and name:lower()
     local language = name and LANGUAGES[ALIASES[name] or name]
     return language and Highlighter(language, palette)

@@ -95,17 +95,22 @@ function Blocks:tool_output(out, content, width)
     local failed = content:sub(1, 6) == "error:" or content:sub(1, 7) == "denied:"
     local style = failed and palette.error or palette.muted
     local available = math.max(width - 5, 1)
-    local rows = {}
+    local rows, hidden = {}, 0
     for _, raw in ipairs(text.lines(content)) do
-        for _, chunk in ipairs(text.wrap(raw, available)) do
+        local shown = text.clip(raw, math.max(MAX_TOOL_PREVIEW - #rows, 0) * available)
+        for _, chunk in ipairs(shown == "" and raw ~= "" and {} or text.wrap(shown, available)) do
             rows[#rows + 1] = chunk
         end
+        if #shown < #raw then
+            hidden = hidden + math.ceil(text.width(raw:sub(#shown + 1)) / available)
+        end
     end
+    hidden = hidden + math.max(#rows - MAX_TOOL_PREVIEW, 0)
     for index = 1, math.min(#rows, MAX_TOOL_PREVIEW) do
         out[#out + 1] = { { (index == 1 and "   └ " or "     ") .. rows[index], style } }
     end
-    if #rows > MAX_TOOL_PREVIEW then
-        out[#out + 1] = { { "     … +" .. (#rows - MAX_TOOL_PREVIEW) .. " lines", palette.dim } }
+    if hidden > 0 then
+        out[#out + 1] = { { "     … +" .. hidden .. " lines", palette.dim } }
     end
 end
 

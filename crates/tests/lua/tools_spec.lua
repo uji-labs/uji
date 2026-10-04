@@ -141,9 +141,8 @@ it("reports output, exit codes and timeouts from run_command", { timeout = 20 },
     assert.equal("partial\n(exit code 3)", partial)
     assert.equal("(no output, exit code 0)", quiet)
     assert.equal("(exit code 4)", failed)
-    local dropped = "\226\128\166 3200 earlier lines dropped; full output in "
-    assert.equal(dropped, long:sub(1, #dropped))
-    assert.equal("\n7999\n8000", long:sub(-10))
+    assert.equal("6001\n", long:sub(1, 5))
+    assert.truthy(long:find("\n8000\n\n[Showing lines 6001-8000 of 8000. Full output: ", 1, true))
     assert.equal(sys.fs.realpath(sandbox.work), sys.fs.realpath(pwd))
     assert.equal("error: command timed out after 1s", slow)
     assert.equal("error: `command` is required and must be a non-empty string", empty)

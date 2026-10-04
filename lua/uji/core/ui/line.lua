@@ -233,12 +233,11 @@ function Line:kill_range(from, to)
 end
 
 function Line:line_start(at)
-    return self.text:sub(1, at):find("\n[^\n]*$") or 0
+    return text.line_start(self.text, at)
 end
 
 function Line:line_end(at)
-    local found = self.text:find("\n", at + 1, true)
-    return found and found - 1 or #self.text
+    return text.line_end(self.text, at)
 end
 
 function Line:column_offset(start, finish, column)

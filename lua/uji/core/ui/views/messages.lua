@@ -78,7 +78,7 @@ function Messages:draw(ui, screen, area, window)
     local running = ui.running
     if running then
         below[1] = {}
-        Blocks.wrapped(below, running.name .. "  " .. running.line, width, palette.dim, " ⋯ ", false)
+        Blocks.wrapped(below, running.name .. "  " .. text.clip(running.line, width), width, palette.dim, " ⋯ ", false)
     end
     if #parts.queued > 0 then
         below[#below + 1] = {}

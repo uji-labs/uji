@@ -1,17 +1,34 @@
 use std::borrow::Cow;
 use std::ffi::c_int;
-use std::fmt;
+use std::{fmt, io};
 
 use mlua::{ExternalResult, Lua, LuaSerdeExt, Table, Value};
+use serde::Serialize;
 use serde::de::{DeserializeSeed, Deserializer, Error, MapAccess, SeqAccess, Visitor};
 use serde_json::Number;
+use serde_json::ser::Formatter;
 use uji_macros::{constant, function, options};
 
 use crate::utils::lua::stack::{self, Stack};
 
+struct Lossy;
+
+impl Formatter for Lossy {
+    fn write_byte_array<W: ?Sized + io::Write>(
+        &mut self,
+        writer: &mut W,
+        value: &[u8],
+    ) -> io::Result<()> {
+        serde_json::to_writer(writer, &String::from_utf8_lossy(value)).map_err(io::Error::other)
+    }
+}
+
 #[function(json, raise)]
 fn encode(value: &Value) -> Result<String, serde_json::Error> {
-    serde_json::to_string(value)
+    let mut out = Vec::new();
+    value.serialize(&mut serde_json::Serializer::with_formatter(&mut out, Lossy))?;
+    Ok(String::from_utf8(out)
+        .unwrap_or_else(|err| String::from_utf8_lossy(err.as_bytes()).into_owned()))
 }
 
 #[options]
