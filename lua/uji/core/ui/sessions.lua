@@ -46,11 +46,9 @@ function Picker:delete_prompt()
     if not session then
         return
     end
-    for _, id in ipairs(self.store:tree(session.id)) do
-        if id == self.active then
-            self.problem = "The open session cannot be deleted. Switch sessions first."
-            return
-        end
+    if self.store:contains(session.id, self.active) then
+        self.problem = "The open session cannot be deleted. Switch sessions first."
+        return
     end
     self.deleting = session
     self.problem = nil
@@ -62,11 +60,9 @@ function Picker:confirm_delete()
         return
     end
     -- Recheck ownership immediately before deletion, not only when opening confirmation.
-    for _, id in ipairs(self.store:tree(session.id)) do
-        if id == self.active then
-            self.deleting = nil
-            return
-        end
+    if self.store:contains(session.id, self.active) then
+        self.deleting = nil
+        return
     end
     local ok, err = pcall(self.store.delete, self.store, session.id)
     self.deleting = nil
@@ -194,7 +190,7 @@ function M.restart(session, fresh)
     end
     local carry = { draft = draft }
     if not fresh and not session and app.session and app.session.pending then
-        carry.session = { id = app.session.id, title = app.session.title, directory = app.session.directory }
+        carry.session = { id = app.session.id, title = app.session.title }
     end
     sys.os.restart({ args = argv, roots = require("uji.core.packs").expected(), carry = sys.json.encode(carry) })
 end

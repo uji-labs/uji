@@ -136,24 +136,17 @@ function Store:latest(directory)
     return nil
 end
 
-function Store:tree(key)
-    local children = {}
-    for _, row in ipairs(self.db:query("SELECT id, parent FROM sessions")) do
-        if row.parent then
-            local list = children[row.parent] or {}
-            list[#list + 1] = row.id
-            children[row.parent] = list
+-- True when descendant is key itself or below it in the parent chain.
+function Store:contains(key, descendant)
+    local current = descendant
+    while current do
+        if current == key then
+            return true
         end
+        local session = self:session(current)
+        current = session and session.parent
     end
-    local result, pending = { key }, { key }
-    while #pending > 0 do
-        local current = table.remove(pending, 1)
-        for _, child in ipairs(children[current] or {}) do
-            result[#result + 1] = child
-            pending[#pending + 1] = child
-        end
-    end
-    return result
+    return false
 end
 
 function Store:sessions()
