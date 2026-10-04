@@ -38,26 +38,6 @@ lists the environment variables that do the same.
 | `/help` | Lists every command, including the ones plugins add. |
 | `/quit` | Quits. |
 
-## Manage sessions
-
-Open `/sessions` inside uji, or run `uji list` from your project directory.
-Press Enter to resume the selected conversation or Esc to cancel.
-Press Ctrl-D to request deletion of the selected conversation and its child history.
-Only unmodified `y` confirms deletion; Enter, Esc, and `n` cancel.
-The in-app picker protects the open conversation and ancestors containing it.
-It cannot detect conversations open in another process.
-The terminal command `uji delete <ID>` does not ask for confirmation.
-
-Blank conversations stay in memory until their first message commits.
-Renaming or reloading a blank conversation does not create a saved record.
-Child history saves its required ancestor records.
-Existing empty records remain available for explicit deletion, but do not win `uji resume`.
-
-Session switching and `/reload` preserve draft text, including expanded multiline pastes.
-They refuse to proceed while a turn or shell command runs, submitted images are being prepared, or queued input remains.
-Submit or remove draft image attachments before switching or reloading.
-Restart does not carry their payloads.
-
 ## Keys
 
 [Default bindings](../api/keymap.md#default-bindings) lists every key uji
