@@ -96,7 +96,7 @@ function Agent:append(message)
     local entry, err = self.session:append(message)
     if not entry then
         -- A background shell must not discard another running turn's task.
-        if not self.task or self.task.done then
+        if not self.task then
             self:finish(false)
         end
         error(err, 0)
@@ -171,16 +171,10 @@ end
 
 function Agent:submit(text, attached, queued)
     if self:working() then
-        if not queued then
-            return self:enqueue(text, attached)
-        end
-        return
+        return self:enqueue(text, attached)
     end
     if self:compact_if_needed() then
-        if not queued then
-            return self:enqueue(text, attached)
-        end
-        return
+        return self:enqueue(text, attached)
     end
     event.emit("message_submitted", { text = text })
     self:append(said(text, attached))

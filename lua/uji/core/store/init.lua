@@ -106,6 +106,14 @@ function Store:persist(session, inserted)
     inserted[#inserted + 1] = session
 end
 
+-- Mark the sessions a committed message wrote as no longer pending.
+function Store:committed(inserted)
+    for _, session in ipairs(inserted) do
+        session.pending = false
+        self.drafts[session.id] = nil
+    end
+end
+
 function Store:session(key)
     if self.drafts[key] then
         return self.drafts[key]

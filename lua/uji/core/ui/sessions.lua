@@ -19,7 +19,7 @@ function Picker:refresh()
     self.records, self.items = {}, {}
     for _, session in ipairs(self.store:sessions()) do
         if session.directory == self.directory then
-            local title = (session.title == "" or session.title == "untitled") and "Untitled session" or session.title
+            local title = session:untitled() and "Untitled session" or session.title
             local label = title .. " · " .. session.id
             if session.id == self.active then
                 label = label .. " (current)"
@@ -104,8 +104,6 @@ function Picker:key(chord, owner)
         elseif chord.key == "esc" or chord.key == "enter" or chord.key == "n" then
             self.deleting = nil
         end
-    elseif chord.key == "d" and chord.ctrl then
-        self:delete_prompt()
     else
         Select.key(self, chord, owner)
     end
@@ -150,11 +148,7 @@ function M.pick(store)
     local ok, result = pcall(function()
         draw()
         for incoming in ui.input:events() do
-            if incoming.type == "key" and (picker.deleting or (incoming.key == "d" and incoming.ctrl)) then
-                picker:key(incoming, ui)
-            else
-                ui:handle(incoming)
-            end
+            ui:handle(incoming)
             if picker.answer.settled then
                 return picker.answer:await()
             end
@@ -196,7 +190,6 @@ function M.restart(session, fresh)
 end
 
 function M.switch(session)
-    assert(not M.busy(), "resolve pending work and queued messages before switching sessions")
     if app.session and session.id == app.session.id then
         return
     end

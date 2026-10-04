@@ -96,10 +96,7 @@ function Session:append(message)
     if not ok then
         return nil, "failed to persist " .. message.type .. " message: " .. tostring(err)
     end
-    for _, session in ipairs(inserted) do
-        session.pending = false
-        self.store.drafts[session.id] = nil
-    end
+    self.store:committed(inserted)
     self.updated = now
     if message.type == "compaction" then
         self.reported_input = 0
