@@ -4,6 +4,7 @@ local sys = require("uji.sys")
 local BATCH = 0.01
 local SAMPLES = 10
 local BUDGET = 2
+local HUNG = 60
 
 local function read(path)
     local file = assert(io.open(path, "rb"))
@@ -73,10 +74,15 @@ end
 local function endure(ctx, name, steps, budget)
     collectgarbage()
     local started = sys.os.clock()
-    local ok, err = xpcall(function()
-        ctx:run(steps)
-        ctx:frame()
-    end, debug.traceback)
+    local finished, ok, err = sys.task.timeout(HUNG, function()
+        return xpcall(function()
+            ctx:run(steps)
+            ctx:frame()
+        end, debug.traceback)
+    end)
+    if not finished then
+        ok, err = false, string.format("did not finish within %d seconds", HUNG)
+    end
     return {
         kind = "torture",
         name = name,

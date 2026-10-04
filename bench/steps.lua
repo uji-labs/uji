@@ -14,9 +14,26 @@ local INDENT = "{indent}"
 local INDENT_UNIT = "  "
 local WORDS = "%S*%s*"
 
+local function templated(spec)
+    if type(spec) == "string" then
+        return spec:find(NUMBER, 1, true) ~= nil or spec:find(INDENT, 1, true) ~= nil
+    end
+    if type(spec) == "table" then
+        for _, value in pairs(spec) do
+            if templated(value) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function fill(spec, index)
     if type(spec) == "string" then
-        local filled = spec:gsub(NUMBER, tostring(index)):gsub(INDENT, INDENT_UNIT:rep(index - 1))
+        local filled = spec:gsub(NUMBER, tostring(index))
+        if filled:find(INDENT, 1, true) then
+            filled = filled:gsub(INDENT, INDENT_UNIT:rep(index - 1))
+        end
         return filled
     end
     if type(spec) ~= "table" then
@@ -85,8 +102,11 @@ end
 GENERATORS["repeat"] = function(ctx, spec)
     local template, times = spec["repeat"], spec.times
     local separator = spec.separator or ""
-    if type(template) == "string" and not template:find(NUMBER, 1, true) and not template:find(INDENT, 1, true) then
-        return template:rep(times, separator)
+    if not templated(template) then
+        local value = ctx:value(template)
+        if type(value) == "string" then
+            return value:rep(times, separator)
+        end
     end
     local out = {}
     for index = 1, times do
