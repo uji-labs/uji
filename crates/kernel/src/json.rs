@@ -7,7 +7,7 @@ use serde::de::{DeserializeSeed, Deserializer, Error, MapAccess, SeqAccess, Visi
 use serde_json::Number;
 use uji_macros::{constant, function, options};
 
-use crate::utils::stack::{self, Stack};
+use crate::utils::lua::stack::{self, Stack};
 
 #[function(json, raise)]
 fn encode(value: &Value) -> Result<String, serde_json::Error> {
@@ -20,13 +20,13 @@ struct DecodeOptions {
 }
 
 #[derive(Clone, Copy)]
-struct Decoder {
-    stack: Stack,
+struct Decoder<'a> {
+    stack: &'a Stack,
     array_metatable: c_int,
     nulls: bool,
 }
 
-impl Decoder {
+impl Decoder<'_> {
     fn table<E: Error>(self) -> Result<(), E> {
         if !self.stack.reserve() {
             return Err(E::custom("the JSON is nested too deeply"));
@@ -36,7 +36,7 @@ impl Decoder {
     }
 }
 
-impl<'de> DeserializeSeed<'de> for Decoder {
+impl<'de> DeserializeSeed<'de> for Decoder<'_> {
     type Value = ();
 
     fn deserialize<D: Deserializer<'de>>(self, deserializer: D) -> Result<(), D::Error> {
@@ -44,7 +44,7 @@ impl<'de> DeserializeSeed<'de> for Decoder {
     }
 }
 
-impl<'de> Visitor<'de> for Decoder {
+impl<'de> Visitor<'de> for Decoder<'_> {
     type Value = ();
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -114,18 +114,17 @@ fn decode(lua: &Lua, text: &mlua::LuaString, opts: &DecodeOptions) -> mlua::Resu
     let bytes = text.as_bytes();
     let mut deserializer = serde_json::Deserializer::from_slice(&bytes);
     let nulls = opts.nulls != Some(false);
-    let mut outcome = Ok(());
-    let (_, value): (Table, Value) = stack::build(lua, lua.array_metatable(), |stack| {
+    stack::build(lua, lua.array_metatable(), |stack| {
         let decoder = Decoder {
             stack,
             array_metatable: stack.top(),
             nulls,
         };
-        outcome = decoder
+        decoder
             .deserialize(&mut deserializer)
-            .and_then(|()| deserializer.end());
-    })?;
-    outcome.into_lua_err().map(|()| value)
+            .and_then(|()| deserializer.end())
+            .into_lua_err()
+    })
 }
 
 #[function(json)]

@@ -25,8 +25,12 @@ position in order.
 
 Parses Markdown into a list of events. Each event is itself a list that starts
 with its kind, one of `"start"`, `"end"`, `"text"`, `"code"`, `"html"`,
-`"break"`, `"rule"` and `"task"`. The details of that event come next, then its
-start and end byte positions in `source`.
+`"math"`, `"break"`, `"rule"` and `"task"`. The details of that event come next,
+then its start and end byte positions in `source`.
+
+Math between `$` and `$`, or `\(` and `\)`, gives a `"math"` event with its TeX
+source and `false`. Math between `$$` and `$$`, or `\[` and `\]`, gives one with
+`true`.
 
 ## uji.width(text)
 

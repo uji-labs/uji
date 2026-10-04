@@ -1,4 +1,6 @@
 local class = require("uji.core.class")
+local highlight = require("uji.core.ui.markdown.highlight")
+local latex = require("uji.core.ui.markdown.latex")
 local sys = require("uji.sys")
 local text = require("uji.core.ui.text")
 
@@ -116,6 +118,7 @@ function Renderer:init(width, palette, styles)
     self.list = {}
     self.quote = 0
     self.in_code = false
+    self.highlighter = nil
     self.marker = nil
     self.width = width
     self.row = nil
@@ -184,6 +187,7 @@ function Renderer:start(tag, detail)
     elseif tag == "code_block" then
         self:break_block()
         self.in_code = true
+        self.highlighter = highlight.new(detail, self.palette)
         if detail and detail ~= "" then
             self.lines[#self.lines + 1] = { { "  " .. detail, self.palette.dim } }
         end
@@ -221,6 +225,7 @@ function Renderer:stop(tag)
         self.quote = math.max(self.quote - 1, 0)
     elseif tag == "code_block" then
         self.in_code = false
+        self.highlighter = nil
     elseif tag == "paragraph" or tag == "item" then
         self:flush()
     elseif tag == "heading" then
@@ -240,6 +245,24 @@ function Renderer:inline(value, style)
     self.block:push(value, style)
 end
 
+function Renderer:code(raw)
+    local spans = self.highlighter and self.highlighter:line(raw) or { { raw, self.palette.code } }
+    table.insert(spans, 1, { "  ", 0 })
+    self.lines[#self.lines + 1] = spans
+end
+
+function Renderer:math(source, display)
+    local rendered = latex.render(source)
+    if not display or self.row then
+        self:inline((rendered:gsub("\n", " ")), self.palette.code)
+        return
+    end
+    self:break_block()
+    for _, line in ipairs(text.lines(rendered)) do
+        self.lines[#self.lines + 1] = { { "  " .. line, self.palette.code } }
+    end
+end
+
 function Renderer:event(event)
     local kind = event[1]
     if kind == "start" then
@@ -248,12 +271,14 @@ function Renderer:event(event)
         self:stop(event[2])
     elseif kind == "text" and self.in_code then
         for _, raw in ipairs(text.lines(event[2])) do
-            self.lines[#self.lines + 1] = { { "  " .. raw, self.palette.code } }
+            self:code(raw)
         end
     elseif kind == "text" then
         self:inline(event[2], self.style)
     elseif kind == "code" then
         self:inline(event[2], self.palette.code)
+    elseif kind == "math" then
+        self:math(event[2], event[3])
     elseif kind == "task" then
         self:inline(event[2] and "[x] " or "[ ] ", self.style)
     elseif kind == "break" and event[2] == "soft" then

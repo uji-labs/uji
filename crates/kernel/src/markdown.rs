@@ -1,8 +1,19 @@
+use std::borrow::Cow;
+use std::ops::Range;
+
 use mlua::{Lua, Table};
 use pulldown_cmark::{CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd};
 use uji_macros::function;
 
-use crate::utils::stack::{self, Stack};
+use crate::utils::lua::stack::{self, Stack};
+
+const EXTENSIONS: Options = Options::ENABLE_STRIKETHROUGH
+    .union(Options::ENABLE_TABLES)
+    .union(Options::ENABLE_TASKLISTS)
+    .union(Options::ENABLE_MATH);
+
+const BRACKETS: [(&str, &str, &str, &str); 2] =
+    [("\\(", "\\)", "${", "}$"), ("\\[", "\\]", "$$", "$$")];
 
 enum Field<'a> {
     Nil,
@@ -12,7 +23,7 @@ enum Field<'a> {
 }
 
 impl Field<'_> {
-    fn push(&self, stack: Stack) {
+    fn push(&self, stack: &Stack) {
         match *self {
             Field::Nil => stack.nil(),
             Field::Text(text) => stack.string(text),
@@ -73,20 +84,64 @@ fn describe<'a>(event: &'a Event<'_>) -> Option<(&'a str, Field<'a>, Field<'a>)>
         Event::Text(body) => ("text", Field::Text(body), Field::Nil),
         Event::Code(body) => ("code", Field::Text(body), Field::Nil),
         Event::Html(body) | Event::InlineHtml(body) => ("html", Field::Text(body), Field::Nil),
+        Event::InlineMath(body) => ("math", Field::Text(body), Field::Flag(false)),
+        Event::DisplayMath(body) => ("math", Field::Text(body), Field::Flag(true)),
         Event::SoftBreak => ("break", Field::Text("soft"), Field::Nil),
         Event::HardBreak => ("break", Field::Text("hard"), Field::Nil),
         Event::Rule => ("rule", Field::Nil, Field::Nil),
         Event::TaskListMarker(done) => ("task", Field::Flag(*done), Field::Nil),
-        _ => return None,
+        Event::FootnoteReference(_) => return None,
     };
     Some(described)
+}
+
+fn code(source: &str) -> Vec<Range<usize>> {
+    Parser::new_ext(source, EXTENSIONS)
+        .into_offset_iter()
+        .filter(|(event, _)| {
+            matches!(
+                event,
+                Event::Start(Tag::CodeBlock(_))
+                    | Event::Code(_)
+                    | Event::Html(_)
+                    | Event::InlineHtml(_)
+            )
+        })
+        .map(|(_, range)| range)
+        .collect()
+}
+
+fn find(text: &str, needle: &str, from: usize, code: &[Range<usize>]) -> Option<usize> {
+    text[from..]
+        .match_indices(needle)
+        .map(|(at, _)| from + at)
+        .find(|&at| !text[..at].ends_with('\\') && !code.iter().any(|range| range.contains(&at)))
+}
+
+fn dollar_math(source: &str) -> Cow<'_, str> {
+    if !BRACKETS.iter().any(|(open, ..)| source.contains(open)) {
+        return Cow::Borrowed(source);
+    }
+    let code = code(source);
+    let mut out = source.to_owned();
+    for (open, close, dollar_open, dollar_close) in BRACKETS {
+        let mut from = 0;
+        while let Some(start) = find(&out, open, from, &code)
+            && let Some(end) = find(&out, close, start + open.len(), &code)
+        {
+            out.replace_range(start..start + open.len(), dollar_open);
+            out.replace_range(end..end + close.len(), dollar_close);
+            from = end + close.len();
+        }
+    }
+    Cow::Owned(out)
 }
 
 fn position(offset: usize) -> Field<'static> {
     Field::Integer(i64::try_from(offset).unwrap_or(i64::MAX))
 }
 
-fn list(stack: Stack, fields: &[Field<'_>]) {
+fn list(stack: &Stack, fields: &[Field<'_>]) {
     stack.table(fields.len());
     for (index, field) in (1..).zip(fields) {
         field.push(stack);
@@ -96,14 +151,11 @@ fn list(stack: Stack, fields: &[Field<'_>]) {
 
 #[function]
 fn markdown(lua: &Lua, source: &str) -> mlua::Result<Table> {
-    let mut extensions = Options::empty();
-    extensions.insert(Options::ENABLE_STRIKETHROUGH);
-    extensions.insert(Options::ENABLE_TABLES);
-    extensions.insert(Options::ENABLE_TASKLISTS);
+    let source = dollar_math(source);
     stack::build(lua, (), |stack| {
         stack.table(0);
         let mut length = 0;
-        for (event, range) in Parser::new_ext(source, extensions).into_offset_iter() {
+        for (event, range) in Parser::new_ext(&source, EXTENSIONS).into_offset_iter() {
             let Some((kind, first, second)) = describe(&event) else {
                 continue;
             };
@@ -113,5 +165,6 @@ fn markdown(lua: &Lua, source: &str) -> mlua::Result<Table> {
             length += 1;
             stack.set_index(length);
         }
+        Ok(())
     })
 }
