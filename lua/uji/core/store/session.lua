@@ -84,9 +84,8 @@ function Session:append(message)
     local now = sys.os.now()
     local entry = { id = id.new(), seq = self:last_seq() + 1, time = now, message = message }
     local db = self.store.db
-    local inserted, entered = {}, false
+    local inserted = {}
     local ok, err = pcall(db.transaction, db, function()
-        entered = true
         self.store:persist(self, inserted)
         db:exec(
             "INSERT INTO messages (id, session_id, seq, type, time_created, data) VALUES (?, ?, ?, ?, ?, ?)",
@@ -95,9 +94,6 @@ function Session:append(message)
         db:exec("UPDATE sessions SET time_updated = ? WHERE id = ?", { now, self.id })
     end)
     if not ok then
-        if entered then
-            pcall(db.exec, db, "ROLLBACK")
-        end
         return nil, "failed to persist " .. message.type .. " message: " .. tostring(err)
     end
     for _, session in ipairs(inserted) do

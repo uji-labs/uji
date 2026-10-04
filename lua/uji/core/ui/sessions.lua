@@ -46,8 +46,8 @@ function Picker:delete_prompt()
     if not session then
         return
     end
-    for _, row in ipairs(self.store:tree(session.id)) do
-        if row.id == self.active then
+    for _, id in ipairs(self.store:tree(session.id)) do
+        if id == self.active then
             self.problem = "The open session cannot be deleted. Switch sessions first."
             return
         end
@@ -62,8 +62,8 @@ function Picker:confirm_delete()
         return
     end
     -- Recheck ownership immediately before deletion, not only when opening confirmation.
-    for _, row in ipairs(self.store:tree(session.id)) do
-        if row.id == self.active then
+    for _, id in ipairs(self.store:tree(session.id)) do
+        if id == self.active then
             self.deleting = nil
             return
         end

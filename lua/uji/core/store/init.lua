@@ -115,47 +115,45 @@ function Store:session(key)
 end
 
 function Store:latest(directory)
-    local row = self.db:query(
-        [[
-        WITH RECURSIVE tree(root, id) AS (
-            SELECT id, id FROM sessions WHERE directory = ? AND parent IS NULL
-            UNION ALL
-            SELECT tree.root, sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
-        )
-        SELECT sessions.* FROM sessions
-        WHERE id IN (
-            SELECT tree.root FROM tree JOIN messages ON messages.session_id = tree.id
-        )
-        ORDER BY time_updated DESC, id DESC LIMIT 1
-    ]],
-        { directory }
-    )[1]
-    return row and Session(self, row)
+    local sessions = self.db:query("SELECT " .. COLUMNS .. " FROM sessions ORDER BY time_updated DESC, id DESC")
+    local parent = {}
+    for _, row in ipairs(sessions) do
+        parent[row.id] = row.parent
+    end
+    local history = {}
+    for _, row in ipairs(self.db:query("SELECT DISTINCT session_id FROM messages")) do
+        local owner = row.session_id
+        while owner and not history[owner] do
+            history[owner] = true
+            owner = parent[owner]
+        end
+    end
+    for _, row in ipairs(sessions) do
+        if not row.parent and row.directory == directory and history[row.id] then
+            return Session(self, row)
+        end
+    end
+    return nil
 end
 
 function Store:tree(key)
-    return self.db:query(
-        [[
-        WITH RECURSIVE tree(id) AS (
-            SELECT id FROM sessions WHERE id = ?
-            UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
-        ) SELECT id FROM tree
-    ]],
-        { key }
-    )
-end
-
-function Store:has_history(key)
-    return self.db:query(
-        [[
-        WITH RECURSIVE tree(id) AS (
-            SELECT id FROM sessions WHERE id = ?
-            UNION ALL SELECT sessions.id FROM sessions JOIN tree ON sessions.parent = tree.id
-        )
-        SELECT 1 FROM tree JOIN messages ON messages.session_id = tree.id LIMIT 1
-    ]],
-        { key }
-    )[1] ~= nil
+    local children = {}
+    for _, row in ipairs(self.db:query("SELECT id, parent FROM sessions")) do
+        if row.parent then
+            local list = children[row.parent] or {}
+            list[#list + 1] = row.id
+            children[row.parent] = list
+        end
+    end
+    local result, pending = { key }, { key }
+    while #pending > 0 do
+        local current = table.remove(pending, 1)
+        for _, child in ipairs(children[current] or {}) do
+            result[#result + 1] = child
+            pending[#pending + 1] = child
+        end
+    end
+    return result
 end
 
 function Store:sessions()
