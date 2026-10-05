@@ -42,7 +42,8 @@ end
 |---|---|
 | `screen:size()` | The width and the height, in columns and rows. |
 | `screen:style(spec)` | Makes a style and gives its number, for use in spans, `fill` and `paint`. Style `0` is the terminal's default. |
-| `screen:line(row, col, spans, width)` | Draws `spans` from `row` and `col`, and gives the column after the last character. `spans` is a string, or a list whose items are strings or `{ text, style }` pairs. `width` stops the text after that many columns. |
+| `screen:line(row, col, spans, width, on_click)` | Draws `spans` from `row` and `col`, and gives the column after the last character. `spans` is a string, or a list whose items are strings or `{ text, style }` pairs. `width` stops the text after that many columns. `on_click` is a function that `screen:clicked` gives for a click anywhere on the line. |
+| `screen:clicked(row, col)` | The `on_click` function of the line drawn last at the position, or `nil` when that line has none. |
 | `screen:fill(row, col, width, height, style, symbol)` | Fills the area with `symbol`, a space when it is left out, in `style`. |
 | `screen:paint(row, col, width, height, style)` | Sets the style of the area and keeps its text. |
 | `screen:text(row)` | The text on `row`, or `nil` outside the screen. |
@@ -96,3 +97,30 @@ Each event has a `type` field.
 A mouse `kind` is `"down"`, `"up"`, `"drag"`, `"move"`, `"scroll_up"`,
 `"scroll_down"`, `"scroll_left"` or `"scroll_right"`. `button` is `"left"`,
 `"right"` or `"middle"` for presses, releases and drags, and `nil` otherwise.
+
+A click handler sees the frame on the screen. The lines that one frame
+draws keep their handlers until the next frame starts drawing after a
+flush, and a later line or `fill` over the same cells hides the handler
+under it.
+
+```lua
+local screen, input = uji.tty.open()
+local count = 0
+local function draw()
+    screen:clear()
+    screen:line(0, 0, "clicked " .. count .. " times", nil, function()
+        count = count + 1
+    end)
+    screen:flush()
+end
+draw()
+for event in input:events() do
+    if event.type == "mouse" and event.kind == "up" then
+        local click = screen:clicked(event.row, event.col)
+        if click then
+            click(event)
+            draw()
+        end
+    end
+end
+```

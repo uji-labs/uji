@@ -37,6 +37,10 @@ function Messages:draw(ui, screen, area, window)
     local width, height = inner.width, inner.height
     local blocks = self.blocks
     local split = not blocks:prepare(palette, ui.styles)
+    local toggled = blocks:take()
+    if next(toggled) then
+        ui.scroll.anchor = ui.scroll.anchor or 0
+    end
     local committed, partial = split_committed(ui.stream:visible())
     local parts = self.transcript:frame(
         {
@@ -48,6 +52,7 @@ function Messages:draw(ui, screen, area, window)
             reasoning = ui.reasoning,
             width = width,
             revision = ui.theme.revision,
+            toggled = toggled,
         },
         split,
         function(out, block)
@@ -115,21 +120,17 @@ function Messages:draw(ui, screen, area, window)
     append(rows, notes)
     append(rows, below)
     canvas.lines(screen, inner, rows)
-    self.jump = nil
     if ui.scroll.anchor and floor >= inner.y then
         local size = math.min(text.width(JUMP), width)
         local col = inner.x + math.floor((width - size) / 2)
-        canvas.write(screen, floor, col, { { JUMP, palette.chosen_name } }, size)
-        self.jump = { row = floor, col = col, width = size }
+        self.follow = self.follow or function()
+            ui.scroll:follow()
+        end
+        canvas.write(screen, floor, col, { { JUMP, palette.chosen_name }, on_click = self.follow }, size)
     end
     local pane = self.pane
     pane.top, pane.height, pane.shift = inner.y, finish - start, inner.y - start + self.base
     return pane
-end
-
-function Messages:jumps(row, col)
-    local jump = self.jump
-    return jump ~= nil and row == jump.row and col >= jump.col and col < jump.col + jump.width
 end
 
 return Messages

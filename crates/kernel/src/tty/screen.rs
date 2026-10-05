@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::io;
 
-use mlua::Value;
+use mlua::{Function, Value};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use uji_macros::{methods, options};
 
@@ -48,10 +48,17 @@ pub(crate) fn row_text(buffer: &Buffer, row: u16) -> String {
         .collect()
 }
 
+struct Target {
+    area: Rect,
+    on_click: Option<Function>,
+}
+
 pub(crate) struct Screen {
     surface: Box<dyn Surface>,
     styles: Vec<Style>,
     cursor: Option<Cursor>,
+    targets: Vec<Target>,
+    flushed: bool,
 }
 
 impl Screen {
@@ -60,6 +67,23 @@ impl Screen {
             surface,
             styles: Vec::new(),
             cursor: None,
+            targets: Vec::new(),
+            flushed: false,
+        }
+    }
+
+    pub(crate) fn forget(mut self) -> Self {
+        self.targets.clear();
+        self
+    }
+
+    fn target(&mut self, area: Rect, on_click: Option<Function>) {
+        if self.flushed {
+            self.flushed = false;
+            self.targets.clear();
+        }
+        if on_click.is_some() || !self.targets.is_empty() {
+            self.targets.push(Target { area, on_click });
         }
     }
 
@@ -105,8 +129,9 @@ impl Screen {
     }
 
     fn cover(&mut self, area: Rect, style: Style, symbol: &str) {
+        let area = area.intersection(self.surface.buffer().area);
+        self.target(area, None);
         let buffer = self.surface.buffer();
-        let area = area.intersection(buffer.area);
         for row in area.top()..area.bottom() {
             for col in area.left()..area.right() {
                 if let Some(cell) = buffer.cell_mut((col, row)) {
@@ -186,7 +211,14 @@ impl Screen {
         Ok(self.styles.len())
     }
 
-    fn line(&mut self, row: i64, col: i64, spans: Value, width: Option<i64>) -> mlua::Result<i64> {
+    fn line(
+        &mut self,
+        row: i64,
+        col: i64,
+        spans: Value,
+        width: Option<i64>,
+        on_click: Option<Function>,
+    ) -> mlua::Result<i64> {
         let area = self.surface.buffer().area;
         let (Ok(top), Ok(left)) = (u16::try_from(row), u16::try_from(col)) else {
             return Ok(col);
@@ -197,6 +229,10 @@ impl Screen {
         let right = width.map_or(area.width, |width| {
             region(row, col, width, 1).right().min(area.width)
         });
+        self.target(
+            Rect::new(left, top, right.saturating_sub(left), 1),
+            on_click,
+        );
         let end = match spans {
             Value::Nil => Ok(left),
             Value::String(_) => self.span((left, top), right, spans),
@@ -255,6 +291,18 @@ impl Screen {
 
     fn clear(&mut self) {
         self.surface.buffer().reset();
+        self.targets.clear();
+        self.flushed = false;
+    }
+
+    fn clicked(&mut self, row: i64, col: i64) -> Option<Function> {
+        let at = Position::new(u16::try_from(col).ok()?, u16::try_from(row).ok()?);
+        self.targets
+            .iter()
+            .rev()
+            .find(|target| target.area.contains(at))?
+            .on_click
+            .clone()
     }
 
     fn cursor(&mut self, row: Option<i64>, col: Option<i64>, name: Option<&str>) -> io::Result<()> {
@@ -273,6 +321,7 @@ impl Screen {
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        self.flushed = true;
         self.surface.present(self.cursor)
     }
 

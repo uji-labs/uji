@@ -110,7 +110,8 @@ end
 
 function Transcript:block(entries, index, render)
     local lines = {}
-    local message = entries[index].message
+    local entry = entries[index]
+    local message = entry.message
     if message.type == "context" then
         return lines
     end
@@ -127,8 +128,21 @@ function Transcript:block(entries, index, render)
     if self.thinking and message.reasoning and message.reasoning ~= "" then
         render(lines, { kind = "thinking", text = message.reasoning })
     end
-    render(lines, { kind = "message", message = message })
+    render(lines, { kind = "message", message = message, id = entry.id })
     return lines
+end
+
+function Transcript:refresh(entries, ids, render)
+    if not next(ids) then
+        return
+    end
+    for index = self.first, math.min(self.last, #entries) do
+        if ids[entries[index].id] then
+            local lines = self:block(entries, index, render)
+            self.count = self.count + #lines - #self.blocks[index]
+            self.blocks[index] = lines
+        end
+    end
 end
 
 function Transcript:sync(entries, render)
@@ -182,6 +196,7 @@ function Transcript:frame(input, split, render, want)
         self.reasoning:clear()
     end
     self:sync(input.entries, render)
+    self:refresh(input.entries, input.toggled, render)
     local prepended = self:extend(input.entries, want, render)
     if self.fresh then
         prepended = nil

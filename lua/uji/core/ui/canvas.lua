@@ -9,7 +9,7 @@ local BOXES = {
 
 function M.write(screen, row, col, line, width)
     if width > 0 and row >= 0 and col >= 0 then
-        screen:line(row, col, line, width)
+        screen:line(row, col, line, width, type(line) == "table" and line.on_click or nil)
     end
 end
 
