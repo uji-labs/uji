@@ -1,7 +1,8 @@
+local Approval = require("uji.core.ui.pickers.approval")
 local class = require("uji.core.class")
+local ito = require("ito")
 local keys = require("uji.core.ui.keys")
 local Modal = require("uji.core.ui.views.modal")
-local Scroll = require("uji.core.ui.scroll")
 
 local ALLOW = { y = true, Y = true, ["1"] = true }
 local DENY = { n = true, N = true, ["2"] = true }
@@ -19,8 +20,7 @@ function Confirm:init(opts)
     self.title = opts.title or ""
     self.body = opts.body or ""
     self.allow = true
-    self.scroll = Scroll()
-    self.scroll:top()
+    self.scroll = ito.ScrollState()
 end
 
 function Confirm:accept()
@@ -57,32 +57,16 @@ function Confirm:key(chord, ui)
     end
 end
 
-function Confirm:sections(ctx, width, scroll)
-    local data = { title = self.title, body = self.body, allow = self.allow, keys = KEYS, scroll = scroll }
-    return ctx:element("confirm", data, width)
-end
-
-function Confirm:view(_, ctx, area)
-    local sections = self:sections(ctx, area.width)
-    local head, body, foot = sections.head, sections.body, sections.foot
-    local room = math.max(area.height - #head - #foot, 1)
-    local hidden = math.max(#body - room, 0)
-    local shown = body
-    if hidden > 0 then
-        local offset = self.scroll:resolve(hidden, room)
-        foot = self:sections(ctx, area.width, { first = offset + 1, last = offset + room, total = #body }).foot
-        shown = {}
-        for index = offset + 1, math.min(offset + room, #body) do
-            shown[#shown + 1] = body[index]
-        end
-    end
-    local out = {}
-    for _, part in ipairs({ head, shown, foot }) do
-        for _, line in ipairs(part) do
-            out[#out + 1] = line
-        end
-    end
-    return out
+function Confirm:view(_, _, room)
+    return Approval({
+        title = self.title,
+        body = self.body,
+        allow = self.allow,
+        keys = KEYS,
+        scroll = self.scroll,
+        width = room.width,
+        height = room.height,
+    })
 end
 
 return Confirm

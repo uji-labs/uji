@@ -17,6 +17,10 @@ The default screen shows them like this:
 Items in one section stack in the order they were declared. A section with no
 items takes no room.
 
+An item draws again when something it reads changes: its
+[state](../ito/state.md), or what it reads through `uji.session` and
+`uji.model`.
+
 | Handle | Meaning |
 |---|---|
 | `handle:remove()` | Takes the items off the screen, and returns `true` if they were on it. |
@@ -191,45 +195,6 @@ uji.command.add("commands", {
 
 [Controls](../ito/controls.md) has an overlay with a text field that returns
 what you type.
-
-## uji.ui.template(name, default)
-
-Returns a view that a theme can replace. The view draws the theme's template
-called `name`, or `default` when the theme has none. Both take `ctx`, the
-theme, and the props the view was called with, and return a view. `name`
-needs a dot, such as `"git.branch"`, so it never matches one of uji's own
-templates.
-
-```lua
-local ito = require("ito")
-
-local Branch = uji.ui.template("git.branch", function(ctx, props)
-  return ito.Text(ctx.symbols.pointer .. " " .. props.name):foreground(ctx.colors.accent)
-end)
-
-uji.ui.toolbar({
-  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
-    return Branch({ name = "main" })
-  end),
-})
-```
-
-A theme gives its own under the same name:
-
-```lua
-local ito = require("ito")
-
-return require("uji.themes.default")({
-  templates = {
-    ["git.branch"] = function(ctx, props)
-      return ito.Text("on " .. props.name):dim()
-    end,
-  },
-})
-```
-
-Raises an error for a `name` without a dot, or a `default` that is not a
-function.
 
 ## uji.ui.Markdown(text)
 

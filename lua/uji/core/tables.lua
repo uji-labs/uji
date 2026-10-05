@@ -17,6 +17,12 @@ function M.copy(map)
     return copy
 end
 
+function M.with(map, key, value)
+    local copy = M.copy(map)
+    copy[key] = value
+    return copy
+end
+
 function M.same(left, right)
     if #left ~= #right then
         return false

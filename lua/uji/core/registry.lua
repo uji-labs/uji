@@ -1,4 +1,6 @@
 local class = require("uji.core.class")
+local ito = require("ito")
+local list = require("uji.utils.list")
 
 local DEFAULT_PRIORITY = 50
 
@@ -21,6 +23,7 @@ Registry.DEFAULT_PRIORITY = DEFAULT_PRIORITY
 function Registry:init(owner)
     self.entries = {}
     self.owner = owner
+    ito.observable(self)
 end
 
 function Registry:add(name, value, opts)
@@ -38,7 +41,7 @@ function Registry:add(name, value, opts)
             break
         end
     end
-    table.insert(self.entries, at, entry)
+    self.entries = list.inserted(self.entries, at, entry)
     return Handle(self, entry)
 end
 
@@ -60,14 +63,14 @@ function Registry:remove(name)
     if not index then
         return false
     end
-    table.remove(self.entries, index)
+    self.entries = list.removed(self.entries, index)
     return true
 end
 
 function Registry:drop_entry(entry)
     for index, existing in ipairs(self.entries) do
         if existing == entry then
-            table.remove(self.entries, index)
+            self.entries = list.removed(self.entries, index)
             return true
         end
     end

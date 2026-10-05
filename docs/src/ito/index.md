@@ -32,8 +32,8 @@ on the bar adds the seconds.
 |---|---|
 | A section of the screen | [`uji.ui.toolbar`](../api/ui.md#ujiuitoolbaritems) declares [toolbar items](toolbars.md) for the top bar, the row above the input or the bottom bar. |
 | A box over the screen | [`uji.ui.overlay`](../api/ui.md#ujiuioverlaycontent-opts) shows a view until you close it. |
-| A part a theme can replace | [`uji.ui.template`](../api/ui.md#ujiuitemplatename-default) names a view, and a theme gives its own under that name in `templates`. |
-| The whole screen | `templates.screen` in a theme returns the views of the whole screen. See [The screen](../configuration/themes.md#the-screen). |
+| A part a theme can replace | Any view made with `ito.view`. A theme gives its own in `views`, keyed by the view. See [Views](../configuration/themes.md#views). |
+| The whole screen | A theme replaces `uji.ui.Screen`. See [The screen](../configuration/themes.md#the-screen). |
 
 ## Pages
 

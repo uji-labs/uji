@@ -1,5 +1,18 @@
 # State
 
+## When a view runs again
+
+A view's body runs again only when one of these changes:
+
+- its props, compared value by value,
+- the theme, or a `Local` it reads,
+- a state, or a field of an observable object, that it or a view inside it
+  read.
+
+Otherwise the view keeps what it built on the last frame. So a value that
+changes reaches a view through its props, a state or an observable object.
+A plain table changed in place does not count as a change.
+
 ## ito.state(initial)
 
 Gives a value you read and set through `.value`, starting with the one you
@@ -55,16 +68,63 @@ uji.ui.toolbar({
 })
 ```
 
-## ito.remember(factory)
+## ito.remember(factory, ...)
 
 Calls `factory` the first time the view is built and gives the same value
-back on every later frame. Unlike a state, it never draws a new frame. Use it
-only inside the body of a view. Anywhere else it raises an error.
+back on every later frame. Values passed after `factory` are its keys: when
+one of them changes, `factory` runs again. Unlike a state, it never draws a
+new frame. Use it only inside the body of a view. Anywhere else it raises an
+error.
 
 ```lua
-local Uptime = ito.view(function()
-  local started = ito.remember(os.time)
-  return ito.Text(os.difftime(os.time(), started) .. " seconds")
+local Opened = ito.view(function()
+  local opened = ito.remember(os.date)
+  return ito.Text("opened " .. opened)
+end)
+
+local Words = ito.view(function(props)
+  local count = ito.remember(function()
+    local total = 0
+    for _ in props.text:gmatch("%S+") do
+      total = total + 1
+    end
+    return total
+  end, props.text)
+  return ito.Text(count .. " words")
+end)
+```
+
+## ito.observable(object)
+
+Makes the fields of a table or object observable, and returns it. A view
+that reads a field runs again when that field is set to a different value.
+Methods work as before.
+
+Setting a field is what counts. Changing a table stored in a field, such as
+adding to a list, does not, so set the field to a new table instead. A field
+set with `rawset` is not observed, which suits values a view never shows,
+such as caches.
+
+```lua
+local ito = require("ito")
+
+local Queue = {}
+Queue.__index = Queue
+
+function Queue.new()
+  return ito.observable(setmetatable({ items = {} }, Queue))
+end
+
+function Queue:push(item)
+  local items = { unpack(self.items) }
+  items[#items + 1] = item
+  self.items = items
+end
+
+local queue = Queue.new()
+
+local Pending = ito.view(function()
+  return ito.Text(#queue.items .. " queued")
 end)
 ```
 
@@ -95,9 +155,9 @@ end)
 
 ## ito.theme()
 
-Returns the theme in use, the same `ctx` that templates take. It has `styles`,
-`colors`, `symbols`, `borders`, `text`, `limits`, `options` and `templates`,
-and the helpers that [Templates](../configuration/themes.md#templates) lists.
+Returns the theme in use. It has `styles`, `colors`, `symbols`, `borders`,
+`text`, `limits`, `options` and `views`, and the helpers that
+[Views](../configuration/themes.md#views) lists.
 It works in views, toolbar items and
 [`render_message`](../api/events.md#render_message) handlers alike.
 

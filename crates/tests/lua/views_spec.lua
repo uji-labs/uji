@@ -152,9 +152,9 @@ describe("views for plugins", function()
         assert.same({ unpack(before, 1, 10) }, { unpack(after, 1, 10) })
     end)
 
-    it("lets a theme restyle a plugin's template", { size = { 30, 6 } }, function()
+    it("lets a theme restyle a plugin's view", { size = { 30, 6 } }, function()
         local kit = require("ito")
-        local Badge = uji.ui.template("demo.badge", function(_, props)
+        local Badge = kit.view(function(props)
             return kit.Text("[" .. props.label .. "]")
         end)
         uji.ui.toolbar({
@@ -165,17 +165,14 @@ describe("views for plugins", function()
         assert.equal("[ok]", trimmed(screen.rows(true)[1]))
         uji.ui.configure({
             theme = require("uji.themes.default")({
-                templates = {
-                    ["demo.badge"] = function(_, props)
+                views = {
+                    [Badge] = function(props)
                         return kit.Text("<" .. props.label .. ">")
                     end,
                 },
             }),
         })
         assert.equal("<ok>", trimmed(screen.rows(true)[1]))
-        assert.has_error(function()
-            uji.ui.template("nodot", function() end)
-        end)
         assert.has_error(function()
             uji.ui.toolbar("text")
         end, "uji.ui.toolbar takes a list of ito.ToolbarItem")
@@ -185,8 +182,8 @@ describe("views for plugins", function()
         local kit = require("ito")
         uji.ui.configure({
             theme = require("uji.themes.default")({
-                templates = {
-                    screen = function()
+                views = {
+                    [uji.ui.Screen] = function()
                         return kit.VStack({ uji.ui.Markdown("# Title\n\nSome **text**.") })
                     end,
                 },

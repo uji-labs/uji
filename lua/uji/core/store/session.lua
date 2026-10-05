@@ -1,6 +1,8 @@
 local class = require("uji.core.class")
 local event = require("uji.core.event")
 local id = require("uji.core.id")
+local ito = require("ito")
+local list = require("uji.utils.list")
 local sys = require("uji.sys")
 local tables = require("uji.core.tables")
 local tokens = require("uji.core.agent.tokens")
@@ -11,11 +13,13 @@ local function usage()
     return { input = 0, output = 0, cache_read = 0, cache_write = 0 }
 end
 
-local function add(into, other)
-    into.input = into.input + (other.input or 0)
-    into.output = into.output + (other.output or 0)
-    into.cache_read = into.cache_read + (other.cache_read or 0)
-    into.cache_write = into.cache_write + (other.cache_write or 0)
+local function summed(into, other)
+    return {
+        input = into.input + (other.input or 0),
+        output = into.output + (other.output or 0),
+        cache_read = into.cache_read + (other.cache_read or 0),
+        cache_write = into.cache_write + (other.cache_write or 0),
+    }
 end
 
 local function prefix(value)
@@ -45,6 +49,7 @@ function Session:init(store, row)
     self.tally = { usage = usage(), last = usage(), turns = 0 }
     self.reported_input = 0
     self.reported_seq = 0
+    ito.observable(self)
 end
 
 function Session:entries()
@@ -94,7 +99,7 @@ function Session:append(message)
         self.reported_input = 0
         self.reported_seq = 0
     end
-    stored[#stored + 1] = entry
+    self.stored = list.appended(stored, entry)
     event.emit("message_appended", { type = message.type, text = tokens.text(message) })
     if not ok then
         return entry, "failed to persist " .. message.type .. " message: " .. sys.message(err)
@@ -138,7 +143,8 @@ function Session:unanswered_calls()
 end
 
 function Session:add_cost(spent)
-    add(self.tally.usage, spent)
+    local tally = self.tally
+    self.tally = { usage = summed(tally.usage, spent), last = tally.last, turns = tally.turns }
 end
 
 function Session:add_usage(spent)
@@ -146,14 +152,17 @@ function Session:add_usage(spent)
         self.reported_input = prefix(spent)
         self.reported_seq = self:last_seq()
     end
-    self.tally.last = {
-        input = spent.input or 0,
-        output = spent.output or 0,
-        cache_read = spent.cache_read or 0,
-        cache_write = spent.cache_write or 0,
+    local tally = self.tally
+    self.tally = {
+        usage = summed(tally.usage, spent),
+        last = {
+            input = spent.input or 0,
+            output = spent.output or 0,
+            cache_read = spent.cache_read or 0,
+            cache_write = spent.cache_write or 0,
+        },
+        turns = tally.turns + 1,
     }
-    add(self.tally.usage, spent)
-    self.tally.turns = self.tally.turns + 1
 end
 
 function Session:used_tokens()

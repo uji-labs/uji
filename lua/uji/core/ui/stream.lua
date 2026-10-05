@@ -1,4 +1,5 @@
 local class = require("uji.core.class")
+local ito = require("ito")
 
 local EASE = 6
 local MIN = 3
@@ -8,13 +9,14 @@ local BURST = 4096
 local Stream = class()
 
 function Stream:init()
+    ito.observable(self)
     self:clear()
 end
 
 function Stream:clear()
-    self.parts = {}
+    rawset(self, "parts", {})
+    rawset(self, "joined", "")
     self.length = 0
-    self.joined = ""
     self.revealed = 0
 end
 
@@ -25,8 +27,8 @@ end
 
 function Stream:text()
     if #self.parts > 0 then
-        self.joined = self.joined .. table.concat(self.parts)
-        self.parts = {}
+        rawset(self, "joined", self.joined .. table.concat(self.parts))
+        rawset(self, "parts", {})
     end
     return self.joined
 end

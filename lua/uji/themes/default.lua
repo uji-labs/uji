@@ -1,5 +1,4 @@
 local ito = require("ito")
-local templates = require("uji.core.ui.theme.templates")
 
 local COLORS = {
     text = ito.rgb(0xd4d4d4),
@@ -184,6 +183,6 @@ return function(changes)
         text = merged(TEXT, changes.text),
         limits = merged(LIMITS, changes.limits),
         options = merged({}, changes.options),
-        templates = merged(templates, changes.templates),
+        views = merged({}, changes.views),
     }
 end

@@ -18,20 +18,19 @@ function Input:init()
     self.key = nil
 end
 
-function Input:layout(ui, width, height)
-    local line = ui.composer.line
-    local focused = ui:composing()
+function Input:layout(ui, draft, width, height)
+    local focused = draft.focused
     local tokens = ui.theme.tokens
     local margin = math.max(height or 0, tokens.limits.input_rows) + 1
-    local key = table.concat({ line.revision, line.cursor, width, margin, tostring(focused), ui.theme.revision }, ":")
+    local key = table.concat({ draft.revision, draft.cursor, width, margin, tostring(focused), ui.theme.revision }, ":")
     if self.key == key then
         return self.cached
     end
-    local anchor = focused and line.cursor or 0
-    local from = text.line_start(line.text, anchor, margin)
-    local shown = line.text:sub(from + 1, text.line_end(line.text, anchor, margin))
+    local anchor = focused and draft.cursor or 0
+    local from = text.line_start(draft.text, anchor, margin)
+    local shown = draft.text:sub(from + 1, text.line_end(draft.text, anchor, margin))
     local display = text.chars(shown)
-    local cursor = text.length(shown:sub(1, line.cursor - from))
+    local cursor = text.length(shown:sub(1, draft.cursor - from))
     if focused then
         table.insert(display, cursor + 1, tokens.symbols.cursor)
     end
@@ -44,13 +43,13 @@ function Input:layout(ui, width, height)
     return self.cached
 end
 
-function Input:rows(ui, width)
-    return math.min(math.max(#self:layout(ui, width).rows, 1), ui.theme.tokens.limits.input_rows)
+function Input:rows(ui, draft, width)
+    return math.min(math.max(#self:layout(ui, draft, width).rows, 1), ui.theme.tokens.limits.input_rows)
 end
 
-function Input:view(ui, ctx, area)
-    local height = math.max(area.height, 1)
-    local shape = self:layout(ui, area.width, height)
+function Input:shown(ui, draft, width)
+    local height = self:rows(ui, draft, width)
+    local shape = self:layout(ui, draft, width, height)
     local cursor, rows, display = shape.cursor, shape.rows, shape.display
     local cursor_row = 1
     if cursor then
@@ -71,7 +70,10 @@ function Input:view(ui, ctx, area)
             shown[#shown + 1] = { before = collect(display, row[1], row[2]) }
         end
     end
-    return ctx:element("input", { rows = shown }, area.width)
+    if #shown == 0 then
+        shown[1] = { before = "" }
+    end
+    return shown
 end
 
 return Input

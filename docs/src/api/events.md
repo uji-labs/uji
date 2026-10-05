@@ -162,17 +162,17 @@ end)
 Runs when uji draws a block of the transcript. The payload has `type`, `text`
 and `width`, the columns the transcript has, and also `name` for tool results
 and `tool_calls` for assistant messages. Besides the message types, `type` can
-be `notice`, `pending`, `thinking` or `queued`. Return a list of lines to draw
-instead of the default, in the form [templates](../configuration/themes.md#templates)
-return them. A line is a list of spans, and a span is `{ text, style }` with a
-style from `ito.theme().styles`. The first handler to return lines wins.
+be `notice`, `pending`, `thinking` or `queued`. Return a
+[view](../ito/views.md) to draw instead of the default. The first handler to
+return a view wins, and a handler that returns something else is skipped with a
+notice.
 
 ```lua
 local ito = require("ito")
 
 uji.on("render_message", function(block)
   if block.type == "tool" and block.name == "todo" then
-    return { { { "  task list updated", ito.theme().styles.muted } } }
+    return ito.Text("  task list updated"):style(ito.theme().styles.muted)
   end
 end)
 ```

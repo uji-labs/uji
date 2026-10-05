@@ -61,6 +61,7 @@
   - [State](ito/state.md)
   - [Controls](ito/controls.md)
   - [Toolbars](ito/toolbars.md)
+  - [Window](ito/window.md)
   - [Terminal](ito/terminal.md)
 - [Runtime](runtime/index.md)
   - [Tasks](runtime/tasks.md)

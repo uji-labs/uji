@@ -1,18 +1,18 @@
 local class = require("uji.core.class")
+local CodeBlock = require("uji.core.ui.markdown.code_block")
+local Heading = require("uji.core.ui.markdown.heading")
 local highlight = require("uji.core.ui.markdown.highlight")
+local ito = require("ito")
 local latex = require("uji.core.ui.markdown.latex")
+local MathBlock = require("uji.core.ui.markdown.math_block")
+local Paragraph = require("uji.core.ui.markdown.paragraph")
+local Rule = require("uji.core.ui.markdown.rule")
 local sys = require("uji.sys")
-local text = require("ito").text
+local TableRow = require("uji.core.ui.markdown.table_row")
+
+local text = ito.text
 
 local MODIFIERS = { "emphasis", "strong", "strikethrough", "link" }
-
-local function width_of(line)
-    local total = 0
-    for _, span in ipairs(line) do
-        total = total + text.width(span[1])
-    end
-    return total
-end
 
 local Block = class()
 
@@ -47,38 +47,6 @@ function Block:push(value, style)
     self.pending_space = value:sub(-1) == " "
 end
 
-local function finish_line(spans, indent)
-    if indent ~= "" then
-        table.insert(spans, 1, { indent })
-    end
-    return spans
-end
-
-function Block:drain(width)
-    local tokens, indent, hanging = self.tokens, self.indent, self.hanging
-    self:init()
-    local usable = math.max(width - text.width(indent), 1)
-    local lines, spans, used, first = {}, {}, 0, true
-    for _, token in ipairs(tokens) do
-        local size = text.width(token.text)
-        local gap = (token.spaced and used > 0) and 1 or 0
-        if used > 0 and used + gap + size > usable then
-            lines[#lines + 1] = finish_line(spans, first and indent or hanging)
-            spans, used, first = {}, 0, false
-        end
-        if used > 0 and token.spaced then
-            spans[#spans + 1] = { " " }
-            used = used + 1
-        end
-        spans[#spans + 1] = { token.text, token.style }
-        used = used + size
-    end
-    if #spans > 0 then
-        lines[#lines + 1] = finish_line(spans, first and indent or hanging)
-    end
-    return lines
-end
-
 local function item_marker(ctx, list)
     local last = list[#list]
     if type(last) == "number" then
@@ -91,8 +59,9 @@ end
 
 local Renderer = class()
 
-function Renderer:init(ctx, width)
-    self.lines = {}
+function Renderer:init(ctx)
+    self.blocks = {}
+    self.gaps = {}
     self.block = Block()
     self.ctx = ctx
     self.style = ctx.styles.text
@@ -102,34 +71,34 @@ function Renderer:init(ctx, width)
     self.in_code = false
     self.highlighter = nil
     self.marker = nil
-    self.width = width
     self.row = nil
 end
 
+function Renderer:add(view)
+    self.blocks[#self.blocks + 1] = view
+end
+
 function Renderer:flush()
-    if #self.block.tokens > 0 then
-        for _, line in ipairs(self.block:drain(self.width)) do
-            self.lines[#self.lines + 1] = line
-        end
+    local block = self.block
+    if #block.tokens > 0 then
+        self:add(Paragraph({ tokens = block.tokens, indent = block.indent, hanging = block.hanging }))
+        self.block = Block()
     end
 end
 
 function Renderer:gap()
-    for _ = 1, self.ctx.limits.block_gap do
-        self.lines[#self.lines + 1] = {}
+    local rows = self.ctx.limits.block_gap
+    if rows > 0 then
+        local spacer = ito.Spacer():height(rows)
+        self.gaps[spacer] = true
+        self:add(spacer)
     end
 end
 
 function Renderer:blank()
-    local last = self.lines[#self.lines]
-    if last and width_of(last) > 0 then
+    local last = self.blocks[#self.blocks]
+    if last and not self.gaps[last] then
         self:gap()
-    end
-end
-
-function Renderer:element(name, data)
-    for _, line in ipairs(self.ctx:element(name, data, self.width)) do
-        self.lines[#self.lines + 1] = line
     end
 end
 
@@ -171,7 +140,7 @@ end
 function Renderer:finish_row()
     local row = self.row
     self.row = nil
-    self:element("table_row", row)
+    self:add(TableRow(row))
 end
 
 function Renderer:inline(value, style)
@@ -194,19 +163,19 @@ function Renderer:close_heading()
         return
     end
     self.heading = nil
-    local lines = {}
-    for index = heading.from, #self.lines do
-        lines[#lines + 1] = self.lines[index]
-        self.lines[index] = nil
+    local parts = {}
+    for index = heading.from, #self.blocks do
+        parts[#parts + 1] = self.blocks[index]
+        self.blocks[index] = nil
     end
-    self:element("heading", { level = heading.level, lines = lines })
+    self:add(Heading({ level = heading.level, content = ito.VStack(parts) }))
 end
 
 function Renderer:close_code()
     local block = self.code_block
     if block then
         self.code_block = nil
-        self:element("code_block", block)
+        self:add(CodeBlock(block))
     end
 end
 
@@ -217,7 +186,7 @@ function Renderer:math(source, display)
         return
     end
     self:break_block()
-    self:element("math_block", { lines = text.lines(rendered) })
+    self:add(MathBlock({ lines = text.lines(rendered) }))
 end
 
 local START = {}
@@ -246,7 +215,7 @@ end
 
 function START.heading(self, level)
     self:break_block()
-    self.heading = { level = level, from = #self.lines + 1 }
+    self.heading = { level = level, from = #self.blocks + 1 }
     self.style = self.ctx.styles["heading" .. level]
 end
 
@@ -362,7 +331,7 @@ local EVENTS = {
     end,
     rule = function(self)
         self:break_block()
-        self:element("rule", {})
+        self:add(Rule())
     end,
 }
 
@@ -377,28 +346,35 @@ function Renderer:finish()
     self:flush()
     self:close_heading()
     self:close_code()
-    while #self.lines > 0 and width_of(self.lines[#self.lines]) == 0 do
-        self.lines[#self.lines] = nil
+    while #self.blocks > 0 and self.gaps[self.blocks[#self.blocks]] do
+        self.blocks[#self.blocks] = nil
     end
-    return self.lines
+    return self.blocks
 end
 
 local M = {}
 
-M.width_of = width_of
-
 M.parse = sys.markdown
 
-function M.render(ctx, opts)
-    local renderer = Renderer(ctx, opts.width)
-    if opts.continuing then
+function M.blocks(ctx, events, continuing)
+    local renderer = Renderer(ctx)
+    if continuing then
         renderer:gap()
     end
-    for _, event in ipairs(opts.events) do
+    for _, event in ipairs(events) do
         renderer:event(event)
     end
     return renderer:finish()
 end
+
+M.Markdown = ito.view(function(props)
+    local source = type(props) == "string" and props or props.text
+    local ctx = ito.theme()
+    local blocks = ito.remember(function()
+        return M.blocks(ctx, M.parse(source))
+    end, source, ctx)
+    return ito.VStack(blocks)
+end)
 
 function M.split(events, cut)
     local head, rest = {}, {}

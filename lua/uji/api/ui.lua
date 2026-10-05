@@ -6,7 +6,7 @@ local images = require("uji.core.images")
 local keys = require("uji.core.ui.keys")
 local Keymap = require("uji.core.ui.keymap")
 local Overlay = require("uji.core.ui.views.overlay")
-local parts = require("uji.core.ui.parts")
+local markdown = require("uji.core.ui.markdown")
 local Pick = require("uji.core.ui.views.pick")
 local process = require("uji.core.system.process")
 local Prompt = require("uji.core.ui.views.prompt")
@@ -97,18 +97,6 @@ M.ui = {
             end,
         }
     end,
-    template = function(name, default)
-        if type(name) ~= "string" or not name:find(".", 1, true) then
-            error("a plugin's template needs a name with a dot, such as `plugin.part`", 2)
-        end
-        if type(default) ~= "function" then
-            error("uji.ui.template needs the default template as a function", 2)
-        end
-        return ito.view(function(props)
-            local ctx = ito.theme()
-            return (ctx.templates[name] or default)(ctx, props)
-        end)
-    end,
     exec = function(cmd)
         ui:exec(process.argv(cmd))
     end,
@@ -121,7 +109,37 @@ M.ui = {
     end,
 }
 
-M.ui.Markdown = parts.Markdown
+M.ui.Markdown = markdown.Markdown
+
+M.ui.Screen = require("uji.core.ui.screen").Screen
+M.ui.Activity = require("uji.core.ui.activity")
+M.ui.Input = require("uji.core.ui.input")
+M.ui.Flash = require("uji.core.ui.flash")
+M.ui.UserMessage = require("uji.core.ui.transcript.user")
+M.ui.ToolCall = require("uji.core.ui.transcript.tool_call")
+M.ui.ToolOutput = require("uji.core.ui.transcript.tool_output")
+M.ui.Shell = require("uji.core.ui.transcript.shell")
+M.ui.SystemMessage = require("uji.core.ui.transcript.system")
+M.ui.ErrorMessage = require("uji.core.ui.transcript.error")
+M.ui.Notice = require("uji.core.ui.transcript.notice")
+M.ui.Thinking = require("uji.core.ui.transcript.thinking")
+M.ui.Queued = require("uji.core.ui.transcript.queued")
+M.ui.Compaction = require("uji.core.ui.transcript.compaction")
+M.ui.Running = require("uji.core.ui.transcript.running")
+M.ui.Partial = require("uji.core.ui.transcript.partial")
+M.ui.Jump = require("uji.core.ui.transcript.jump")
+M.ui.Paragraph = require("uji.core.ui.markdown.paragraph")
+M.ui.Heading = require("uji.core.ui.markdown.heading")
+M.ui.CodeBlock = require("uji.core.ui.markdown.code_block")
+M.ui.MathBlock = require("uji.core.ui.markdown.math_block")
+M.ui.TableRow = require("uji.core.ui.markdown.table_row")
+M.ui.Rule = require("uji.core.ui.markdown.rule")
+M.ui.SelectList = require("uji.core.ui.pickers.select_list")
+M.ui.PromptField = require("uji.core.ui.pickers.prompt_field")
+M.ui.Suggestions = require("uji.core.ui.pickers.suggestions")
+M.ui.Approval = require("uji.core.ui.pickers.approval")
+M.ui.Picker = require("uji.core.ui.pickers.picker")
+M.ui.Sessions = require("uji.core.ui.pickers.sessions")
 
 M.input = {
     get = function()

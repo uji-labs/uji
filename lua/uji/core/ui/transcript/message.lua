@@ -1,0 +1,10 @@
+local ito = require("ito")
+local rows = require("uji.core.ui.transcript.rows")
+
+return ito.view(function(props)
+    local ctx = ito.theme()
+    local views = ito.remember(function()
+        return rows.entry(ctx, props.message, props)
+    end, props.message, ctx, props.gap, props.thinking, props.custom, props.expanded)
+    return ito.Group(views)
+end)

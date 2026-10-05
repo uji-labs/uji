@@ -1,5 +1,6 @@
 local class = require("uji.core.class")
 local render = require("uji.core.ui.render")
+local SessionList = require("uji.core.ui.pickers.sessions")
 local sys = require("uji.sys")
 local ui = require("uji.core.ui")
 
@@ -39,12 +40,17 @@ function Sessions:key(incoming)
 end
 
 function Sessions:draw()
-    render.show(ui, "sessions", {
-        directory = self.directory,
-        sessions = self.sessions,
-        cursor = self.cursor,
-        now = sys.os.now(),
-    })
+    local _, height = ui:open():size()
+    render.show(
+        ui,
+        SessionList({
+            directory = self.directory,
+            sessions = self.sessions,
+            cursor = self.cursor,
+            now = sys.os.now(),
+            height = height,
+        })
+    )
 end
 
 local M = { Sessions = Sessions }

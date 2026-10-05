@@ -3,6 +3,8 @@ local compactor = require("uji.core.agent.compactor")
 local context = require("uji.core.context")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
+local ito = require("ito")
+local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local notices = require("uji.core.notices")
 local process = require("uji.core.system.process")
@@ -63,6 +65,7 @@ function Agent:init(session)
     self.confirm = function()
         return false
     end
+    ito.observable(self)
 end
 
 function Agent:working()
@@ -117,7 +120,7 @@ local function said(text, attached)
 end
 
 function Agent:enqueue(text, attached)
-    self.queue[#self.queue + 1] = { text = text, images = attached }
+    self.queue = list.appended(self.queue, { text = text, images = attached })
     self:sync_queue()
 end
 
@@ -126,10 +129,11 @@ function Agent:queued()
 end
 
 function Agent:steer()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if not queued then
         return nil
     end
+    self.queue = list.removed(self.queue, 1)
     self:clear_stream()
     local message = said(queued.text, queued.images)
     self:append(message)
@@ -138,8 +142,9 @@ function Agent:steer()
 end
 
 function Agent:send_queued()
-    local queued = table.remove(self.queue, 1)
+    local queued = self.queue[1]
     if queued then
+        self.queue = list.removed(self.queue, 1)
         self:sync_queue()
         self:submit(queued.text, queued.images)
     end

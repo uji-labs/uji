@@ -4,8 +4,7 @@ local class = require("uji.core.class")
 local screen = require("support.ui")
 local server = require("support.server")
 local sys = require("uji.sys")
-local text = require("ito").text
-local Transcript = require("uji.core.ui.transcript")
+local ito = require("ito")
 local ui = require("uji.core.ui")
 
 local POLL = 0.01
@@ -157,8 +156,10 @@ end
 
 function Context:cold()
     app.session.stored = nil
-    ui.views.messages.transcript = Transcript(ui.views.messages.blocks)
-    ui.scroll:follow()
+    ui.window = ito.Window(ui.screen, function()
+        ui:invalidate()
+    end)
+    ui.scroll:to_end()
     self:frame()
 end
 
@@ -208,7 +209,7 @@ function STEPS.press(ctx, key)
 end
 
 function STEPS.type(ctx, typed)
-    for char in ctx:value(typed):gmatch(text.CHAR) do
+    for char in ctx:value(typed):gmatch(ito.text.CHAR) do
         screen.typing(char)
         ctx:frame()
     end
@@ -248,9 +249,10 @@ end
 function STEPS.top(ctx)
     ctx:cold()
     local _, height = ui.screen:size()
-    local transcript = ui.views.messages.transcript
-    while transcript.first > 1 or ui.scroll.resolved > 0 do
-        ui.scroll:up(height)
+    local before
+    while ui.scroll.moved ~= before do
+        before = ui.scroll.moved
+        ui.scroll:scroll(-height)
         ctx:frame()
     end
 end

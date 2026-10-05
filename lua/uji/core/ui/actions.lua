@@ -64,22 +64,22 @@ local RUN = {
     word_left = edit(Line.word_left),
     word_right = edit(Line.word_right),
     scroll_up = scroll(function(target)
-        target:up(1)
+        target:scroll(-1)
     end),
     scroll_down = scroll(function(target)
-        target:down(1)
+        target:scroll(1)
     end),
     page_up = scroll(function(target)
-        target:up(math.max(target.viewport, 1))
+        target:scroll(-math.max(target.page, 1))
     end),
     page_down = scroll(function(target)
-        target:down(math.max(target.viewport, 1))
+        target:scroll(math.max(target.page, 1))
     end),
     scroll_top = scroll(function(target)
-        target:top()
+        target:to_top()
     end),
     scroll_bottom = scroll(function(target)
-        target:follow()
+        target:to_end()
     end),
     history_prev = function(ui)
         ui:history(-1)
