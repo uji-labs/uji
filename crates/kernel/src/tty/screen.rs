@@ -82,9 +82,7 @@ impl Screen {
             self.flushed = false;
             self.targets.clear();
         }
-        if on_click.is_some() || !self.targets.is_empty() {
-            self.targets.push(Target { area, on_click });
-        }
+        self.targets.push(Target { area, on_click });
     }
 
     fn resolve(&self, id: Option<usize>) -> io::Result<Style> {
@@ -168,6 +166,20 @@ fn color(text: Option<&str>) -> io::Result<Option<Color>> {
 }
 
 #[options]
+struct Area {
+    x: i64,
+    y: i64,
+    width: i64,
+    height: i64,
+}
+
+impl Area {
+    fn rect(&self) -> Rect {
+        region(self.y, self.x, self.width, self.height)
+    }
+}
+
+#[options]
 struct StyleSpec {
     fg: Option<String>,
     bg: Option<String>,
@@ -211,14 +223,7 @@ impl Screen {
         Ok(self.styles.len())
     }
 
-    fn line(
-        &mut self,
-        row: i64,
-        col: i64,
-        spans: Value,
-        width: Option<i64>,
-        on_click: Option<Function>,
-    ) -> mlua::Result<i64> {
+    fn line(&mut self, row: i64, col: i64, spans: Value, width: Option<i64>) -> mlua::Result<i64> {
         let area = self.surface.buffer().area;
         let (Ok(top), Ok(left)) = (u16::try_from(row), u16::try_from(col)) else {
             return Ok(col);
@@ -229,6 +234,10 @@ impl Screen {
         let right = width.map_or(area.width, |width| {
             region(row, col, width, 1).right().min(area.width)
         });
+        let on_click = match &spans {
+            Value::Table(spans) => spans.raw_get("on_click")?,
+            _ => None,
+        };
         self.target(
             Rect::new(left, top, right.saturating_sub(left), 1),
             on_click,
@@ -248,35 +257,16 @@ impl Screen {
         end.map(i64::from)
     }
 
-    fn fill(
-        &mut self,
-        row: i64,
-        col: i64,
-        width: i64,
-        height: i64,
-        style: Option<usize>,
-        symbol: Option<&str>,
-    ) -> io::Result<()> {
+    fn fill(&mut self, area: &Area, style: Option<usize>, symbol: Option<&str>) -> io::Result<()> {
         let style = self.resolve(style)?;
-        self.cover(
-            region(row, col, width, height),
-            style,
-            symbol.unwrap_or(" "),
-        );
+        self.cover(area.rect(), style, symbol.unwrap_or(" "));
         Ok(())
     }
 
-    fn paint(
-        &mut self,
-        row: i64,
-        col: i64,
-        width: i64,
-        height: i64,
-        style: usize,
-    ) -> io::Result<()> {
+    fn paint(&mut self, area: &Area, style: usize) -> io::Result<()> {
         let style = self.resolve(Some(style))?;
         let buffer = self.surface.buffer();
-        let area = region(row, col, width, height).intersection(buffer.area);
+        let area = area.rect().intersection(buffer.area);
         buffer.set_style(area, style);
         Ok(())
     }

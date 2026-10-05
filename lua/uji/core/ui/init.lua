@@ -522,7 +522,7 @@ function Ui:mouse(incoming)
         if copied then
             self:copy(copied)
         elseif click then
-            click(incoming)
+            click(self, incoming)
         end
     else
         return
@@ -618,7 +618,7 @@ function Ui:paint()
     self.selection:sync(screen, width, height, self.palette.reverse, not modal and pane or nil)
     if self.flashed then
         local size = math.min(text.width(self.flashed.text), width)
-        canvas.write(screen, 0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
+        screen:line(0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
     end
 end
 

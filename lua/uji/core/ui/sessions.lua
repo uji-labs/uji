@@ -121,7 +121,7 @@ function Sessions:draw(screen, palette)
             { " quit", palette.muted },
         }
     end
-    canvas.write(screen, height - 1, 0, hint, width)
+    screen:line(height - 1, 0, hint, width)
     screen:flush()
 end
 

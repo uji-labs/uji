@@ -180,7 +180,7 @@ end)
 
 it("draws nothing for screen calls off the screen and raises for bad ones", function()
     local screen = sys.tty.open()
-    assert.is_true((pcall(screen.fill, screen, -3, -3, 5, 5)))
+    assert.is_true((pcall(screen.fill, screen, { x = -3, y = -3, width = 5, height = 5 })))
     assert.equal(0, screen:line(-1, 0, "x"), "a row above the screen draws nothing")
     assert.equal(-4, screen:line(0, -4, "x"), "the column stays where it was")
     assert.equal(0, screen:line(10000, 0, "x"), "a row below the screen draws nothing")
@@ -190,7 +190,7 @@ it("draws nothing for screen calls off the screen and raises for bad ones", func
     assert.is_true(raises(screen.line, screen, 0, 0, { 42 }))
     assert.is_true(raises(screen.style, screen, { fg = "not-a-colour" }))
     assert.is_true(raises(screen.cursor, screen, 0, 0, "wiggle"))
-    assert.is_true(raises(screen.paint, screen, 0, 0, 1, 1, 9999))
+    assert.is_true(raises(screen.paint, screen, { x = 0, y = 0, width = 1, height = 1 }, 9999))
 end)
 
 it("says where it looked for a missing module", function()

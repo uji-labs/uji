@@ -88,7 +88,8 @@ local function opens_group(message)
     return message.type == "tool" or (message.type == "assistant" and #(message.tool_calls or {}) > 0)
 end
 
-function Transcript:init()
+function Transcript:init(renderer)
+    self.renderer = renderer
     self.width = -1
     self.thinking = false
     self.revision = -1
@@ -96,6 +97,8 @@ function Transcript:init()
     self.queued = Cached()
     self.pending = Streamed()
     self.reasoning = Streamed()
+    self.expanded = {}
+    self.toggled = {}
     self:reset()
 end
 
@@ -108,7 +111,11 @@ function Transcript:reset()
     self.fresh = true
 end
 
-function Transcript:block(entries, index, render)
+function Transcript:render(out, block)
+    self.renderer:render(out, block, self.width)
+end
+
+function Transcript:block(entries, index)
     local lines = {}
     local entry = entries[index]
     local message = entry.message
@@ -126,26 +133,38 @@ function Transcript:block(entries, index, render)
         lines[1] = {}
     end
     if self.thinking and message.reasoning and message.reasoning ~= "" then
-        render(lines, { kind = "thinking", text = message.reasoning })
+        self:render(lines, { kind = "thinking", text = message.reasoning })
     end
-    render(lines, { kind = "message", message = message, id = entry.id })
+    local id = entry.id
+    self:render(lines, {
+        kind = "message",
+        message = message,
+        expanded = self.expanded[id],
+        toggle = function()
+            self.expanded[id] = not self.expanded[id] or nil
+            self.toggled[id] = true
+        end,
+    })
     return lines
 end
 
-function Transcript:refresh(entries, ids, render)
-    if not next(ids) then
-        return
+function Transcript:refresh(entries)
+    local toggled = self.toggled
+    if not next(toggled) then
+        return false
     end
+    self.toggled = {}
     for index = self.first, math.min(self.last, #entries) do
-        if ids[entries[index].id] then
-            local lines = self:block(entries, index, render)
+        if toggled[entries[index].id] then
+            local lines = self:block(entries, index)
             self.count = self.count + #lines - #self.blocks[index]
             self.blocks[index] = lines
         end
     end
+    return true
 end
 
-function Transcript:sync(entries, render)
+function Transcript:sync(entries)
     local total = #entries
     if self.last > total or (self.last > 0 and entries[self.last].seq ~= self.last_seq) then
         self:reset()
@@ -154,7 +173,7 @@ function Transcript:sync(entries, render)
         self.first = total + 1
     else
         for index = self.last + 1, total do
-            local lines = self:block(entries, index, render)
+            local lines = self:block(entries, index)
             self.blocks[index] = lines
             self.count = self.count + #lines
         end
@@ -163,11 +182,11 @@ function Transcript:sync(entries, render)
     self.last_seq = total > 0 and entries[total].seq or nil
 end
 
-function Transcript:extend(entries, want, render)
+function Transcript:extend(entries, want)
     local before = self.count
     while self.count < want and self.first > 1 do
         self.first = self.first - 1
-        local lines = self:block(entries, self.first, render)
+        local lines = self:block(entries, self.first)
         self.blocks[self.first] = lines
         self.count = self.count + #lines
     end
@@ -184,7 +203,7 @@ function Transcript:rows()
     return rows
 end
 
-function Transcript:frame(input, split, render, want)
+function Transcript:frame(input)
     if self.width ~= input.width or self.revision ~= input.revision or self.thinking ~= input.thinking then
         self.width = input.width
         self.revision = input.revision
@@ -195,31 +214,32 @@ function Transcript:frame(input, split, render, want)
         self.pending:clear()
         self.reasoning:clear()
     end
-    self:sync(input.entries, render)
-    self:refresh(input.entries, input.toggled, render)
-    local prepended = self:extend(input.entries, want, render)
+    self:sync(input.entries)
+    local toggled = self:refresh(input.entries)
+    local prepended = self:extend(input.entries, input.want)
     if self.fresh then
         prepended = nil
         self.fresh = false
     end
     local notices = self.notices:get(input.notices, function(lines)
         for _, notice in ipairs(input.notices) do
-            render(lines, { kind = "notice", text = notice })
+            self:render(lines, { kind = "notice", text = notice })
         end
     end)
     local queued = self.queued:get(input.queued, function(lines)
         for _, queued in ipairs(input.queued) do
-            render(lines, { kind = "queued", text = queued.text })
+            self:render(lines, { kind = "queued", text = queued.text })
         end
     end)
-    self.reasoning:update(input.thinking and input.reasoning or "", split, function(lines, chunk)
-        render(lines, { kind = "thinking", text = chunk })
+    self.reasoning:update(input.thinking and input.reasoning or "", input.split, function(lines, chunk)
+        self:render(lines, { kind = "thinking", text = chunk })
     end)
-    self.pending:update(input.pending, split, function(lines, chunk, continuing, events)
-        render(lines, { kind = "pending", text = chunk, continuing = continuing, events = events })
+    self.pending:update(input.pending, input.split, function(lines, chunk, continuing, events)
+        self:render(lines, { kind = "pending", text = chunk, continuing = continuing, events = events })
     end)
     return {
         prepended = prepended,
+        toggled = toggled,
         notices = notices,
         queued = queued,
         folded = self:rows(),

@@ -31,27 +31,6 @@ Blocks.wrapped = wrapped
 
 function Blocks:init()
     self.labels = {}
-    self.expanded = {}
-    self.toggles = {}
-    self.toggled = {}
-end
-
-function Blocks:toggle(id)
-    local toggle = self.toggles[id]
-    if not toggle then
-        toggle = function()
-            self.expanded[id] = not self.expanded[id] or nil
-            self.toggled[id] = true
-        end
-        self.toggles[id] = toggle
-    end
-    return toggle
-end
-
-function Blocks:take()
-    local toggled = self.toggled
-    self.toggled = {}
-    return toggled
 end
 
 function Blocks:label(call)
@@ -111,16 +90,17 @@ function Blocks:tool_header(out, call, width)
     end
 end
 
-function Blocks:tool_output(out, content, width, id)
+function Blocks:tool_output(out, block, width)
     local palette = self.palette
+    local content = block.message.content or block.message.output or ""
     local failed = content:sub(1, 6) == "error:" or content:sub(1, 7) == "denied:"
     local style = failed and palette.error or palette.muted
     local available = math.max(width - 5, 1)
-    local expanded = self.expanded[id]
+    local expanded = block.expanded
     local limit = expanded and math.huge or MAX_TOOL_PREVIEW
     local rows, hidden = {}, 0
     for _, raw in ipairs(text.lines(content)) do
-        local shown = expanded and raw or text.clip(raw, math.max(limit - #rows, 0) * available)
+        local shown = expanded and raw or text.clip(raw, math.max(MAX_TOOL_PREVIEW - #rows, 0) * available)
         for _, chunk in ipairs(shown == "" and raw ~= "" and {} or text.wrap(shown, available)) do
             rows[#rows + 1] = chunk
         end
@@ -129,7 +109,7 @@ function Blocks:tool_output(out, content, width, id)
         end
     end
     hidden = hidden + math.max(#rows - limit, 0)
-    local toggle = id and (expanded or hidden > 0) and self:toggle(id) or nil
+    local toggle = (expanded or hidden > 0) and block.toggle or nil
     for index = 1, math.min(#rows, limit) do
         out[#out + 1] = { { (index == 1 and "   └ " or "     ") .. rows[index], style }, on_click = toggle }
     end
@@ -144,8 +124,9 @@ function Blocks:divider(out, width)
     out[#out + 1] = { { " " .. bar .. label .. bar, self.palette.dim } }
 end
 
-function Blocks:message(out, message, width, id)
+function Blocks:message(out, block, width)
     local palette = self.palette
+    local message = block.message
     local kind = message.type
     if kind == "user" then
         local fill = { { string.rep(" ", width), palette.user } }
@@ -164,7 +145,7 @@ function Blocks:message(out, message, width, id)
             self:tool_header(out, call, width)
         end
     elseif kind == "tool" then
-        self:tool_output(out, message.content or "", width, id)
+        self:tool_output(out, block, width)
     elseif kind == "shell" then
         local header = "! " .. message.command
         if message.code ~= 0 then
@@ -172,7 +153,7 @@ function Blocks:message(out, message, width, id)
         end
         wrapped(out, header, width, palette.accent, " ", false)
         if (message.output or "") ~= "" then
-            self:tool_output(out, message.output, width, id)
+            self:tool_output(out, block, width)
         end
     elseif kind == "system" then
         wrapped(out, message.text or "", width, palette.system, " ", false)
@@ -189,7 +170,7 @@ function Blocks:builtin(out, block, width)
     if kind == "notice" then
         wrapped(out, block.text, width, palette.notice, " ! ", false)
     elseif kind == "message" then
-        self:message(out, block.message, width, block.id)
+        self:message(out, block, width)
     elseif kind == "pending" then
         self:markdown(out, block.text, width, block.continuing, block.events)
     elseif kind == "thinking" then
