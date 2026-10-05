@@ -1,56 +1,61 @@
 # statusline
 
-Status lines built from segments. By default it draws one line below the input
-with the directory, model, reasoning effort, context use, tokens, cache hit
-rate and turns.
+Views for status lines. `setup` declares the default bar as a
+[`bottom_bar` item](../ito/toolbars.md), with the directory, model, reasoning
+effort, context use, tokens, cache hit rate and turns. Calling it again
+replaces the bar.
 
 ```lua
-require("statusline").setup({})
+require("statusline").setup()
 ```
-
-| Option | Meaning | Default |
-|---|---|---|
-| `lines` | The lines to draw. See below. | one line below the input with every segment |
-| `logo` | `true` shows the uji logo while the session is empty. A table `{ lines = { ... }, color = "#f9e2af" }` shows your own. | `false` |
-| `defaults` | `false` registers none of the built-in segments. | `true` |
-| `separator` | Text between segments. | `"  ·  "` |
 
 ## Segments
 
-A segment is a function registered with
-[`uji.status.add`](../api/status.md#ujistatusaddname-render-opts). The built-in
-ones are `cwd`, `model`, `effort`, `context`, `tokens`, `cache` and `turns`.
-Adding a segment with one of these names after `setup` replaces it.
+Each segment is an [ito view](../ito/views.md) that draws nothing while it has
+nothing to show.
 
-## Lines
-
-Each line has these fields.
-
-| Field | Meaning |
+| View | Shows |
 |---|---|
-| `at` | `"top"` above the conversation, `"above"` just above the input, or `"below"` under it. The default is `"below"`. Lines at the same place stack in the order you list them. |
-| `left`, `center`, `right` | The names of the segments on each side. `"*"` stands for every segment that no line names, so segments from other plugins still show. |
-| `priority` | The layout priority of the line's window, when the place's default is not what you want. |
+| `statusline.Cwd()` | The session's directory. |
+| `statusline.Model()` | The provider and model. |
+| `statusline.Effort()` | The reasoning effort, while reasoning is on. |
+| `statusline.Context()` | The context use, in the theme's `notice` colour from 80%. |
+| `statusline.Tokens()` | The tokens spent. |
+| `statusline.Cache()` | The cache hit rate of the last request. |
+| `statusline.Turns()` | The number of your messages. |
+| `statusline.Logo()` | The uji logo while the session is empty. A screen shows it over the transcript with `screen.transcript():overlay(statusline.Logo())`. |
 
-This setup puts the model and effort above the input, the directory and
-context use below it, and the logo on an empty session.
+## statusline.Bar(children)
+
+A one-row `ito.HStack` that puts a separator between neighbouring segments.
+A segment that draws nothing gets none, and neither does an `ito.Spacer`, so
+spacers split the bar into left, centre and right. `separator` in the props
+changes the text between segments, `"  ·  "` by default.
+
+`statusline.Default` is the bar `setup` adds.
 
 ```lua
-require("statusline").setup({
-  logo = true,
-  lines = {
-    { at = "above", left = { "model" }, right = { "effort" } },
-    { at = "below", left = { "cwd", "*" }, right = { "context" } },
-  },
+local ito = require("ito")
+local statusline = require("statusline")
+
+local branch = ito.state("")
+uji.job.start({
+  cmd = { "git", "branch", "--show-current" },
+  on_stdout = function(line)
+    branch.value = line
+  end,
 })
 
-uji.status.add("model", function()
-  local provider = uji.status.provider()
-  return provider and { text = uji.status.model() .. " · " .. provider, bold = true }
+local Branch = ito.view(function()
+  return branch.value ~= "" and ito.Text(branch.value):foreground(ito.theme().colors.accent)
 end)
 
-uji.status.add("effort", function()
-  local effort = uji.status.effort()
-  return effort and { text = "effort " .. effort, color = "yellow", bold = true }
-end)
+uji.ui.toolbar({
+  ito.ToolbarItem(ito.ToolbarPlacement.keyboard, function()
+    return statusline.Bar({ statusline.Model(), ito.Spacer(), statusline.Effort() })
+  end),
+  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
+    return statusline.Bar({ statusline.Cwd(), Branch(), ito.Spacer(), statusline.Context() })
+  end),
+})
 ```

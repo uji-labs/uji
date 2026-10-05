@@ -20,7 +20,7 @@ lint: scan
 
 # Structural rules only.
 scan:
-    ast-grep scan crates/kernel/src crates/uji/src
+    ast-grep scan crates/kernel/src crates/uji/src lua/uji
 
 # Lua formatting and lint (needs stylua and luacheck).
 lua:

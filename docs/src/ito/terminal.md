@@ -1,11 +1,11 @@
 # Terminal
 
-## uji.tty.open()
+## ito.open()
 
-Opens the terminal and gives two values: the screen and its input. Every call
-gives the same two, and they stay open across `/reload`. This is the terminal
-uji draws its own screen on, so anything else drawn on it is replaced at uji's
-next frame. It is mainly for a tree that
+Opens the terminal and gives two values, one to draw with and one that reads
+keys and clicks. Every call gives the same two, and they survive `/reload`.
+uji draws on this terminal too, so anything else drawn on it is replaced at
+uji's next frame. It is mainly for a tree that
 [replaces everything](../rebuilding/everything.md).
 
 Rows and columns count from 0 at the top left. Drawing only changes the screen
@@ -13,11 +13,11 @@ in memory, and `screen:flush()` shows the changes. A position outside the
 screen draws nothing.
 
 ```lua
-local tty = require("uji.sys.tty")
+local ito = require("ito")
 
 return function()
-    local screen, input = tty.open()
-    local title = screen:style({ fg = "cyan", bold = true })
+    local screen, input = ito.open()
+    local title = ito.TextStyle({ foreground = ito.Color.cyan, bold = true })
     local width, height = screen:size()
     screen:clear()
     screen:line(0, 0, { { "hello ", title }, "from uji" })
@@ -41,12 +41,12 @@ end
 | Member | Meaning |
 |---|---|
 | `screen:size()` | The width and the height, in columns and rows. |
-| `screen:style(spec)` | Makes a style and gives its number, for use in spans, `fill` and `paint`. Style `0` is the terminal's default. |
-| `screen:line(row, col, spans, width)` | Draws `spans` from `row` and `col`, and gives the column after the last character. `spans` is a string, or a list whose items are strings or `{ text, style }` pairs. `width` stops the text after that many columns. The list's `on_click` field is a function that `screen:clicked` gives for a click anywhere on the line. |
+| `screen:line(row, col, spans, width)` | Draws `spans` from `row` and `col`, and gives the column after the last character. `spans` is a string, or a list whose items are strings or `{ text, style }` pairs, where the style is an [`ito.TextStyle`](../configuration/themes.md#styles) or is left out for the terminal's own style. `width` stops the text after that many columns. The list's `on_click` field is a function that `screen:clicked` gives for a click anywhere on the line. |
 | `screen:clicked(row, col)` | The `on_click` function of the line drawn last at the position, or `nil` when that line has none. |
-| `screen:fill(area, style, symbol)` | Fills `area`, a table with `x`, `y`, `width` and `height`, with `symbol` in `style`. `symbol` is a space when it is left out. |
-| `screen:paint(area, style)` | Sets the style of `area` and keeps its text. |
+| `screen:fill(area, style, symbol)` | Fills `area`, a table with `x`, `y`, `width` and `height`, with `symbol` in `style`, an `ito.TextStyle`. With no style it uses the terminal's own, and `symbol` is a space when it is left out. |
+| `screen:paint(area, style)` | Sets the style of `area` to `style`, an `ito.TextStyle`, and keeps its text. |
 | `screen:text(row)` | The text on `row`, or `nil` outside the screen. |
+| `screen:spans(row)` | The text on `row` split where the style changes, as a list of `{ text, fg, bg, modifiers }`, or `nil` outside the screen. `fg` and `bg` are left out for the terminal's default colour, and `modifiers` lists names such as `"bold"`. |
 | `screen:clear()` | Empties the whole screen. |
 | `screen:cursor(row, col, shape)` | Shows the cursor at the position, as `"block"`, the default, `"bar"` or `"underline"`. With no position it hides the cursor. |
 | `screen:flush()` | Shows what changed since the last flush, and puts the cursor in place. |
@@ -55,22 +55,11 @@ end
 | `screen:resume()` | Takes the terminal again and clears it, ready for the next flush. |
 | `screen:close()` | Gives the terminal back for good. |
 
-A style spec has these fields, and each one can be left out.
+Colours come from `ito.Color` and `ito.rgb`, as
+[Colours](../configuration/themes.md#colours) describes.
 
-| Field | Type | Meaning |
-|---|---|---|
-| `fg` | string | The text colour. |
-| `bg` | string | The background colour. |
-| `bold`, `dim`, `italic`, `underline`, `blink`, `reverse`, `strikethrough` | boolean | Turns the attribute on. |
-
-A colour is a name, a number from `0` to `255`, or `"#rrggbb"`. The names are
-`black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `gray`,
-`darkgray`, `lightred`, `lightgreen`, `lightyellow`, `lightblue`,
-`lightmagenta`, `lightcyan`, `white` and `reset`.
-
-A span that is neither a string nor a pair, a colour that is not one of these,
-an unknown cursor shape, and a style number that `style` never gave all raise
-an error.
+A span that is neither a string nor a pair, a style that is not an
+`ito.TextStyle`, and an unknown cursor shape all raise an error.
 
 ## The input
 
@@ -104,7 +93,7 @@ flush, and a later line or `fill` over the same cells hides the handler
 under it.
 
 ```lua
-local screen, input = uji.tty.open()
+local screen, input = require("ito").open()
 local count = 0
 local function draw()
     screen:clear()

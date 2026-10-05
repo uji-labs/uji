@@ -1,12 +1,10 @@
 local class = require("uji.core.class")
-local text = require("uji.core.ui.text")
-
-local MAX_LINES = 1
-local MAX_CHARS = 80
+local text = require("ito").text
 
 local Pastes = class()
 
-function Pastes:init()
+function Pastes:init(theme)
+    self.theme = theme
     self:clear()
 end
 
@@ -25,24 +23,27 @@ function Pastes:add(entry)
 end
 
 function Pastes:stash(value)
+    local tokens = self.theme.tokens
+    local limits, words = tokens.limits, tokens.text
     local lines = #text.lines(value)
     local chars = text.length(value)
-    if lines <= MAX_LINES and chars <= MAX_CHARS then
+    if lines <= limits.paste_lines and chars <= limits.paste_chars then
         return value
     end
     self.pasted = self.pasted + 1
     local marker
-    if lines > MAX_LINES then
-        marker = string.format("[paste #%d +%d lines]", self.pasted, lines)
+    if lines > limits.paste_lines then
+        marker = string.format(words.pasted_lines, self.pasted, lines)
     else
-        marker = string.format("[paste #%d %d chars]", self.pasted, chars)
+        marker = string.format(words.pasted_chars, self.pasted, chars)
     end
     return self:add({ marker = marker, content = value })
 end
 
 function Pastes:attach(image)
     self.attached = self.attached + 1
-    return self:add({ marker = string.format("[image #%d]", self.attached), image = image })
+    local marker = string.format(self.theme.tokens.text.image, self.attached)
+    return self:add({ marker = marker, image = image })
 end
 
 function Pastes:images(value)

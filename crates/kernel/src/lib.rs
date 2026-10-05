@@ -15,10 +15,9 @@ mod os;
 mod proc;
 mod promise;
 mod task;
-mod tty;
 mod utils;
 mod vm;
 
+pub use ito::tty::{Terminal, VirtualHandle, VirtualTerminal, virtual_terminal};
 pub use kernel::{Error, Options, Outcome, run};
-pub use tty::{Terminal, VirtualHandle, VirtualTerminal, virtual_terminal};
 pub use vm::Sources;

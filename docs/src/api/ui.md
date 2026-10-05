@@ -1,59 +1,50 @@
 # uji.ui
 
-## uji.ui.open_win(opts)
+## uji.ui.toolbar(items)
 
-Opens a window and returns its id. The default config opens these four.
+Declares toolbar items on uji's screen and gives back a handle. `items` is a
+list of [`ito.ToolbarItem`](../ito/toolbars.md), and each one names the
+section it belongs in. The theme's screen decides where each section sits.
+The default screen shows them like this:
 
-```lua
-uji.ui.open_win({ name = "messages", view = "messages", split = "top", size = "fill", wrap = true })
-uji.ui.open_win({ name = "input", view = "input", split = "bottom", size = "auto", border = "horizontal" })
-uji.ui.open_win({ name = "modal", view = "modal", split = "bottom", size = "auto" })
-uji.ui.open_win({ name = "activity", split = "bottom", size = 0, padding = 1 })
-```
-
-| Option | Values | Default |
-|---|---|---|
-| `name` | a name that [`uji.ui.list_wins`](#ujiuilist_wins) reports, so another plugin can find the window | none |
-| `view` | `"messages"` for the transcript, `"input"` for the input line, `"modal"` for pickers, prompts and approval questions. Leave it out for a window you draw into. | none |
-| `split` | `"top"`, `"bottom"`, `"left"` or `"right"` | `"top"` |
-| `size` | rows or columns, `"fill"`, or `"auto"` to fit the content | `"fill"` |
-| `border` | `"none"`, `"plain"`, `"rounded"` or `"horizontal"` | `"none"` |
-| `border_color` | a [colour](#colours) | the theme's |
-| `title` | text in the border | none |
-| `wrap` | wrap long lines | `false` |
-| `padding` | blank cells around the content | `0` |
-| `priority` | layout order, lowest first. In a bottom split, lower sits closer to the bottom edge. | `50` |
-| `float` | `{ width = ..., height = ... }`, each `"80%"` or a cell count | not floating |
-
-Raises an error for an unknown view, split, border or size.
-
-## uji.ui.list_wins()
-
-Returns one table per open window, in layout order.
-
-| Field | Meaning |
+| Placement | Where |
 |---|---|
-| `id` | The id that `uji.ui.open_win` returned. |
-| `name` | The `name` the window was opened with, or `nil`. |
-| `view` | `"messages"`, `"input"`, `"modal"`, or `nil` for a window a plugin draws into. |
-| `split` | The side the window sits on. |
-| `size` | The size it was given, such as `3`, `"fill"` or `"auto"`. |
-| `priority` | Its layout order. |
-| `float` | `true` for a floating window. |
-| `x`, `y` | The column and row of its content, counted from 0 at the top left. |
-| `width`, `height` | The size of its content in cells. |
+| `ito.ToolbarPlacement.top_bar_leading` | The left end of the top row. |
+| `ito.ToolbarPlacement.top_bar_trailing` | The right end of the top row. |
+| `ito.ToolbarPlacement.keyboard` | Directly above the input line. |
+| `ito.ToolbarPlacement.bottom_bar` | Under the input line, at the bottom of the screen. |
 
-The position and size fields stay `nil` until uji first draws the window.
-uji fires [`layout_changed`](events.md#layout_changed) when any of them
-changes.
+Items in one section stack in the order they were declared. A section with no
+items takes no room.
+
+| Handle | Meaning |
+|---|---|
+| `handle:remove()` | Takes the items off the screen, and returns `true` if they were on it. |
+
+Raises an error when `items` is not a list of `ito.ToolbarItem`. An item that
+raises an error draws nothing, and uji says why once in a notice.
 
 ```lua
-for _, win in ipairs(uji.ui.list_wins()) do
-  if win.name == "input" then
-    uji.notify("the input line is " .. win.width .. " columns wide")
-  end
-end
+local ito = require("ito")
+
+local branch = ito.state("")
+uji.job.start({
+  cmd = { "git", "branch", "--show-current" },
+  on_stdout = function(line)
+    branch.value = line
+  end,
+})
+
+uji.ui.toolbar({
+  ito.ToolbarItem(ito.ToolbarPlacement.keyboard, function()
+    return ito.Text(branch.value):foreground(ito.Color.green):align(ito.Alignment.trailing)
+  end),
+})
 ```
+
+The branch name sits at the right end of the row above the input, and it
+redraws when the job sets `branch.value`, as
+[State](../ito/state.md#itostateinitial) describes.
 
 ## uji.ui.size()
 
@@ -62,65 +53,6 @@ screen is not open, as in `uji run`.
 
 ```lua
 local width, height = uji.ui.size()
-```
-
-## uji.ui.set_lines(id, lines)
-
-Replaces a window's content. Each line is a list of spans. A span is a string,
-or a table with `text` and any of `color`, `bg`, `bold`, `italic` and
-`underline`. A line may also be a single span.
-
-`{ fill = true }` is a span that takes the room the rest of the line leaves,
-so the spans after it sit at the right edge. Several fills share that room
-equally. A line too long for its window leaves them none.
-
-```lua
-local bar = uji.ui.open_win({ split = "bottom", size = 1 })
-uji.ui.set_lines(bar, { { "main", { fill = true }, { text = "3 files", color = "gray" } } })
-```
-
-```lua
-local panel = uji.ui.open_win({ split = "bottom", size = 2 })
-uji.ui.set_lines(panel, {
-  { { text = "build", bold = true }, " passing" },
-  { text = "3 files changed", color = "gray" },
-})
-```
-
-## uji.ui.clear(id)
-
-Empties a window.
-
-```lua
-local panel = uji.ui.open_win({ split = "bottom", size = 1 })
-uji.ui.clear(panel)
-```
-
-## uji.ui.set_size(id, size)
-
-Changes a window's size to rows or columns, `"fill"` or `"auto"`.
-
-```lua
-local panel = uji.ui.open_win({ split = "bottom", size = 0 })
-uji.ui.set_size(panel, 3)
-```
-
-## uji.ui.set_title(id, title)
-
-Sets the title in a window's border, or removes it when `title` is `nil`.
-
-```lua
-local panel = uji.ui.open_win({ split = "right", size = 30, border = "plain" })
-uji.ui.set_title(panel, "todo")
-```
-
-## uji.ui.close_win(id)
-
-Closes a window and returns `true` if it was open.
-
-```lua
-local panel = uji.ui.open_win({ split = "bottom", size = 1 })
-uji.ui.close_win(panel)
 ```
 
 ## uji.ui.select(opts, on_done)
@@ -213,6 +145,106 @@ uji.ui.confirm = function(request)
 end
 ```
 
+## uji.ui.overlay(content, opts)
+
+Shows `content`, a function that returns a [view](../ito/views.md), in a box
+over the middle of the screen, and returns a handle. Esc closes it, and
+so does Enter when no control in it uses the key.
+
+| Option | Meaning | Default |
+|---|---|---|
+| `float` | `false` shows the box with the other pickers, above the input line on the default screen. A screen with no place for pickers floats it anyway. | `true` |
+
+| Handle | Meaning |
+|---|---|
+| `handle:close(value)` | Closes the overlay and gives `value` to `wait`. |
+| `handle:wait()` | Waits until the overlay closes, then returns the value `close` gave, or `nil` after Esc or Enter. |
+
+Raises an error when `content` is not a function.
+
+Overlays, pickers, prompts and approvals stack. Opening one keeps the ones
+already open, and closing it shows the one under it again. Only the one on
+top gets the keys, so a focused control on the screen or in a lower overlay
+waits until the top one closes. The command suggestions are the exception:
+they close when anything else opens.
+
+The content can declare its own [toolbar items](../ito/toolbars.md) with
+`:toolbar`. Items placed at `top_bar_leading` and `top_bar_trailing` show at
+the top of the box, and items placed at `bottom_bar` show at its bottom.
+
+```lua
+local ito = require("ito")
+
+uji.command.add("commands", {
+  desc = "list every command",
+  handler = function()
+    uji.ui.overlay(function()
+      local rows = {}
+      for _, name in ipairs(uji.command.list()) do
+        rows[#rows + 1] = ito.Text("/" .. name)
+      end
+      return ito.VStack(rows):padding({ horizontal = 1 }):border(ito.theme().borders.rounded):title("Commands")
+    end)
+  end,
+})
+```
+
+[Controls](../ito/controls.md) has an overlay with a text field that returns
+what you type.
+
+## uji.ui.template(name, default)
+
+Returns a view that a theme can replace. The view draws the theme's template
+called `name`, or `default` when the theme has none. Both take `ctx`, the
+theme, and the props the view was called with, and return a view. `name`
+needs a dot, such as `"git.branch"`, so it never matches one of uji's own
+templates.
+
+```lua
+local ito = require("ito")
+
+local Branch = uji.ui.template("git.branch", function(ctx, props)
+  return ito.Text(ctx.symbols.pointer .. " " .. props.name):foreground(ctx.colors.accent)
+end)
+
+uji.ui.toolbar({
+  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
+    return Branch({ name = "main" })
+  end),
+})
+```
+
+A theme gives its own under the same name:
+
+```lua
+local ito = require("ito")
+
+return require("uji.themes.default")({
+  templates = {
+    ["git.branch"] = function(ctx, props)
+      return ito.Text("on " .. props.name):dim()
+    end,
+  },
+})
+```
+
+Raises an error for a `name` without a dot, or a `default` that is not a
+function.
+
+## uji.ui.Markdown(text)
+
+A view that draws `text` as markdown, the way the transcript draws replies.
+
+```lua
+local ito = require("ito")
+
+uji.ui.overlay(function()
+  return uji.ui.Markdown("# Release\n\n- tag `v0.4.0`\n- push the tag"):padding(1):border(ito.theme().borders.rounded)
+end)
+```
+
+Raises an error when `text` is not a string.
+
 ## uji.ui.toggle_thinking()
 
 Shows the model's reasoning in the transcript, or hides it again, and says
@@ -236,47 +268,27 @@ uji.ui.exec("git log --oneline | less")
 
 ## uji.ui.configure(opts)
 
-Sets colours and screen behaviour. Each call changes only the keys it names.
-Raises an error for an unknown key or an invalid colour.
+Sets the theme and screen behaviour. Each call changes only the keys it names.
+Raises an error for an unknown key or a theme with a mistake, and keeps the
+theme in use.
 
 ```lua
+local ito = require("ito")
+
 uji.ui.configure({
-  theme = { accent = "#c65036", user_bg = "#2b2b2b" },
-  input = { cursor_blink = false },
-  waiting = { loader = { frames = { "-", "\\", "|", "/" }, interval = 0.1 } },
-  confirm = { title = "Run this?", yes = "Run", no = "Skip" },
+  theme = require("uji.themes.default")({
+    colors = { accent = ito.rgb(0xc65036), user_bg = ito.rgb(0x2b2b2b) },
+  }),
+  show_thinking = true,
 })
 ```
 
 | Key | Meaning | Default |
 |---|---|---|
+| `theme` | A theme name or a theme table. See [Themes](../configuration/themes.md). | `"default"` |
 | `show_thinking` | Show the model's reasoning. `/thinking` toggles it. | `false` |
-| `input.cursor_blink` | Blink the cursor on the input line. | `true` |
 | `suggest.enabled` | Show command suggestions when you type `/`. | `true` |
-| `suggest.max_height` | Rows the suggestion list may use. | `5` |
-| `waiting.loader.frames` | Strings the loader cycles through while the model works. | none |
-| `waiting.loader.interval` | Seconds between loader frames. | `0.08` |
-| `confirm.title` | The approval question's title. | `"Allow tool call?"` |
-| `confirm.yes` | The allow label. | `"Yes"` |
-| `confirm.no` | The deny label. | `"No"` |
-| `theme.text` | Body text. | `#d4d4d4` |
-| `theme.muted` | Secondary text and borders. | `#808080` |
-| `theme.code` | Inline code. | `#e0af68` |
-| `theme.accent` | Highlights. | `cyan` |
-| `theme.user_bg` | The background of your messages. | `#343541` |
-| `theme.selected_bg` | The selected row in lists. | `#3a3a4a` |
-| `theme.cursor` | The cursor. | `white` |
-| `theme.error` | Errors. | `red` |
-| `theme.notice` | Notices. | `red` |
-| `theme.input` | Text on the input line. | `theme.text` |
-| `theme.confirm_title` | The approval question's title. | `theme.text` |
-| `theme.confirm_body` | The approval question's details. | `theme.text` |
-| `theme.confirm_selected` | The chosen answer. | the default style |
-| `theme.confirm_unselected` | The other answer. | the default style |
 
-## Colours
-
-A colour is `#rrggbb` or one of `black`, `red`, `green`, `yellow`, `blue`,
-`magenta`, `cyan`, `white`, `gray`, `dark_gray`, `light_red`, `light_green`,
-`light_yellow`, `light_blue`, `light_magenta` and `light_cyan`. `grey` and
-`dark_grey` also work.
+The cursor, the spinner, the size of the suggestion list and the words of an
+approval belong to the theme, under `styles`, `symbols`, `limits` and `text`, as
+[Themes](../configuration/themes.md) describes.

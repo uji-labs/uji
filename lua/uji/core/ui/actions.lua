@@ -1,4 +1,4 @@
-local Line = require("uji.core.ui.line")
+local Line = require("ito").Line
 local Registry = require("uji.core.registry")
 local check = require("uji.core.check")
 local plugin = require("uji.core.plugin")

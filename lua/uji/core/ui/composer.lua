@@ -1,12 +1,13 @@
 local class = require("uji.core.class")
-local Line = require("uji.core.ui.line")
+local Line = require("ito").Line
 local Pastes = require("uji.core.ui.paste")
 
 local Composer = class()
 
-function Composer:init()
+function Composer:init(theme)
+    self.theme = theme
     self.line = Line()
-    self.pastes = Pastes()
+    self.pastes = Pastes(theme)
     self.recall = nil
 end
 
@@ -100,7 +101,7 @@ function Composer:recall_prev(lookup)
         self.recall.at = at
     else
         self.recall = { at = at, draft = self.line:take(), pastes = self.pastes }
-        self.pastes = Pastes()
+        self.pastes = Pastes(self.theme)
     end
     self.line:set(found)
     return true

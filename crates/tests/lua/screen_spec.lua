@@ -25,7 +25,7 @@ end
 
 local function split(text, width)
     local rows, row, count = {}, {}, 0
-    for char in text:gmatch(require("uji.core.ui.text").CHAR) do
+    for char in text:gmatch(require("ito").text.CHAR) do
         row[#row + 1] = char
         count = count + 1
         if count == width then
@@ -54,8 +54,6 @@ local function copied_to()
 end
 
 describe("the screen", function()
-    before_each(screen.open)
-
     it("draws the draft with the cursor in it", { size = { 40, 8 } }, function()
         screen.typing("hello")
         screen.press("left")
@@ -259,40 +257,17 @@ describe("the screen", function()
         assert.same({ unpack(folded, 2) }, { unpack(rows(), 2) }, "a second click folds it back and follows the bottom")
     end)
 
-    it("shares the room a line leaves between its fill spans", { size = { 30, 6 } }, function()
-        local bar = uji.ui.open_win({ split = "bottom", size = 2 })
-        uji.ui.set_lines(bar, {
-            { "left", { fill = true }, "right" },
-            { "a", { fill = true }, "b", { fill = true }, "c" },
-        })
-        local rows = {}
-        for _, row in ipairs(split(screen.screen(), 30)) do
-            rows[row] = true
-        end
-        assert.is_true(rows["left" .. string.rep(" ", 21) .. "right"])
-        assert.is_true(rows["a" .. string.rep(" ", 13) .. "b" .. string.rep(" ", 14) .. "c"])
-    end)
-
-    it("lists windows with their size to plugins and tells them when it changes", { size = { 40, 10 } }, function()
-        local changed = 0
-        uji.on("layout_changed", function()
-            changed = changed + 1
+    it("draws the lines a render_message handler returns", { size = { 30, 6 } }, function()
+        uji.on("render_message", function(block)
+            if block.type == "user" then
+                local styles = require("ito").theme().styles
+                return { { { "said ", styles.muted }, { block.text, styles.accent } } }
+            end
         end)
-        ui.windows = {}
-        uji.ui.open_win({ name = "transcript", view = "messages", size = "fill" })
-        local bar = uji.ui.open_win({ name = "bar", split = "bottom", size = 4, border = "horizontal" })
-        screen.screen()
-        screen.screen()
-        assert.equal(1, changed, "drawing the same layout again says nothing")
-        local listed = {}
-        for _, win in ipairs(uji.ui.list_wins()) do
-            listed[#listed + 1] = { win.name, win.x, win.y, win.width, win.height }
-        end
-        assert.same({ { "transcript", 0, 0, 40, 6 }, { "bar", 0, 7, 40, 2 } }, listed)
-        assert.same({ 40, 10 }, { uji.ui.size() })
-        uji.ui.set_size(bar, 5)
-        screen.screen()
-        assert.equal(2, changed)
+        app.session:append({ type = "user", text = "hello" })
+        local row = screen.find("said hello")
+        assert.is_not_nil(row)
+        assert.same({ "bold" }, ui.screen:spans(row)[2].modifiers)
     end)
 
     it("uses the picker a plugin puts in place for core commands", { size = { 40, 10 } }, function()

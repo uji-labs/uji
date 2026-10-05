@@ -1,7 +1,7 @@
 local class = require("uji.core.class")
 local model = require("uji.core.model")
 local sys = require("uji.sys")
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 
 local RETRY_ATTEMPTS = 5
 local RETRY_INITIAL = 2

@@ -1,11 +1,6 @@
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
 local keys = require("uji.core.ui.keys")
-local layout = require("uji.core.ui.layout")
 local Modal = require("uji.core.ui.views.modal")
-local text = require("uji.core.ui.text")
-
-local NAME_WIDTH = 12
 
 local Suggest = class(Modal)
 
@@ -69,38 +64,12 @@ function Suggest:key(chord, ui)
     end
 end
 
-function Suggest:visible(ui)
-    return math.min(#self.items, math.max(ui.theme.suggest_max_height, 1))
-end
-
-function Suggest:rows(_, ui)
-    local visible = self:visible(ui)
-    return visible > 0 and visible or nil
-end
-
-function Suggest:draw(ui, screen, area)
+function Suggest:view(_, ctx, area)
     if #self.items == 0 or area.height <= 0 then
-        return
+        return nil
     end
-    local palette = ui.palette
-    local visible = math.max(math.min(self:visible(ui), area.height), 1)
-    local start = self.cursor > visible and self.cursor - visible or 0
-    local lines = {}
-    for at = start + 1, math.min(start + visible, #self.items) do
-        local item = self.items[at]
-        local chosen = at == self.cursor
-        local name = "  " .. text.pad(item.name, NAME_WIDTH)
-        local used = text.width(name) + text.width(item.desc)
-        local pad = string.rep(" ", math.max(area.width - used, 0))
-        if chosen then
-            lines[#lines + 1] = { { name, palette.chosen_name }, { item.desc, palette.chosen_desc }, { pad, palette.selected } }
-        else
-            lines[#lines + 1] = { { name, palette.text }, { item.desc, palette.muted }, { pad, 0 } }
-        end
-    end
-    local popup = layout.rect(area.x, area.y + area.height - #lines, area.width, #lines)
-    canvas.clear(screen, popup)
-    canvas.lines(screen, popup, lines)
+    local data = { items = self.items, selection = self:selection(), height = area.height }
+    return ctx:element("suggest", data, area.width)
 end
 
 return Suggest

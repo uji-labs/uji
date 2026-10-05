@@ -1,0 +1,16 @@
+id: lua-draw-in-render
+language: lua
+severity: error
+message: Only the renderer draws on the screen. Return nodes or lines instead.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/core/ui/render.lua"
+rule:
+  any:
+    - pattern: $S:line($$$A)
+    - pattern: $S:fill($$$A)
+    - pattern: $S:paint($$$A)
+constraints:
+  S:
+    regex: "screen$"

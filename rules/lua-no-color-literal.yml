@@ -1,0 +1,15 @@
+id: lua-no-color-literal
+language: lua
+severity: error
+message: Built-in spans take a theme role, not a colour.
+files:
+  - "lua/uji/builtin/**"
+rule:
+  kind: field
+  all:
+    - has:
+        field: name
+        regex: "^(color|bg)$"
+    - has:
+        field: value
+        kind: string

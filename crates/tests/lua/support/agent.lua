@@ -67,7 +67,6 @@ end
 function M.run(opts)
     M.provider(opts.url, opts.context or 100000)
     uji.model.use({ provider = "test", model = "m" })
-    uji.ui.open_win({ view = "input", split = "bottom", size = "auto" })
     app.session:rename("test")
     for _, message in ipairs(opts.history or {}) do
         app.session:append(message)
