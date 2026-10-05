@@ -1488,8 +1488,8 @@ dependencies = [
 
 [[package]]
 name = "ito"
-version = "0.1.0"
-source = "git+https://github.com/uji-labs/ito?tag=v0.1.1#08391961292464d136881db35dd8f65cbce933a5"
+version = "0.1.2"
+source = "git+https://github.com/uji-labs/ito?tag=v0.1.2#bf25537a90b533429f5ae9c726be72d549782fcb"
 dependencies = [
  "crossterm",
  "mlua",
