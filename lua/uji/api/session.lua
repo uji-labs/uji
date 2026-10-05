@@ -1,6 +1,7 @@
 local app = require("uji.core.app")
 local check = require("uji.core.check")
 local cli = require("uji.core.cli")
+local model = require("uji.core.model")
 local tokens = require("uji.core.agent.tokens")
 
 local M = {}
@@ -45,6 +46,29 @@ function M.usage()
     out.last = usage(tally.last)
     out.requests = tally.turns
     return out
+end
+
+function M.context()
+    return {
+        used = app.session and app.session:used_tokens() or 0,
+        window = model.window(),
+    }
+end
+
+function M.queue()
+    local out = {}
+    for index, queued in ipairs(app.agent and app.agent.queue or {}) do
+        out[index] = queued.text
+    end
+    return out
+end
+
+function M.state()
+    return app.agent and app.agent:working() and "working" or "idle"
+end
+
+function M.elapsed()
+    return app.agent and app.agent:elapsed()
 end
 
 function M.set_title(title)

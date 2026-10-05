@@ -1,13 +1,8 @@
 local keys = require("uji.core.ui.keys")
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 local ui = require("uji.core.ui")
 
 local M = {}
-
-function M.open()
-    ui:open_window({ view = "messages", size = "fill" })
-    ui:open_window({ view = "input", split = "bottom", size = "auto" })
-end
 
 function M.handle(chord)
     if ui.modal then

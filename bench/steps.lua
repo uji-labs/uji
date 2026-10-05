@@ -4,7 +4,7 @@ local class = require("uji.core.class")
 local screen = require("support.ui")
 local server = require("support.server")
 local sys = require("uji.sys")
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 local Transcript = require("uji.core.ui.transcript")
 local ui = require("uji.core.ui")
 

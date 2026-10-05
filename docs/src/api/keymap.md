@@ -1,6 +1,6 @@
 # uji.keymap
 
-A binding belongs to one of five modes.
+A binding belongs to one of six modes.
 
 | Mode | Where it applies |
 |---|---|
@@ -9,6 +9,7 @@ A binding belongs to one of five modes.
 | `select` | Pickers and lists. |
 | `prompt` | Text prompts. |
 | `confirm` | The approval question. |
+| `overlay` | An [overlay](ui.md#ujiuioverlaycontent-opts) on top. |
 
 A key is a single character such as `"q"`, or a chord in angle brackets.
 `<C-x>` is Ctrl, `<A-x>` or `<M-x>` is Alt, `<S-x>` is Shift, and they
@@ -22,7 +23,7 @@ Binds a key in one mode, replacing what the key did there.
 
 | Argument | Type | Meaning |
 |---|---|---|
-| `mode` | string | One of the five modes. |
+| `mode` | string | One of the six modes. |
 | `key` | string | A key or chord. |
 | `binding` | string, table or function | An action name from the list below, `{ command = "name" }` to run a slash command, or a function. |
 

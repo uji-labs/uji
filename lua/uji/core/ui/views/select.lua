@@ -1,20 +1,10 @@
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
-local Line = require("uji.core.ui.line")
+local Line = require("ito").Line
 local Modal = require("uji.core.ui.views.modal")
 local model = require("uji.core.model")
 local sys = require("uji.sys")
-local text = require("uji.core.ui.text")
 
-local MAX_ROWS = 12
 local PAGE = 10
-
-local function visible_start(cursor, count, available)
-    if count <= available then
-        return 0
-    end
-    return math.min(math.max(cursor - math.floor(available / 2), 0), count - available)
-end
 
 local Select = class(Modal)
 
@@ -71,43 +61,23 @@ function Select:key(chord, ui)
     end
 end
 
-function Select:rows()
-    local visible = math.min(#self.matches, MAX_ROWS)
-    return visible + 4 + (#self.matches > visible and 1 or 0)
+function Select:data(height)
+    return {
+        title = self.title,
+        query = self.query,
+        items = self.items,
+        matches = self.matches,
+        selection = self:selection(),
+        current = model.current.model or "",
+        height = height,
+    }
 end
 
-function Select:query_line(palette)
-    local line = { { "  > ", palette.accent } }
-    for _, span in ipairs(Modal.typed(self.query, false, palette.text, palette.muted)) do
-        line[#line + 1] = span
+function Select:view(_, ctx, area)
+    if #self.items == 0 then
+        return nil
     end
-    return line
-end
-
-function Select:draw(ui, screen, area)
-    if #self.items == 0 or area.height < 4 then
-        return
-    end
-    local palette = ui.palette
-    local current = model.current.model or ""
-    local count = #self.matches
-    local visible = math.min(count, MAX_ROWS, area.height - 4)
-    local start = visible_start(self.cursor - 1, count, visible)
-    local lines = { {}, { { "  " .. self.title, palette.bold } }, {}, self:query_line(palette) }
-    for offset = 1, visible do
-        local at = start + offset
-        local item = self.items[self.matches[at]]
-        local active = at == self.cursor
-        local line = { { text.clip((active and "› " or "  ") .. item, area.width), active and palette.accent or palette.text } }
-        if item == current then
-            line[#line + 1] = { " (current)", palette.muted }
-        end
-        lines[#lines + 1] = line
-    end
-    if count > visible then
-        lines[#lines + 1] = { { string.format("  %d–%d of %d", start + 1, start + visible, count), palette.dim } }
-    end
-    canvas.popup(screen, area, lines, math.min(#lines, area.height))
+    return ctx:element("select", self:data(area.height), area.width)
 end
 
 return Select

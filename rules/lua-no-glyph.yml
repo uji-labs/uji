@@ -1,0 +1,13 @@
+id: lua-no-glyph
+language: lua
+severity: error
+message: Drawn symbols belong to the theme's symbols.
+files:
+  - "lua/uji/core/ui/**"
+  - "lua/uji/builtin/defaults.lua"
+ignores:
+  - "lua/uji/core/ui/theme/**"
+  - "lua/uji/core/ui/markdown/latex.lua"
+rule:
+  kind: string
+  regex: "[^\\x00-\\x7F]"

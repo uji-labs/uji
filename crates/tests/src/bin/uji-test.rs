@@ -7,7 +7,7 @@ const ENTRY: &str = "uji.boot";
 const SCRIPT: &str = "-l";
 const SCREEN: &str = "--screen";
 
-fn script(args: &[String]) -> Option<(Sources, String)> {
+fn script(args: &[String]) -> Option<(Vec<Sources>, String)> {
     let [_, flag, file, ..] = args else {
         return None;
     };
@@ -20,7 +20,7 @@ fn script(args: &[String]) -> Option<(Sources, String)> {
         .parent()
         .filter(|dir| !dir.as_os_str().is_empty())
         .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-    Some((Sources::Directory(dir), entry))
+    Some((vec![Sources::Directory(dir)], entry))
 }
 
 fn screen(args: &mut Vec<String>) -> Option<(Terminal, VirtualHandle)> {
@@ -35,8 +35,8 @@ fn screen(args: &mut Vec<String>) -> Option<(Terminal, VirtualHandle)> {
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().collect();
-    let (sources, entry) =
-        script(&args).unwrap_or_else(|| (Sources::Embedded(uji_lua::FILES), String::from(ENTRY)));
+    let (sources, entry) = script(&args)
+        .unwrap_or_else(|| (vec![Sources::Embedded(uji_lua::FILES)], String::from(ENTRY)));
     let (terminal, handle) = screen(&mut args)
         .map_or((Terminal::Real, None), |(terminal, handle)| {
             (terminal, Some(handle))

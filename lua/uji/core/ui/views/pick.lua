@@ -1,15 +1,11 @@
 local app = require("uji.core.app")
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
-local layout = require("uji.core.ui.layout")
 local notices = require("uji.core.notices")
 local Modal = require("uji.core.ui.views.modal")
 local Select = require("uji.core.ui.views.select")
 local sys = require("uji.sys")
 local tool = require("uji.core.tool")
 
-local PROMPT_ROWS = 3
-local MIN_PREVIEW = 24
 local CONTEXT_LINES = 40
 local DEBOUNCE = 0.12
 
@@ -36,10 +32,6 @@ function Pick:init(opts)
     if self.on_query then
         self:query_later()
     end
-end
-
-function Pick:rows()
-    return nil
 end
 
 function Pick:edited()
@@ -137,62 +129,18 @@ function Pick:settle(value)
     Modal.settle(self, value)
 end
 
-function Pick:results(ui, screen, area)
-    local palette = ui.palette
-    local inner = canvas.block(screen, area, {
-        border = "plain",
-        style = palette.border,
-        title = { { " " .. self.title .. " ", palette.accent } },
-    })
-    local rows = inner.height
-    local start = math.max(self.cursor - rows, 0)
-    local lines = {}
-    for at = start + 1, math.min(start + rows, #self.matches) do
-        local item = self.items[self.matches[at]]
-        if at == self.cursor then
-            lines[#lines + 1] = { { "> " .. item, palette.chosen } }
-        else
-            lines[#lines + 1] = { { "  " .. item, palette.text } }
-        end
-    end
-    canvas.lines(screen, inner, lines)
-end
-
-function Pick:previewing(ui, screen, area)
-    if area.width <= 0 then
-        return
-    end
-    local palette = ui.palette
-    local inner = canvas.block(screen, area, { border = "plain", style = palette.border })
-    local lines = {}
-    for index = 1, math.min(#self.preview, inner.height) do
-        lines[index] = { { tostring(self.preview[index]), palette.muted } }
-    end
-    canvas.lines(screen, inner, lines)
-end
-
-function Pick:prompt(ui, screen, area)
-    local palette = ui.palette
-    local inner = canvas.block(screen, area, { border = "plain", style = palette.border })
-    local line = { { "> ", palette.accent } }
-    for _, span in ipairs(Modal.typed(self.query, false, palette.text, palette.muted)) do
-        line[#line + 1] = span
-    end
-    line[#line + 1] = { string.format("   %d/%d", #self.matches, #self.items), palette.dim }
-    canvas.lines(screen, inner, { line })
-end
-
-function Pick:draw(ui, screen, area)
+function Pick:view(ui, ctx, area)
     self:refresh(ui)
-    if area.height < PROMPT_ROWS + 3 or area.width < 20 then
-        return
-    end
-    canvas.clear(screen, area)
-    local body = layout.rect(area.x, area.y, area.width, area.height - PROMPT_ROWS)
-    local split = body.width < MIN_PREVIEW * 2 and body.width or math.floor(body.width / 2)
-    self:results(ui, screen, layout.rect(body.x, body.y, split, body.height))
-    self:previewing(ui, screen, layout.rect(body.x + split, body.y, body.width - split, body.height))
-    self:prompt(ui, screen, layout.rect(area.x, body.y + body.height, area.width, PROMPT_ROWS))
+    return ctx:element("pick", {
+        title = self.title,
+        items = self.items,
+        matches = self.matches,
+        selection = self:selection(),
+        preview = self.preview,
+        query = self.query,
+        total = #self.items,
+        height = area.height,
+    }, area.width)
 end
 
 return Pick

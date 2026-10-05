@@ -1,0 +1,10 @@
+id: lua-no-palette
+language: lua
+severity: error
+message: Styles belong to the theme. Pass data to a template instead of picking a style here.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/core/ui/theme/**"
+rule:
+  pattern: $X.palette

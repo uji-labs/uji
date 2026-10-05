@@ -44,38 +44,18 @@ Every function lives under the global `uji` table. A function that finishes late
 
 | Name | Does |
 |---|---|
-| [`uji.ui.open_win(opts)`](ui.md#ujiuiopen_winopts) | Opens a window and returns its id. |
-| [`uji.ui.set_lines(id, lines)`](ui.md#ujiuiset_linesid-lines) | Replaces a window's content. |
-| [`uji.ui.clear(id)`](ui.md#ujiuiclearid) | Empties a window. |
-| [`uji.ui.set_size(id, size)`](ui.md#ujiuiset_sizeid-size) | Changes a window's size to rows or columns, `"fill"` or `"auto"`. |
-| [`uji.ui.set_title(id, title)`](ui.md#ujiuiset_titleid-title) | Sets the title in a window's border, or removes it when `title` is `nil`. |
-| [`uji.ui.close_win(id)`](ui.md#ujiuiclose_winid) | Closes a window and returns `true` if it was open. |
-| [`uji.ui.list_wins()`](ui.md#ujiuilist_wins) | Returns every open window with its name, place and size. |
+| [`uji.ui.toolbar(items)`](ui.md#ujiuitoolbaritems) | Declares toolbar items on the screen and returns a handle that removes them. |
 | [`uji.ui.size()`](ui.md#ujiuisize) | Returns the width and height of the terminal. |
 | [`uji.ui.select(opts, on_done)`](ui.md#ujiuiselectopts-on_done) | Shows a list to choose from. |
 | [`uji.ui.pick(opts, on_done)`](ui.md#ujiuipickopts-on_done) | Shows a fuzzy finder with a preview pane. |
 | [`uji.ui.prompt(opts, on_done)`](ui.md#ujiuipromptopts-on_done) | Asks for a line of text. |
 | [`uji.ui.confirm(opts, on_done)`](ui.md#ujiuiconfirmopts-on_done) | Asks a yes or no question, including uji's approval questions. |
+| [`uji.ui.overlay(content, opts)`](ui.md#ujiuioverlaycontent-opts) | Shows a view in a box over the screen until you close it. |
+| [`uji.ui.template(name, default)`](ui.md#ujiuitemplatename-default) | Returns a view that a theme can replace. |
+| [`uji.ui.Markdown(text)`](ui.md#ujiuimarkdowntext) | A view that draws markdown. |
 | [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |
 | [`uji.ui.configure(opts)`](ui.md#ujiuiconfigureopts) | Sets colours and screen behaviour. |
-
-## Status and footer
-
-| Name | Does |
-|---|---|
-| [`uji.status.provider()`](status.md#ujistatusprovider) | Returns the name of the current provider, or `nil` before one is set. |
-| [`uji.status.model()`](status.md#ujistatusmodel) | Returns the current model id, or `nil` before one is set. |
-| [`uji.status.effort()`](status.md#ujistatuseffort) | Returns the reasoning effort, such as `"medium"`, or `nil` when reasoning is off. |
-| [`uji.status.context()`](status.md#ujistatuscontext) | Returns a table with `used`, the estimated tokens in the conversation, and `window`, the model's context size when uji knows it. |
-| [`uji.status.queue()`](status.md#ujistatusqueue) | Returns the messages you typed while the model worked, which uji has not sent yet. |
-| [`uji.status.state()`](status.md#ujistatusstate) | Returns `"working"` while a turn runs and `"idle"` otherwise. |
-| [`uji.status.elapsed()`](status.md#ujistatuselapsed) | Returns the seconds since the current turn started, or `nil` when idle. |
-| [`uji.status.loader_frame()`](status.md#ujistatusloader_frame) | Returns the loader frame to draw now, from `waiting.loader.frames` in [`uji.ui.configure`](ui.md#ujiuiconfigureopts). |
-| [`uji.status.add(name, render, opts)`](status.md#ujistatusaddname-render-opts) | Registers a footer segment. |
-| [`uji.status.remove(name)`](status.md#ujistatusremovename) | Removes a segment and returns `true` if it existed. |
-| [`uji.status.list()`](status.md#ujistatuslist) | Returns the segment names in priority order. |
-| [`uji.status.render(names)`](status.md#ujistatusrendernames) | Calls every segment, or the ones named, and returns the values that are not `nil`. |
 
 ## Model context
 
@@ -101,6 +81,10 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.session.info()`](session.md#ujisessioninfo) | Returns a table with the session's `id`, `title` and `directory`. |
 | [`uji.session.messages()`](session.md#ujisessionmessages) | Returns the transcript as a list of tables with `type` and `text`. |
 | [`uji.session.usage()`](session.md#ujisessionusage) | Returns the tokens spent in this session. |
+| [`uji.session.context()`](session.md#ujisessioncontext) | Returns a table with `used`, the estimated tokens in the conversation, and `window`, the model's context size when uji knows it. |
+| [`uji.session.queue()`](session.md#ujisessionqueue) | Returns the messages you typed while the model worked, which uji has not sent yet. |
+| [`uji.session.state()`](session.md#ujisessionstate) | Returns `"working"` while a turn runs and `"idle"` otherwise. |
+| [`uji.session.elapsed()`](session.md#ujisessionelapsed) | Returns the seconds since the current turn started, or `nil` when idle. |
 | [`uji.session.set_title(title)`](session.md#ujisessionset_titletitle) | Renames the session, saves the name, and fires `session_titled`. |
 | [`uji.session.submit(text)`](session.md#ujisessionsubmittext) | Sends a message as if you typed it. |
 | [`uji.session.interrupt()`](session.md#ujisessioninterrupt) | Stops the current turn, or the running `!` command. |

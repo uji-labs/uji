@@ -11,17 +11,16 @@ description = "The Lua runtime and operating system primitives uji is built on"
 [dependencies]
 arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
 base64 = "0.22"
-crossterm = "0.29"
 futures-util = "0.3"
 globset = "0.4"
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
+ito = { git = "https://github.com/uji-labs/ito", tag = "v0.1.0" }
 keyring = "4"
 linkme = "0.3"
 mlua = { version = "0.12", features = ["luajit52", "vendored", "serde", "async"] }
 nucleo-matcher = "0.3"
 pulldown-cmark = { version = "0.13.4", default-features = false }
 rand = "0.9"
-ratatui = "0.30"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["default-tls", "stream", "system-proxy"] }
 rusqlite = "0.40"

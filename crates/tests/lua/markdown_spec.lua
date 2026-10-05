@@ -33,8 +33,8 @@ it("turns TeX into readable text", function()
 end)
 
 it("highlights a known language and skips an unknown one", function()
-    local palette = { text = "text", highlight = "keyword", code = "literal", faint = "comment" }
-    local python = highlight.new("python title=x", palette)
+    local styles = { plain = "text", keyword = "keyword", string = "literal", number = "literal", comment = "comment" }
+    local python = highlight.new("python title=x", styles)
     assert.same({
         { "def", "keyword" },
         { " f(x): ", "text" },
@@ -46,6 +46,6 @@ it("highlights a known language and skips an unknown one", function()
     }, python:line('def f(x): return "a" # b'))
     assert.same({ { '"""doc', "literal" } }, python:line('"""doc'))
     assert.same({ { 'string"""', "literal" }, { " ", "text" }, { "1", "literal" } }, python:line('string""" 1'))
-    assert.is_nil(highlight.new("brainfuck", palette))
-    assert.is_nil(highlight.new(nil, palette))
+    assert.is_nil(highlight.new("brainfuck", styles))
+    assert.is_nil(highlight.new(nil, styles))
 end)

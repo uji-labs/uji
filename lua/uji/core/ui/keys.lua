@@ -1,4 +1,4 @@
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 
 local M = {}
 

@@ -100,11 +100,11 @@ fn lua(debug: bool) -> Lua {
     unsafe { Lua::unsafe_new_with(libraries, LuaOptions::new()) }
 }
 
-pub(crate) fn layers(sources: &Sources, roots: &[PathBuf]) -> Vec<Sources> {
+pub(crate) fn layers(sources: &[Sources], roots: &[PathBuf]) -> Vec<Sources> {
     roots
         .iter()
         .map(|root| Sources::Directory(root.join(LUA_DIR)))
-        .chain(std::iter::once(sources.clone()))
+        .chain(sources.iter().cloned())
         .collect()
 }
 
@@ -126,6 +126,9 @@ pub(crate) fn create(layers: Vec<Sources>, roots: &[PathBuf], debug: bool) -> ml
     let package: Table = lua.globals().get("package")?;
     package.set("path", "")?;
     package.set("cpath", natives(roots))?;
+    package
+        .get::<Table>("preload")?
+        .set("ito", lua.create_function(|lua, ()| ito::load(lua))?)?;
     let searchers: Table = package.get("searchers")?;
     searchers.raw_insert(
         AFTER_PRELOAD,

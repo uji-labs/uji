@@ -2,16 +2,9 @@ local class = require("uji.core.class")
 local highlight = require("uji.core.ui.markdown.highlight")
 local latex = require("uji.core.ui.markdown.latex")
 local sys = require("uji.sys")
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 
-local BULLETS = { "•", "◦", "▪" }
-
-local MODIFIERS = {
-    emphasis = { italic = true },
-    strong = { bold = true },
-    strikethrough = { strikethrough = true },
-    link = { underline = true },
-}
+local MODIFIERS = { "emphasis", "strong", "strikethrough", "link" }
 
 local function width_of(line)
     local total = 0
@@ -56,7 +49,7 @@ end
 
 local function finish_line(spans, indent)
     if indent ~= "" then
-        table.insert(spans, 1, { indent, 0 })
+        table.insert(spans, 1, { indent })
     end
     return spans
 end
@@ -74,7 +67,7 @@ function Block:drain(width)
             spans, used, first = {}, 0, false
         end
         if used > 0 and token.spaced then
-            spans[#spans + 1] = { " ", 0 }
+            spans[#spans + 1] = { " " }
             used = used + 1
         end
         spans[#spans + 1] = { token.text, token.style }
@@ -86,34 +79,23 @@ function Block:drain(width)
     return lines
 end
 
-local function item_marker(list)
+local function item_marker(ctx, list)
     local last = list[#list]
     if type(last) == "number" then
         list[#list] = last + 1
-        return last .. "."
+        return string.format(ctx.text.ordered, last)
     end
-    return BULLETS[(#list - 1) % #BULLETS + 1]
-end
-
-local function indents(depth, quote, marker)
-    local pad = string.rep("  ", math.max(depth - 1, 0))
-    if quote > 0 then
-        pad = string.rep("  ", quote - 1) .. "│ "
-    end
-    if marker then
-        return pad .. marker .. " ", pad .. string.rep(" ", text.length(marker) + 1)
-    end
-    return pad, pad
+    local bullets = ctx.symbols.bullets
+    return bullets[(#list - 1) % #bullets + 1]
 end
 
 local Renderer = class()
 
-function Renderer:init(width, palette, styles)
+function Renderer:init(ctx, width)
     self.lines = {}
     self.block = Block()
-    self.palette = palette
-    self.styles = styles
-    self.style = palette.text
+    self.ctx = ctx
+    self.style = ctx.styles.text
     self.stack = {}
     self.list = {}
     self.quote = 0
@@ -132,10 +114,22 @@ function Renderer:flush()
     end
 end
 
+function Renderer:gap()
+    for _ = 1, self.ctx.limits.block_gap do
+        self.lines[#self.lines + 1] = {}
+    end
+end
+
 function Renderer:blank()
     local last = self.lines[#self.lines]
     if last and width_of(last) > 0 then
-        self.lines[#self.lines + 1] = {}
+        self:gap()
+    end
+end
+
+function Renderer:element(name, data)
+    for _, line in ipairs(self.ctx:element(name, data, self.width)) do
+        self.lines[#self.lines + 1] = line
     end
 end
 
@@ -144,15 +138,28 @@ function Renderer:break_block()
     self:blank()
 end
 
+function Renderer:indents(marker)
+    local ctx = self.ctx
+    local step = string.rep(" ", ctx.limits.indent)
+    local pad = string.rep(step, math.max(#self.list - 1, 0))
+    if self.quote > 0 then
+        pad = string.rep(step, self.quote - 1) .. ctx.symbols.quote .. " "
+    end
+    if marker then
+        return pad .. marker .. " ", pad .. string.rep(" ", text.length(marker) + 1)
+    end
+    return pad, pad
+end
+
 function Renderer:open()
     local marker = self.marker
     self.marker = nil
-    self.block:open(indents(#self.list, self.quote, marker))
+    self.block:open(self:indents(marker))
 end
 
-function Renderer:push_style(extra)
+function Renderer:push_style(role)
     self.stack[#self.stack + 1] = self.style
-    self.style = self.styles:with(self.style, extra)
+    self.style = self.style:merge(self.ctx.styles[role])
 end
 
 function Renderer:cell(value, style)
@@ -164,16 +171,7 @@ end
 function Renderer:finish_row()
     local row = self.row
     self.row = nil
-    local line = { { "  ", 0 } }
-    for index, cell in ipairs(row.cells) do
-        if index > 1 then
-            line[#line + 1] = { " │ ", self.palette.muted }
-        end
-        for _, span in ipairs(cell) do
-            line[#line + 1] = row.head and { span[1], self.styles:with(span[2], { bold = true }) } or span
-        end
-    end
-    self.lines[#self.lines + 1] = line
+    self:element("table_row", row)
 end
 
 function Renderer:inline(value, style)
@@ -186,32 +184,51 @@ function Renderer:inline(value, style)
 end
 
 function Renderer:code(raw)
-    local spans = self.highlighter and self.highlighter:line(raw) or { { raw, self.palette.code } }
-    table.insert(spans, 1, { "  ", 0 })
-    self.lines[#self.lines + 1] = spans
+    local lines = self.code_block.lines
+    lines[#lines + 1] = self.highlighter and self.highlighter:line(raw) or { { raw, self.ctx.styles.code } }
+end
+
+function Renderer:close_heading()
+    local heading = self.heading
+    if not heading then
+        return
+    end
+    self.heading = nil
+    local lines = {}
+    for index = heading.from, #self.lines do
+        lines[#lines + 1] = self.lines[index]
+        self.lines[index] = nil
+    end
+    self:element("heading", { level = heading.level, lines = lines })
+end
+
+function Renderer:close_code()
+    local block = self.code_block
+    if block then
+        self.code_block = nil
+        self:element("code_block", block)
+    end
 end
 
 function Renderer:math(source, display)
     local rendered = latex.render(source)
     if not display or self.row then
-        self:inline((rendered:gsub("\n", " ")), self.palette.code)
+        self:inline((rendered:gsub("\n", " ")), self.ctx.styles.code)
         return
     end
     self:break_block()
-    for _, line in ipairs(text.lines(rendered)) do
-        self.lines[#self.lines + 1] = { { "  " .. line, self.palette.code } }
-    end
+    self:element("math_block", { lines = text.lines(rendered) })
 end
 
 local START = {}
 local STOP = {}
 
-for tag, extra in pairs(MODIFIERS) do
+for _, tag in ipairs(MODIFIERS) do
     START[tag] = function(self)
-        self:push_style(extra)
+        self:push_style(tag)
     end
     STOP[tag] = function(self)
-        self.style = table.remove(self.stack) or self.palette.text
+        self.style = table.remove(self.stack) or self.ctx.styles.text
     end
 end
 
@@ -224,12 +241,13 @@ end
 
 function START.item(self)
     self:flush()
-    self.marker = item_marker(self.list)
+    self.marker = item_marker(self.ctx, self.list)
 end
 
 function START.heading(self, level)
     self:break_block()
-    self.style = level <= 2 and self.palette.accent or self.palette.bold
+    self.heading = { level = level, from = #self.lines + 1 }
+    self.style = self.ctx.styles["heading" .. level]
 end
 
 function START.list(self, start)
@@ -245,10 +263,15 @@ end
 function START.code_block(self, language)
     self:break_block()
     self.in_code = true
-    self.highlighter = highlight.new(language, self.palette)
-    if language and language ~= "" then
-        self.lines[#self.lines + 1] = { { "  " .. language, self.palette.dim } }
-    end
+    local styles = self.ctx.styles
+    self.highlighter = highlight.new(language, {
+        plain = styles.text,
+        keyword = styles.code_keyword,
+        string = styles.code_string,
+        number = styles.code_number,
+        comment = styles.code_comment,
+    })
+    self.code_block = { language = language ~= "" and language or nil, lines = {} }
 end
 
 function START.table(self)
@@ -276,7 +299,8 @@ STOP.item = STOP.paragraph
 
 function STOP.heading(self)
     self:flush()
-    self.style = self.palette.text
+    self:close_heading()
+    self.style = self.ctx.styles.text
 end
 
 function STOP.list(self)
@@ -290,6 +314,7 @@ end
 function STOP.code_block(self)
     self.in_code = false
     self.highlighter = nil
+    self:close_code()
 end
 
 function STOP.table_head(self)
@@ -298,19 +323,18 @@ end
 
 STOP.table_row = STOP.table_head
 
-local function run(handlers, self, key, ...)
-    local handle = handlers[key]
-    if handle then
-        handle(self, ...)
-    end
-end
-
 local EVENTS = {
     start = function(self, tag, detail)
-        run(START, self, tag, detail)
+        local handle = START[tag]
+        if handle then
+            handle(self, detail)
+        end
     end,
     ["end"] = function(self, tag)
-        run(STOP, self, tag)
+        local handle = STOP[tag]
+        if handle then
+            handle(self)
+        end
     end,
     text = function(self, body)
         if not self.in_code then
@@ -321,13 +345,14 @@ local EVENTS = {
         end
     end,
     code = function(self, body)
-        self:inline(body, self.palette.code)
+        self:inline(body, self.ctx.styles.code)
     end,
     math = function(self, body, display)
         self:math(body, display)
     end,
     task = function(self, done)
-        self:inline(done and "[x] " or "[ ] ", self.style)
+        local symbols = self.ctx.symbols
+        self:inline((done and symbols.task_done or symbols.task_open) .. " ", self.style)
     end,
     ["break"] = function(self, kind)
         if kind == "soft" then
@@ -337,16 +362,21 @@ local EVENTS = {
     end,
     rule = function(self)
         self:break_block()
-        self.lines[#self.lines + 1] = { { string.rep("─", math.min(self.width, 60)), self.palette.muted } }
+        self:element("rule", {})
     end,
 }
 
 function Renderer:event(event)
-    run(EVENTS, self, event[1], event[2], event[3])
+    local handle = EVENTS[event[1]]
+    if handle then
+        handle(self, event[2], event[3])
+    end
 end
 
 function Renderer:finish()
     self:flush()
+    self:close_heading()
+    self:close_code()
     while #self.lines > 0 and width_of(self.lines[#self.lines]) == 0 do
         self.lines[#self.lines] = nil
     end
@@ -359,12 +389,12 @@ M.width_of = width_of
 
 M.parse = sys.markdown
 
-function M.render(events, width, palette, styles, continuing)
-    local renderer = Renderer(width, palette, styles)
-    if continuing then
-        renderer.lines[1] = {}
+function M.render(ctx, opts)
+    local renderer = Renderer(ctx, opts.width)
+    if opts.continuing then
+        renderer:gap()
     end
-    for _, event in ipairs(events) do
+    for _, event in ipairs(opts.events) do
         renderer:event(event)
     end
     return renderer:finish()

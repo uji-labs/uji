@@ -2,187 +2,120 @@ local class = require("uji.core.class")
 local event = require("uji.core.event")
 local markdown = require("uji.core.ui.markdown")
 local notices = require("uji.core.notices")
-local spans = require("uji.core.ui.spans")
 local sys = require("uji.sys")
-local text = require("uji.core.ui.text")
 local tokens = require("uji.core.agent.tokens")
 local tool = require("uji.core.tool")
-local Window = require("uji.core.ui.window")
 
-local MAX_TOOL_PREVIEW = 8
-local ARGUMENT_PREVIEW = 200
-
-local function wrapped(out, value, width, style, prefix, block)
-    local trailing = block and 1 or 0
-    local inner = math.max(width - text.width(prefix) - trailing, 0)
-    for _, chunk in ipairs(text.wrap(value, inner)) do
-        if block then
-            local pad = string.rep(" ", math.max(inner - text.width(chunk), 0))
-            out[#out + 1] = { { prefix .. chunk .. " " .. pad, style } }
-        else
-            out[#out + 1] = { { prefix .. chunk, style } }
-        end
-    end
+local function failed(content)
+    return content:sub(1, 6) == "error:" or content:sub(1, 7) == "denied:"
 end
 
 local Blocks = class()
 
-Blocks.wrapped = wrapped
-
 function Blocks:init()
-    self.labels = {}
-end
-
-function Blocks:label(call)
-    local cached = self.labels[call.id]
-    if cached ~= nil then
-        return cached or nil
-    end
-    local found = self:describe(call)
-    self.labels[call.id] = found or false
-    return found
+    self.calls = {}
 end
 
 function Blocks:describe(call)
+    local cached = call.id and self.calls[call.id]
+    if cached then
+        return cached
+    end
+    local described = { name = call.name, arguments = call.arguments or "" }
     local entry = tool.get(call.name)
-    if not entry then
-        return nil
-    end
     local ok, args = pcall(sys.json.decode, call.arguments or "", { nulls = false })
-    if not ok or type(args) ~= "table" then
-        return nil
-    end
-    local fine, detail = pcall(tool.detail, entry, args)
-    if not fine then
-        notices.push(call.name .. " subject: " .. sys.message(detail))
-        detail = nil
-    end
-    local verb = entry.display and entry.display.verb
-    if verb and detail then
-        return verb .. " " .. detail
-    elseif verb then
-        return verb .. " " .. call.name
-    elseif detail then
-        return "Called " .. call.name .. " " .. detail
-    end
-end
-
-function Blocks:markdown(out, value, width, continuing, events)
-    local lines = markdown.render(events or markdown.parse(value), width - 1, self.palette, self.styles, continuing)
-    for _, line in ipairs(lines) do
-        table.insert(line, 1, { " ", 0 })
-        out[#out + 1] = line
-    end
-end
-
-function Blocks:tool_header(out, call, width)
-    local palette = self.palette
-    local head = self:label(call)
-    if not head then
-        local chars = text.chars(call.arguments or "")
-        head = "Called " .. call.name .. " " .. table.concat(chars, "", 1, math.min(#chars, ARGUMENT_PREVIEW))
-    end
-    head = head:gsub("\n", " ")
-    local chunks = text.wrap(head, math.max(width - 4, 1))
-    out[#out + 1] = { { " • ", palette.muted }, { chunks[1] or "", palette.bold } }
-    for index = 2, #chunks do
-        out[#out + 1] = { { "   " .. chunks[index], palette.text } }
-    end
-end
-
-function Blocks:tool_output(out, block, width)
-    local palette = self.palette
-    local content = block.message.content or block.message.output or ""
-    local failed = content:sub(1, 6) == "error:" or content:sub(1, 7) == "denied:"
-    local style = failed and palette.error or palette.muted
-    local available = math.max(width - 5, 1)
-    local expanded = block.expanded
-    local limit = expanded and math.huge or MAX_TOOL_PREVIEW
-    local rows, hidden = {}, 0
-    for _, raw in ipairs(text.lines(content)) do
-        local shown = expanded and raw or text.clip(raw, math.max(MAX_TOOL_PREVIEW - #rows, 0) * available)
-        for _, chunk in ipairs(shown == "" and raw ~= "" and {} or text.wrap(shown, available)) do
-            rows[#rows + 1] = chunk
+    if entry and ok and type(args) == "table" then
+        local fine, detail = pcall(tool.detail, entry, args)
+        if not fine then
+            notices.push(call.name .. " subject: " .. sys.message(detail))
+            detail = nil
         end
-        if #shown < #raw then
-            hidden = hidden + math.ceil(text.width(raw:sub(#shown + 1)) / available)
+        described.verb = entry.display and entry.display.verb
+        described.detail = detail
+    end
+    if call.id then
+        self.calls[call.id] = described
+    end
+    return described
+end
+
+function Blocks:element(name, data)
+    return self.ctx:element(name, data, self.width)
+end
+
+function Blocks:limit(name)
+    return self.ctx.limits[name]
+end
+
+function Blocks:markdown(block)
+    local ctx = self.ctx
+    local margin = ctx.limits.reply_margin
+    local lines = markdown.render(ctx, {
+        events = block.events or markdown.parse(block.text),
+        width = self.width - margin,
+        continuing = block.continuing,
+    })
+    if margin > 0 then
+        local pad = { string.rep(" ", margin), ctx.styles.plain }
+        for _, line in ipairs(lines) do
+            table.insert(line, 1, pad)
         end
     end
-    hidden = hidden + math.max(#rows - limit, 0)
-    local toggle = (expanded or hidden > 0) and block.toggle or nil
-    for index = 1, math.min(#rows, limit) do
-        out[#out + 1] = { { (index == 1 and "   └ " or "     ") .. rows[index], style }, on_click = toggle }
-    end
-    if hidden > 0 then
-        out[#out + 1] = { { "     … +" .. hidden .. " lines", palette.dim }, on_click = toggle }
-    end
+    return lines
 end
 
-function Blocks:divider(out, width)
-    local label = " compacted "
-    local bar = string.rep("─", math.floor(math.max(width - #label - 2, 0) / 2))
-    out[#out + 1] = { { " " .. bar .. label .. bar, self.palette.dim } }
-end
-
-function Blocks:message(out, block, width)
-    local palette = self.palette
+function Blocks:message(block)
     local message = block.message
     local kind = message.type
     if kind == "user" then
-        local fill = { { string.rep(" ", width), palette.user } }
-        out[#out + 1] = fill
-        wrapped(out, message.text or "", width, palette.user, " ", true)
-        out[#out + 1] = fill
+        return self:element("user", { text = message.text or "" })
     elseif kind == "assistant" then
-        local body = message.text or ""
-        if body ~= "" then
-            self:markdown(out, body, width, false)
+        local text = message.text or ""
+        local calls = {}
+        for index, call in ipairs(message.tool_calls or {}) do
+            calls[index] = self:describe(call)
         end
-        for _, call in ipairs(message.tool_calls or {}) do
-            if body ~= "" then
-                out[#out + 1] = {}
-            end
-            self:tool_header(out, call, width)
-        end
+        local body = text ~= "" and self:markdown({ text = text }) or {}
+        return self:element("assistant", { text = text, body = body, calls = calls })
     elseif kind == "tool" then
-        self:tool_output(out, block, width)
+        local content = message.content or ""
+        return self:element("tool_output", {
+            content = content,
+            failed = failed(content),
+            expanded = block.expanded,
+            toggle = block.toggle,
+        })
     elseif kind == "shell" then
-        local header = "! " .. message.command
-        if message.code ~= 0 then
-            header = header .. "  (exit " .. tostring(message.code) .. ")"
-        end
-        wrapped(out, header, width, palette.accent, " ", false)
-        if (message.output or "") ~= "" then
-            self:tool_output(out, block, width)
-        end
-    elseif kind == "system" then
-        wrapped(out, message.text or "", width, palette.system, " ", false)
-    elseif kind == "error" then
-        wrapped(out, message.text or "", width, palette.error, " ", false)
+        local output = message.output or ""
+        return self:element("shell", {
+            command = message.command,
+            code = message.code,
+            output = output,
+            failed = failed(output),
+            expanded = block.expanded,
+            toggle = block.toggle,
+        })
+    elseif kind == "system" or kind == "error" then
+        return self:element(kind, { text = message.text or "" })
     elseif kind == "compaction" then
-        self:divider(out, width)
+        return self:element("compaction", {})
     end
+    return {}
 end
 
-function Blocks:builtin(out, block, width)
-    local palette = self.palette
+function Blocks:builtin(block)
     local kind = block.kind
-    if kind == "notice" then
-        wrapped(out, block.text, width, palette.notice, " ! ", false)
-    elseif kind == "message" then
-        self:message(out, block, width)
+    if kind == "message" then
+        return self:message(block)
     elseif kind == "pending" then
-        self:markdown(out, block.text, width, block.continuing, block.events)
-    elseif kind == "thinking" then
-        wrapped(out, block.text, width, palette.faint, " │ ", false)
-    elseif kind == "queued" then
-        wrapped(out, block.text, width, palette.dim, " › ", false)
+        return self:markdown(block)
     end
+    return self:element(kind, { text = block.text })
 end
 
-local function payload(block)
+local function payload(block, width)
     if block.kind ~= "message" then
-        return { type = block.kind, text = block.text }
+        return { type = block.kind, text = block.text, width = width }
     end
     local message = block.message
     local calls = message.type == "assistant" and message.tool_calls or nil
@@ -191,33 +124,50 @@ local function payload(block)
         text = tokens.text(message),
         name = message.type == "tool" and message.name or nil,
         tool_calls = calls and #calls > 0 and calls or nil,
+        width = width,
     }
 end
 
-function Blocks:custom(out, block, width)
-    local value = event.ask("render_message", payload(block))
-    if value == nil then
+local function span(value)
+    return type(value) == "string" or (type(value) == "table" and type(value[1]) == "string")
+end
+
+local function lines(value)
+    if type(value) ~= "table" then
         return false
     end
-    local ok, lines = pcall(Window.lines, value)
-    if not ok then
-        notices.push("render_message: " .. sys.message(lines))
-        return false
+    for _, line in ipairs(value) do
+        if type(line) ~= "table" then
+            return false
+        end
+        for _, part in ipairs(line) do
+            if not span(part) then
+                return false
+            end
+        end
     end
-    spans.lines(lines, width, true, self.styles, out)
     return true
 end
 
-function Blocks:render(out, block, width)
-    if self.overrides and self:custom(out, block, width) then
-        return
+function Blocks:custom(block)
+    local value = event.ask("render_message", payload(block, self.width))
+    if value == nil then
+        return nil
     end
-    self:builtin(out, block, width)
+    if not lines(value) then
+        notices.push("render_message: a handler must return a list of lines, and each line a list of spans")
+        return nil
+    end
+    return value
 end
 
-function Blocks:prepare(palette, styles)
-    self.palette = palette
-    self.styles = styles
+function Blocks:render(block)
+    return self.overrides and self:custom(block) or self:builtin(block)
+end
+
+function Blocks:prepare(ctx, width)
+    self.ctx = ctx
+    self.width = width
     self.overrides = event.has("render_message")
     return self.overrides
 end

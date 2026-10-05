@@ -37,6 +37,44 @@ local usage = uji.session.usage()
 local line = string.format("%d tokens over %d requests", usage.total, usage.requests)
 ```
 
+## uji.session.context()
+
+Returns a table with `used`, the estimated tokens in the conversation, and
+`window`, the model's context size when uji knows it.
+
+```lua
+local context = uji.session.context()
+if context.window then
+  uji.notify(string.format("%d%% of context used", context.used * 100 // context.window))
+end
+```
+
+## uji.session.queue()
+
+Lists the messages you typed while the model worked that uji has not sent
+yet.
+
+```lua
+local waiting = #uji.session.queue()
+```
+
+## uji.session.state()
+
+Gives `"working"` during a turn, and `"idle"` otherwise.
+
+```lua
+local busy = uji.session.state() == "working"
+```
+
+## uji.session.elapsed()
+
+Counts the seconds since the current turn started. When idle, the result is
+`nil`.
+
+```lua
+local seconds = math.floor(uji.session.elapsed() or 0)
+```
+
 ## uji.session.set_title(title)
 
 Renames the session, saves the name, and fires `session_titled`. An empty

@@ -1,9 +1,5 @@
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
-local Modal = require("uji.core.ui.views.modal")
-local text = require("uji.core.ui.text")
-
-local MAX_ROWS = 10
+local text = require("ito").text
 
 local function collect(chars, from, to)
     local out = {}
@@ -25,8 +21,9 @@ end
 function Input:layout(ui, width, height)
     local line = ui.composer.line
     local focused = ui:composing()
-    local margin = math.max(height or 0, MAX_ROWS) + 1
-    local key = table.concat({ line.revision, line.cursor, width, margin, tostring(focused) }, ":")
+    local tokens = ui.theme.tokens
+    local margin = math.max(height or 0, tokens.limits.input_rows) + 1
+    local key = table.concat({ line.revision, line.cursor, width, margin, tostring(focused), ui.theme.revision }, ":")
     if self.key == key then
         return self.cached
     end
@@ -36,7 +33,7 @@ function Input:layout(ui, width, height)
     local display = text.chars(shown)
     local cursor = text.length(shown:sub(1, line.cursor - from))
     if focused then
-        table.insert(display, cursor + 1, Modal.CURSOR)
+        table.insert(display, cursor + 1, tokens.symbols.cursor)
     end
     self.key = key
     self.cached = {
@@ -48,23 +45,12 @@ function Input:layout(ui, width, height)
 end
 
 function Input:rows(ui, width)
-    local modal = ui.modal
-    if modal and modal.takeover then
-        return modal:takeover_rows(ui, width)
-    end
-    return math.min(math.max(#self:layout(ui, width).rows, 1), MAX_ROWS)
+    return math.min(math.max(#self:layout(ui, width).rows, 1), ui.theme.tokens.limits.input_rows)
 end
 
-function Input:draw(ui, screen, area, window)
-    local inner = canvas.block(screen, area, ui:chrome(window))
-    local modal = ui.modal
-    if modal and modal.takeover then
-        canvas.lines(screen, inner, modal:lines(ui, inner.width, inner.height))
-        return
-    end
-    local palette = ui.palette
-    local height = math.max(inner.height, 1)
-    local shape = self:layout(ui, inner.width, height)
+function Input:view(ui, ctx, area)
+    local height = math.max(area.height, 1)
+    local shape = self:layout(ui, area.width, height)
     local cursor, rows, display = shape.cursor, shape.rows, shape.display
     local cursor_row = 1
     if cursor then
@@ -76,20 +62,16 @@ function Input:draw(ui, screen, area, window)
         end
     end
     local skip = math.max(cursor_row - height, 0)
-    local lines = {}
+    local shown = {}
     for index = skip + 1, math.min(skip + height, #rows) do
         local row = rows[index]
         if cursor and cursor >= row[1] and cursor < row[2] then
-            lines[#lines + 1] = {
-                { collect(display, row[1], cursor), palette.input },
-                { Modal.CURSOR, palette.cursor },
-                { collect(display, cursor + 1, row[2]), palette.input },
-            }
+            shown[#shown + 1] = { before = collect(display, row[1], cursor), after = collect(display, cursor + 1, row[2]) }
         else
-            lines[#lines + 1] = { { collect(display, row[1], row[2]), palette.input } }
+            shown[#shown + 1] = { before = collect(display, row[1], row[2]) }
         end
     end
-    canvas.lines(screen, inner, lines)
+    return ctx:element("input", { rows = shown }, area.width)
 end
 
 return Input

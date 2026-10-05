@@ -81,9 +81,13 @@ mkdir -p ~/.config/uji/native && cp loadavg.so ~/.config/uji/native/
 ```
 
 ```lua
-uji.status.add("load", function()
-  return { text = string.format("load %.2f", require("loadavg").get()), color = "gray" }
-end)
+local ito = require("ito")
+
+uji.ui.toolbar({
+  ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
+    return ito.Text(string.format("load %.2f", require("loadavg").get())):foreground(ito.Color.gray)
+  end),
+})
 ```
 
 ## Writing one in Rust
@@ -192,7 +196,6 @@ everything in uji that uses it uses yours. The other modules stay built in.
 | `uji.sys.lossy` | The `lossy` function, in [Text](text.md). |
 | `uji.sys.markdown` | The `markdown` function, in [Text](text.md). |
 | `uji.sys.image` | Image fitting, in [Images](images.md). |
-| `uji.sys.tty` | The screen and its input, in [Terminal](terminal.md). |
 
 This file at `~/.config/uji/lua/uji/sys/width.lua` counts every character as
 one column. `/reload` puts it to use.

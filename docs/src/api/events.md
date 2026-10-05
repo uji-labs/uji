@@ -40,7 +40,7 @@ uji.off("turn_finished", name)
 ## uji.emit(event, payload)
 
 Runs the handlers of any event with the payload you give. Plugins use it for
-events of their own, and to redraw the footer through `status_changed`.
+events of their own, and to redraw the screen through `status_changed`.
 
 ```lua
 uji.emit("status_changed", {})
@@ -104,18 +104,7 @@ The provider or model changed. The payload has `provider` and `model`.
 
 ### status_changed
 
-Something the footer shows changed, such as the running state, the model or
-the queue.
-
-### layout_changed
-
-Fires when a window moves or changes size, including when the terminal is
-resized. The payload is empty. Read the new places with
-[`uji.ui.list_wins`](ui.md#ujiuilist_wins).
-
-### loader_ticked
-
-Fires on every loader frame while the model works, for redrawing an animation.
+The running state, the model or the queue changed, and uji draws a new frame.
 
 ### before_quit
 
@@ -170,17 +159,20 @@ end)
 
 ### render_message
 
-Runs when uji draws a block of the transcript. The payload has `type`, `text`,
-and for tool results `name`, and for assistant messages `tool_calls`. Besides
-the message types, `type` can be `notice`, `pending`, `thinking` or `queued`.
-Return a list of lines, in the [`uji.ui.set_lines`](ui.md#ujiuiset_linesid-lines)
-format, to draw instead of the default. The first handler to return lines
-wins.
+Runs when uji draws a block of the transcript. The payload has `type`, `text`
+and `width`, the columns the transcript has, and also `name` for tool results
+and `tool_calls` for assistant messages. Besides the message types, `type` can
+be `notice`, `pending`, `thinking` or `queued`. Return a list of lines to draw
+instead of the default, in the form [templates](../configuration/themes.md#templates)
+return them. A line is a list of spans, and a span is `{ text, style }` with a
+style from `ito.theme().styles`. The first handler to return lines wins.
 
 ```lua
+local ito = require("ito")
+
 uji.on("render_message", function(block)
   if block.type == "tool" and block.name == "todo" then
-    return { { { text = "  task list updated", color = "gray" } } }
+    return { { { "  task list updated", ito.theme().styles.muted } } }
   end
 end)
 ```

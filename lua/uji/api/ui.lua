@@ -1,22 +1,18 @@
 local actions = require("uji.core.ui.actions")
 local app = require("uji.core.app")
 local check = require("uji.core.check")
+local ito = require("ito")
 local images = require("uji.core.images")
 local keys = require("uji.core.ui.keys")
 local Keymap = require("uji.core.ui.keymap")
-local model = require("uji.core.model")
-local notices = require("uji.core.notices")
+local Overlay = require("uji.core.ui.views.overlay")
+local parts = require("uji.core.ui.parts")
 local Pick = require("uji.core.ui.views.pick")
-local plugin = require("uji.core.plugin")
 local process = require("uji.core.system.process")
 local Prompt = require("uji.core.ui.views.prompt")
-local Registry = require("uji.core.registry")
 local Select = require("uji.core.ui.views.select")
 local task = require("uji.core.task")
 local ui = require("uji.core.ui")
-local Window = require("uji.core.ui.window")
-
-local segments = plugin.track(Registry(plugin.current))
 
 local function raise(ok, ...)
     if not ok then
@@ -40,82 +36,33 @@ local function strings(list, what)
     return list
 end
 
-local function draw(name, render, out)
-    local ok, value = pcall(render)
-    if not ok then
-        notices.push("status segment " .. name .. ": " .. tostring(value))
-    elseif value ~= nil then
-        out[#out + 1] = value
-    end
-end
-
-local function window(id)
-    local found = ui:window(id)
-    return found
+local function callable(value)
+    local meta = type(value) == "table" and getmetatable(value)
+    return type(value) == "function" or (meta and meta.__call ~= nil)
 end
 
 local M = {}
 
 M.ui = {
-    open_win = function(opts)
-        return raise(pcall(ui.open_window, ui, opts))
-    end,
-    close_win = function(id)
-        return ui:close_window(id)
-    end,
-    list_wins = function()
-        local out = {}
-        for index, found in ipairs(ui.windows) do
-            local area = found.area or {}
-            out[index] = {
-                id = found.id,
-                name = found.name,
-                view = found.view,
-                split = found.split,
-                size = found.size,
-                priority = found.priority,
-                float = found.float ~= nil,
-                x = area.x,
-                y = area.y,
-                width = area.width,
-                height = area.height,
-            }
+    toolbar = function(items)
+        if type(items) ~= "table" or ito.is_view(items) then
+            error("uji.ui.toolbar takes a list of ito.ToolbarItem", 2)
         end
-        return out
+        for index, item in pairs(items) do
+            if type(index) ~= "number" or (item and not ito.is_toolbar_item(item)) then
+                error("uji.ui.toolbar takes a list of ito.ToolbarItem", 2)
+            end
+        end
+        local declared = ui:toolbar(items)
+        return {
+            remove = function()
+                return ui:remove_toolbar(declared)
+            end,
+        }
     end,
     size = function()
         if ui.screen then
             return ui.screen:size()
-        end
-    end,
-    set_lines = function(id, lines)
-        local parsed = raise(pcall(Window.lines, lines))
-        local found = window(id)
-        if found then
-            found.lines = parsed
-            ui:invalidate()
-        end
-    end,
-    clear = function(id)
-        local found = window(id)
-        if found then
-            found.lines = {}
-            ui:invalidate()
-        end
-    end,
-    set_size = function(id, size)
-        local parsed = raise(pcall(Window.size, size))
-        local found = window(id)
-        if found then
-            found.size = parsed
-            ui:invalidate()
-        end
-    end,
-    set_title = function(id, title)
-        local found = window(id)
-        if found then
-            found.title = title
-            ui:invalidate()
         end
     end,
     select = task.callback(function(opts)
@@ -136,6 +83,32 @@ M.ui = {
         check.options(opts, "uji.ui.confirm")
         return ui:confirm(opts)
     end),
+    overlay = function(content, opts)
+        if not callable(content) then
+            error("uji.ui.overlay needs a function that returns a view", 2)
+        end
+        local overlay = ui:present(Overlay(content, opts))
+        return {
+            close = function(_, value)
+                overlay:settle(value)
+            end,
+            wait = function()
+                return overlay:wait()
+            end,
+        }
+    end,
+    template = function(name, default)
+        if type(name) ~= "string" or not name:find(".", 1, true) then
+            error("a plugin's template needs a name with a dot, such as `plugin.part`", 2)
+        end
+        if type(default) ~= "function" then
+            error("uji.ui.template needs the default template as a function", 2)
+        end
+        return ito.view(function(props)
+            local ctx = ito.theme()
+            return (ctx.templates[name] or default)(ctx, props)
+        end)
+    end,
     exec = function(cmd)
         ui:exec(process.argv(cmd))
     end,
@@ -148,68 +121,7 @@ M.ui = {
     end,
 }
 
-M.status = {
-    provider = function()
-        return model.current.name
-    end,
-    model = function()
-        return model.current.model
-    end,
-    effort = function()
-        local effort = model.current.effort
-        return effort ~= "off" and effort or nil
-    end,
-    context = function()
-        return {
-            used = app.session and app.session:used_tokens() or 0,
-            window = model.window(),
-        }
-    end,
-    queue = function()
-        local out = {}
-        for index, queued in ipairs(app.agent and app.agent.queue or {}) do
-            out[index] = queued.text
-        end
-        return out
-    end,
-    state = function()
-        return ui:working() and "working" or "idle"
-    end,
-    elapsed = function()
-        return app.agent and app.agent:elapsed()
-    end,
-    loader_frame = function()
-        return ui:loader_frame()
-    end,
-    add = function(name, render, opts)
-        if type(name) ~= "string" or type(render) ~= "function" then
-            error("uji.status.add needs a name and a function", 2)
-        end
-        segments:add(name, render, opts)
-    end,
-    remove = function(name)
-        return segments:remove(name)
-    end,
-    list = function()
-        return segments:names()
-    end,
-    render = function(names)
-        local out = {}
-        if names == nil then
-            for name, render in segments:each() do
-                draw(name, render, out)
-            end
-            return out
-        end
-        for _, name in ipairs(strings(names, "uji.status.render")) do
-            local render = segments:get(name)
-            if render then
-                draw(name, render, out)
-            end
-        end
-        return out
-    end,
-}
+M.ui.Markdown = parts.Markdown
 
 M.input = {
     get = function()
@@ -293,7 +205,6 @@ M.action = {
 }
 
 uji.ui = M.ui
-uji.status = M.status
 uji.input = M.input
 uji.keymap = M.keymap
 uji.action = M.action

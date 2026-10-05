@@ -3,6 +3,8 @@ local notices = require("uji.core.notices")
 local sys = require("uji.sys")
 local tables = require("uji.core.tables")
 
+require("ito").setup({ width = sys.width, clock = sys.os.clock, report = notices.push })
+
 local function open_session(store, parsed)
     local Store = require("uji.core.store")
     if parsed.command == "new" then

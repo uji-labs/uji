@@ -1487,6 +1487,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ito"
+version = "0.1.0"
+source = "git+https://github.com/uji-labs/ito?tag=v0.1.0#d653d111a9b2abcf2fe4515cab29baae41026bc1"
+dependencies = [
+ "crossterm",
+ "mlua",
+ "ratatui",
+ "serde",
+ "tokio",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1642,9 +1654,9 @@ dependencies = [
 
 [[package]]
 name = "lua-src"
-version = "551.0.1"
+version = "551.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "087097f9936a7d819bda525b32d6e96f9c54f3d35ff23ff72fc0c1697d2127db"
+checksum = "d400ffef0e3d4d29287092bdc5a276d0bf468b2c69709d5bab0d469312d9f947"
 dependencies = [
  "cc",
 ]
@@ -1730,9 +1742,9 @@ dependencies = [
 
 [[package]]
 name = "mlua"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d96e5d00f19d8c46c71ceaced99593b90c31c57aa1fe2cb3e93a8b1698eedba9"
+checksum = "7a7ae6b65bf54b7fdd4cf5b6f44f60862350ebf3fe3779b3a9cc005e7fa14f81"
 dependencies = [
  "bstr",
  "either",
@@ -1749,9 +1761,9 @@ dependencies = [
 
 [[package]]
 name = "mlua-sys"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b806d7ade031f5d6607eae3e283fb034cb795a76247dd0d1ba753c8c42debccf"
+checksum = "1631cda17bd6486410ab751d91f5fd4484f441589278cdad879eb3afc721a285"
 dependencies = [
  "cc",
  "cfg-if",
@@ -3485,17 +3497,16 @@ version = "0.1.0"
 dependencies = [
  "arboard",
  "base64",
- "crossterm",
  "futures-util",
  "globset",
  "image",
+ "ito",
  "keyring",
  "linkme",
  "mlua",
  "nucleo-matcher",
  "pulldown-cmark",
  "rand 0.9.5",
- "ratatui",
  "regex",
  "reqwest",
  "rusqlite",

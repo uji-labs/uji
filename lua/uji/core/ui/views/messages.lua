@@ -1,12 +1,9 @@
 local app = require("uji.core.app")
 local Blocks = require("uji.core.ui.blocks")
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
-local text = require("uji.core.ui.text")
+local layout = require("ito").layout
+local text = require("ito").text
 local Transcript = require("uji.core.ui.transcript")
-
-local TRAILING_GAP = 1
-local JUMP = " ↓ Jump to bottom "
 
 local function split_committed(pending)
     local at = pending:find("\n[^\n]*$")
@@ -26,6 +23,20 @@ local function append(into, lines)
     end
 end
 
+local function gap(into, rows)
+    for _ = 1, rows do
+        into[#into + 1] = {}
+    end
+end
+
+local function width_of(line)
+    local total = 0
+    for _, span in ipairs(line) do
+        total = total + text.width(span[1])
+    end
+    return total
+end
+
 local Messages = class()
 
 function Messages:init()
@@ -33,12 +44,13 @@ function Messages:init()
     self.transcript = Transcript(self.blocks)
 end
 
-function Messages:draw(ui, screen, area, window)
-    local palette = ui.palette
-    local inner = canvas.block(screen, area, ui:chrome(window))
+function Messages:draw(ui, area, ctx)
+    local limits = ctx.limits
+    local inner = layout.rect(area.x, area.y, area.width, area.height)
     local floor = inner.y + inner.height - 1
-    inner.height = math.max(inner.height - TRAILING_GAP, 0)
+    inner.height = math.max(inner.height - limits.bottom_gap, 0)
     local width, height = inner.width, inner.height
+    local split = not self.blocks:prepare(ctx, width)
     local committed, partial = split_committed(ui.stream:visible())
     local parts = self.transcript:frame({
         entries = app.session and app.session:entries() or {},
@@ -49,7 +61,7 @@ function Messages:draw(ui, screen, area, window)
         reasoning = ui.reasoning,
         width = width,
         revision = ui.theme.revision,
-        split = not self.blocks:prepare(palette, ui.styles),
+        split = split,
         want = height + (ui.scroll.anchor or 0),
     })
     if parts.toggled then
@@ -63,7 +75,7 @@ function Messages:draw(ui, screen, area, window)
 
     local tail = {}
     if partial ~= "" then
-        Blocks.wrapped(tail, partial, width, palette.text, " ", false)
+        tail = ctx:element("partial", { text = partial }, width)
     end
     local live = 0
     for _, lines in ipairs(parts.live) do
@@ -71,22 +83,22 @@ function Messages:draw(ui, screen, area, window)
     end
     local lead = {}
     if (live > 0 or #tail > 0) and #parts.folded > 0 then
-        lead[1] = {}
+        gap(lead, limits.section_gap)
     end
 
     local below = {}
     local running = ui.running
     if running then
-        below[1] = {}
-        Blocks.wrapped(below, running.name .. "  " .. text.clip(running.line, width), width, palette.dim, " ⋯ ", false)
+        gap(below, limits.section_gap)
+        append(below, ctx:element("running", { name = running.name, line = running.line }, width))
     end
     if #parts.queued > 0 then
-        below[#below + 1] = {}
+        gap(below, limits.section_gap)
         append(below, parts.queued)
     end
     local notes = {}
     if #parts.notices > 0 then
-        notes[1] = {}
+        gap(notes, limits.section_gap)
         append(notes, parts.notices)
     end
 
@@ -114,15 +126,15 @@ function Messages:draw(ui, screen, area, window)
     end
     append(rows, notes)
     append(rows, below)
-    canvas.lines(screen, inner, rows)
+    local jump
     if ui.scroll.anchor and floor >= inner.y then
-        local size = math.min(text.width(JUMP), width)
-        local col = inner.x + math.floor((width - size) / 2)
-        screen:line(floor, col, { { JUMP, palette.chosen_name }, on_click = follow }, size)
+        local line = ctx:element("jump", { follow = follow }, width)[1] or {}
+        local size = math.min(width_of(line), width)
+        jump = { row = floor, col = inner.x + math.floor((width - size) / 2), line = line, width = size }
     end
     local pane = self.pane
     pane.top, pane.height, pane.shift = inner.y, finish - start, inner.y - start + self.base
-    return pane
+    return { area = inner, rows = rows, jump = jump, pane = pane }
 end
 
 return Messages

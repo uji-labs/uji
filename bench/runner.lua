@@ -23,7 +23,6 @@ local params = sys.json.decode(read(root .. "/bench.json"), { nulls = false })
 package.path = table.concat({ params.dir .. "/?.lua", params.support .. "/?.lua" }, ";")
 
 local Context = require("steps")
-local screen = require("support.ui")
 local ui = require("uji.core.ui")
 
 local SCENARIOS = params.dir .. "/scenario"
@@ -49,10 +48,10 @@ local function batch(run, count)
     return sys.os.clock() - started, frames
 end
 
-local function measure(ctx, name, steps)
+local function measure(ctx, case)
     local function once()
         ctx.frames = 0
-        ctx:run(steps)
+        ctx:run(case.steps)
         ctx:frame()
         return ctx.frames
     end
@@ -68,15 +67,15 @@ local function measure(ctx, name, steps)
         samples[index] = spent / count
     end
     table.sort(samples)
-    return { kind = "bench", name = name, seconds = samples[math.ceil(SAMPLES / 2)], frames = frames }
+    return { kind = "bench", name = case.name, seconds = samples[math.ceil(SAMPLES / 2)], frames = frames }
 end
 
-local function endure(ctx, name, steps, budget)
+local function endure(ctx, case)
     collectgarbage()
     local started = sys.os.clock()
     local finished, ok, err = sys.task.timeout(HUNG, function()
         return xpcall(function()
-            ctx:run(steps)
+            ctx:run(case.steps)
             ctx:frame()
         end, debug.traceback)
     end)
@@ -85,9 +84,9 @@ local function endure(ctx, name, steps, budget)
     end
     return {
         kind = "torture",
-        name = name,
+        name = case.name,
         seconds = sys.os.clock() - started,
-        budget = budget,
+        budget = case.budget,
         error = not ok and tostring(err) or nil,
     }
 end
@@ -95,7 +94,6 @@ end
 local function run()
     local scenarios = sys.json.decode(read(SCENARIOS .. "/scenarios.json"), { nulls = false })
     local ctx = Context(SCENARIOS, scenarios.values)
-    screen.open()
     ui:render()
     local results = {}
     for _, scenario in ipairs(scenarios[params.mode][params.group]) do
@@ -103,8 +101,8 @@ local function run()
         ctx:run(scenario.setup)
         ctx:prepare(scenario.run)
         if wanted(name) then
-            results[#results + 1] = params.mode == "bench" and measure(ctx, name, scenario.run)
-                or endure(ctx, name, scenario.run, scenario.budget or BUDGET)
+            local case = { name = name, steps = scenario.run, budget = scenario.budget or BUDGET }
+            results[#results + 1] = params.mode == "bench" and measure(ctx, case) or endure(ctx, case)
         end
         ctx:run(scenario.after)
     end

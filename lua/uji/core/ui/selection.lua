@@ -1,5 +1,5 @@
 local class = require("uji.core.class")
-local text = require("uji.core.ui.text")
+local text = require("ito").text
 
 local MULTI_CLICK = 0.5
 local JOINERS = { ["/"] = true, ["-"] = true, ["_"] = true, ["."] = true }
@@ -196,31 +196,34 @@ function Selection:clear()
     return had
 end
 
-function Selection:sync(screen, width, height, style, transcript)
+function Selection:sync(screen, transcript)
+    local width, height = screen:size()
     self.transcript = transcript
     self.rows = {}
     for y = 0, height - 1 do
         self.rows[y] = screen:text(y)
     end
     if not self.range then
-        return
+        return {}
     end
     if self.pane ~= SCREEN and self.pane ~= transcript then
         self:clear()
-        return
+        return {}
     end
     self:capture()
     local start, finish = self:bounds()
+    local rects = {}
     for row = start.y, finish.y do
         local y = row + self.pane.shift
         if inside(self.pane, y) then
             local from = row == start.y and start.x or 0
             local to = row == finish.y and finish.x or width
             if to > from then
-                screen:paint({ x = from, y = y, width = to - from, height = 1 }, style)
+                rects[#rects + 1] = { x = from, y = y, width = to - from, height = 1 }
             end
         end
     end
+    return rects
 end
 
 return Selection

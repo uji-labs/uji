@@ -1,7 +1,7 @@
 local class = require("uji.core.class")
 local keys = require("uji.core.ui.keys")
 
-local MODES = { "normal", "confirm", "select", "prompt", "suggest" }
+local MODES = { "normal", "confirm", "select", "prompt", "suggest", "overlay" }
 local EDIT = { "normal", "suggest", "prompt", "select" }
 local LIST = { "select", "suggest", "confirm" }
 local COMPOSE = { "normal" }

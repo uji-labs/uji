@@ -44,7 +44,7 @@ function Streamed:update(value, split, render)
         self.settled = 0
         self.lines = {}
         self.open = {}
-        render(self.open, value, false)
+        render(self.open, { text = value, continuing = false })
         return
     end
     local tail = value:sub(self.settled + 1)
@@ -53,12 +53,12 @@ function Streamed:update(value, split, render)
     if cut > 0 then
         local head
         head, events = markdown.split(events, cut)
-        render(self.lines, tail:sub(1, cut), #self.lines > 0, head)
+        render(self.lines, { text = tail:sub(1, cut), continuing = #self.lines > 0, events = head })
         self.settled = self.settled + cut
     end
     self.open = {}
     if self.settled < #value then
-        render(self.open, value:sub(self.settled + 1), #self.lines > 0, events)
+        render(self.open, { text = value:sub(self.settled + 1), continuing = #self.lines > 0, events = events })
     end
 end
 
@@ -112,7 +112,9 @@ function Transcript:reset()
 end
 
 function Transcript:render(out, block)
-    self.renderer:render(out, block, self.width)
+    for _, line in ipairs(self.renderer:render(block)) do
+        out[#out + 1] = line
+    end
 end
 
 function Transcript:block(entries, index)
@@ -130,7 +132,9 @@ function Transcript:block(entries, index)
         end
     end
     if previous and not (opens_group(previous) and message.type == "tool") then
-        lines[1] = {}
+        for _ = 1, self.renderer:limit("message_gap") do
+            lines[#lines + 1] = {}
+        end
     end
     if self.thinking and message.reasoning and message.reasoning ~= "" then
         self:render(lines, { kind = "thinking", text = message.reasoning })
@@ -231,11 +235,12 @@ function Transcript:frame(input)
             self:render(lines, { kind = "queued", text = queued.text })
         end
     end)
-    self.reasoning:update(input.thinking and input.reasoning or "", input.split, function(lines, chunk)
-        self:render(lines, { kind = "thinking", text = chunk })
+    self.reasoning:update(input.thinking and input.reasoning or "", input.split, function(lines, piece)
+        self:render(lines, { kind = "thinking", text = piece.text })
     end)
-    self.pending:update(input.pending, input.split, function(lines, chunk, continuing, events)
-        self:render(lines, { kind = "pending", text = chunk, continuing = continuing, events = events })
+    self.pending:update(input.pending, input.split, function(lines, piece)
+        piece.kind = "pending"
+        self:render(lines, piece)
     end)
     return {
         prepended = prepended,

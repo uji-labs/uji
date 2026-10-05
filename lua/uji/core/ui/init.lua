@@ -1,6 +1,5 @@
 local actions = require("uji.core.ui.actions")
 local app = require("uji.core.app")
-local canvas = require("uji.core.ui.canvas")
 local class = require("uji.core.class")
 local command = require("uji.core.command")
 local Composer = require("uji.core.ui.composer")
@@ -8,28 +7,23 @@ local Confirm = require("uji.core.ui.views.confirm")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
 local Input = require("uji.core.ui.views.input")
+local ito = require("ito")
 local keys = require("uji.core.ui.keys")
 local Keymap = require("uji.core.ui.keymap")
-local layout = require("uji.core.ui.layout")
 local model = require("uji.core.model")
 local Messages = require("uji.core.ui.views.messages")
 local notices = require("uji.core.notices")
 local Pastes = require("uji.core.ui.paste")
+local render = require("uji.core.ui.render")
 local Scroll = require("uji.core.ui.scroll")
 local Selection = require("uji.core.ui.selection")
-local spans = require("uji.core.ui.spans")
 local Stream = require("uji.core.ui.stream")
-local Styles = require("uji.core.ui.styles")
 local Suggest = require("uji.core.ui.views.suggest")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
-local text = require("uji.core.ui.text")
 local Theme = require("uji.core.ui.theme")
-local Window = require("uji.core.ui.window")
 
 local FRAME = 1 / 60
-local FLASH = 1
-local MIN_PICK_ROWS = 10
 local SCROLL_LINES = 3
 
 local NORMAL = {
@@ -45,13 +39,6 @@ local NORMAL = {
     enter = "submit",
 }
 
-local function above(area, input)
-    if input and input.y > area.y then
-        return layout.rect(area.x, area.y, area.width, input.y - area.y)
-    end
-    return area
-end
-
 local function exit_text(exit)
     if exit.signal then
         return "signal: " .. exit.signal
@@ -62,17 +49,17 @@ end
 local Ui = class()
 
 function Ui:init()
-    self.windows = {}
-    self.next_window = 0
+    self.toolbars = {}
     self.keymap = Keymap()
     self.theme = Theme()
-    self.composer = Composer()
+    self.composer = Composer(self.theme)
     self.sends = task.sequence()
     self.stream = Stream()
     self.reasoning = ""
     self.notices = {}
     self.running = nil
     self.modal = nil
+    self.presented = {}
     self.capture = nil
     self.scroll = Scroll()
     self.selection = Selection()
@@ -83,8 +70,7 @@ end
 
 function Ui:open()
     if not self.screen then
-        self.screen, self.input = sys.tty.open()
-        self.styles = Styles(self.screen)
+        self.screen, self.input = ito.open()
     end
     return self.screen
 end
@@ -95,57 +81,38 @@ function Ui:invalidate()
     end
 end
 
-function Ui:open_window(opts)
-    local window = Window(self.next_window, opts)
-    self.next_window = self.next_window + 1
-    local at = #self.windows + 1
-    for index, existing in ipairs(self.windows) do
-        if existing.priority > window.priority then
-            at = index
-            break
+function Ui:toolbar(items)
+    local declared = { items = items }
+    for index, item in ipairs(items) do
+        if item then
+            item:id(declared, index)
         end
     end
-    table.insert(self.windows, at, window)
+    self.toolbars[#self.toolbars + 1] = declared
     self:invalidate()
-    return window.id
+    return declared
 end
 
-function Ui:window(id)
-    for index, window in ipairs(self.windows) do
-        if window.id == id then
-            return window, index
+function Ui:remove_toolbar(declared)
+    for index, found in ipairs(self.toolbars) do
+        if found == declared then
+            table.remove(self.toolbars, index)
+            self:invalidate()
+            return true
         end
     end
-end
-
-function Ui:close_window(id)
-    local _, index = self:window(id)
-    if not index then
-        return false
-    end
-    table.remove(self.windows, index)
-    self:invalidate()
-    return true
-end
-
-function Ui:chrome(window)
-    if window.border == "none" and window.padding == 0 then
-        return { border = "none" }
-    end
-    return {
-        border = window.border,
-        padding = window.padding,
-        title = window.title,
-        style = window.border_color and self.styles:get({ fg = window.border_color }) or self.palette.border,
-    }
+    return false
 end
 
 function Ui:present(modal)
-    if self.modal then
-        self.modal:close()
+    local top = self.modal
+    if top and top.mode == "suggest" then
+        top:close()
     end
     modal.ui = self
+    self.presented[#self.presented + 1] = modal
     self.modal = modal
+    self.focused = nil
     self:invalidate()
     return modal
 end
@@ -155,9 +122,49 @@ function Ui:ask(modal)
 end
 
 function Ui:close_modal(modal)
-    if self.modal == modal then
-        self.modal = nil
-        self:invalidate()
+    for index, found in ipairs(self.presented) do
+        if found == modal then
+            table.remove(self.presented, index)
+            self.modal = self.presented[#self.presented]
+            self.focused = nil
+            self:invalidate()
+            return
+        end
+    end
+end
+
+function Ui:presentations(accept)
+    local found = {}
+    for _, modal in ipairs(self.presented) do
+        if accept(modal) then
+            found[#found + 1] = modal
+        end
+    end
+    return found
+end
+
+function Ui:takeovers()
+    return self:presentations(function(modal)
+        return modal.takeover
+    end)
+end
+
+function Ui:inlines()
+    return self:presentations(function(modal)
+        return not modal.takeover and not modal.float
+    end)
+end
+
+function Ui:floats(hosted)
+    return self:presentations(function(modal)
+        return modal.float or (not hosted and not modal.takeover)
+    end)
+end
+
+function Ui:report(field, problem)
+    if self[field] ~= problem then
+        self[field] = problem
+        notices.push("theme " .. problem)
     end
 end
 
@@ -177,13 +184,21 @@ function Ui:working()
 end
 
 function Ui:loader_frame()
-    local frames = self.theme.loader_frames
+    local tokens = self.theme.tokens
+    local frames = tokens.symbols.spinner
     local elapsed = app.agent and app.agent:elapsed()
     if not elapsed or #frames == 0 then
         return ""
     end
-    local interval = math.max(self.theme.loader_interval, 0.001)
+    local interval = math.max(tokens.limits.spinner_interval, 0.001)
     return frames[math.floor(elapsed / interval) % #frames + 1]
+end
+
+function Ui:activity()
+    if not self:working() then
+        return nil
+    end
+    return { elapsed = math.floor(app.agent:elapsed() or 0), frame = self:loader_frame() }
 end
 
 function Ui:interrupt()
@@ -377,13 +392,13 @@ function Ui:submit()
         return
     end
     local taken, attached = composer:take()
-    local value = text.trim(taken)
+    local value = ito.text.trim(taken)
     self:invalidate()
     if value:sub(1, 1) == "/" then
         return self:run_command(value:sub(2))
     end
     if value:sub(1, 1) == "!" then
-        local shell = text.trim(value:sub(2))
+        local shell = ito.text.trim(value:sub(2))
         if shell ~= "" then
             app.agent:run_shell(shell)
         end
@@ -463,6 +478,8 @@ function Ui:key(chord)
     end
     if self.capture then
         self:captured(chord)
+    elseif self.focused and self.focused(chord) then
+        self:invalidate()
     else
         local binding = self.keymap:get(self:mode(), chord)
         if binding and binding.command then
@@ -481,11 +498,11 @@ function Ui:key(chord)
 end
 
 function Ui:flash(message)
-    local shown = { text = " " .. message .. " " }
+    local shown = { text = message }
     self.flashed = shown
     self:invalidate()
     task.spawn(function()
-        sys.sleep(FLASH)
+        sys.sleep(self.theme.tokens.limits.flash)
         if self.flashed == shown then
             self.flashed = nil
             self:invalidate()
@@ -494,18 +511,22 @@ function Ui:flash(message)
 end
 
 function Ui:copy(value)
-    local count = #text.lines(value)
+    local count = #ito.text.lines(value)
+    local words = self.theme.tokens.text
     if sys.clipboard.set(value) then
-        self:flash("copied " .. count .. " line(s)")
+        self:flash(string.format(words.copied, count))
         return
     end
     self.screen:write("\27]52;c;" .. sys.base64.encode(value) .. "\7")
-    self:flash("copied " .. count .. " line(s) via the terminal")
+    self:flash(string.format(words.copied_terminal, count))
 end
 
 function Ui:mouse(incoming)
     local kind = incoming.kind
-    if kind == "scroll_up" then
+    local scroll = (kind == "scroll_up" or kind == "scroll_down") and self:scrollable_at(incoming.row, incoming.col)
+    if scroll then
+        scroll(kind == "scroll_up" and -SCROLL_LINES or SCROLL_LINES)
+    elseif kind == "scroll_up" then
         self:scroller():up(SCROLL_LINES)
     elseif kind == "scroll_down" then
         self:scroller():down(SCROLL_LINES)
@@ -543,82 +564,59 @@ function Ui:handle(incoming)
     end
 end
 
-function Ui:fit(area)
-    local rects = layout.layout(area, self.windows)
-    for index, window in ipairs(self.windows) do
-        local rect = rects[index]
-        if window.size == "auto" and window.view ~= "messages" and rect.width > 0 then
-            local content = window:boxed() and math.max(rect.width - 2, 0) or rect.width
-            local rows
-            if window.view == "input" then
-                rows = self.views.input:rows(self, content)
-            elseif window.view == "modal" then
-                local modal = self.modal
-                rows = modal and not modal.takeover and modal:rows(content, self) or 0
-            else
-                rows = #window.lines
-            end
-            window.fitted = rows == 0 and 0 or rows + window:chrome()
-        end
-    end
-end
-
-function Ui:measured(rects)
-    local parts = {}
-    for index, window in ipairs(self.windows) do
-        local area = layout.inner(rects[index], window.border, window.padding)
-        window.area = area
-        parts[index] = table.concat({ window.id, area.x, area.y, area.width, area.height }, ",")
-    end
-    local key = table.concat(parts, ";")
-    if key ~= self.measure then
-        self.measure = key
-        event.emit("layout_changed", {})
-    end
-end
-
-function Ui:blit(screen, area, window)
-    local inner = canvas.block(screen, area, self:chrome(window))
-    canvas.lines(screen, inner, spans.lines(window.lines, inner.width, window.wrap, self.styles))
-end
-
 function Ui:paint()
     local screen = self.screen
     local width, height = screen:size()
-    self.palette = self.styles:sync(self.theme)
-    local area = layout.rect(0, 0, width, height)
-    self:fit(area)
-    local rects = layout.layout(area, self.windows)
-    self:measured(rects)
-    local modal_rect, input_rect, pane
-    for index, window in ipairs(self.windows) do
-        local rect = rects[index]
-        local view = window.view
-        if view == "messages" then
-            pane = self.views.messages:draw(self, screen, rect, window)
-        elseif view == "input" then
-            input_rect = input_rect or rect
-            self.views.input:draw(self, screen, rect, window)
-        elseif view == "modal" then
-            modal_rect = modal_rect or rect
-        else
-            self:blit(screen, rect, window)
+    self.area = ito.layout.rect(0, 0, width, height)
+    local frame = render.frame(self, screen, self.area)
+    self:settle(frame)
+end
+
+function Ui:settle(frame)
+    local scoped = {}
+    for _, focusable in ipairs(frame.focusables) do
+        if focusable.scope == self.modal then
+            scoped[#scoped + 1] = focusable
         end
     end
-    local modal = self.modal
-    if modal and not modal.takeover then
-        local target
-        if modal.float and not (modal_rect and modal_rect.height >= MIN_PICK_ROWS) then
-            target = layout.centered(area, math.floor(width * 90 / 100), math.floor(height * 80 / 100))
-        else
-            target = modal_rect or above(area, input_rect)
+    local found
+    for _, focusable in ipairs(scoped) do
+        if focusable.target == self.focus then
+            found = focusable
         end
-        modal:draw(self, screen, target)
     end
-    self.selection:sync(screen, width, height, self.palette.reverse, not modal and pane or nil)
-    if self.flashed then
-        local size = math.min(text.width(self.flashed.text), width)
-        screen:line(0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
+    if not found then
+        for _, focusable in ipairs(scoped) do
+            if focusable.wanted then
+                found = focusable
+                break
+            end
+        end
+    end
+    found = found or scoped[1]
+    self.focus = found and found.target
+    self.focused = found and found.handle
+    self.scrollables = frame.scrollables
+    if frame.wake and not self.waking then
+        self.waking = true
+        task.spawn(function()
+            sys.sleep(frame.wake)
+            self.waking = false
+            self:invalidate()
+        end)
+    end
+end
+
+function Ui:scrollable_at(row, col)
+    if not row or not col then
+        return nil
+    end
+    local list = self.scrollables or {}
+    for index = #list, 1, -1 do
+        local rect = list[index].rect
+        if row >= rect.y and row < rect.y + rect.height and col >= rect.x and col < rect.x + rect.width then
+            return list[index].scroll
+        end
     end
 end
 
@@ -660,9 +658,8 @@ function Ui:tick()
     end
     self.ticking = task.spawn(function()
         while self:working() do
-            sys.sleep(self.theme.loader_interval)
+            sys.sleep(self.theme.tokens.limits.spinner_interval)
             if self:working() then
-                event.emit("loader_ticked", {})
                 self:invalidate()
             end
         end

@@ -2,17 +2,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use mlua::{AnyUserData, AppDataRef, AppDataRefMut, Function, Lua};
+use ito::tty::{self, Terminal};
+use mlua::{AppDataRef, AppDataRefMut, Function, Lua};
 use tokio::runtime::Runtime;
 use tokio::sync::Notify;
 use tokio::task::LocalSet;
 
-use crate::tty::{self, Terminal, Tty};
 use crate::vm::{self, Sources};
 use crate::{net, task};
 
 pub struct Options {
-    pub sources: Sources,
+    pub sources: Vec<Sources>,
     pub entry: String,
     pub args: Vec<String>,
     pub terminal: Terminal,
@@ -45,8 +45,6 @@ pub(crate) struct State {
     pub(crate) layers: Vec<Sources>,
     pub(crate) roots: Vec<String>,
     pub(crate) carry: Option<String>,
-    pub(crate) terminal: Option<Tty>,
-    pub(crate) opened: Option<(AnyUserData, AnyUserData)>,
     pub(crate) clipboard: Option<arboard::Clipboard>,
     pub(crate) started: Instant,
     pub(crate) pending: usize,
@@ -91,20 +89,13 @@ impl State {
         }
         (self.restart.is_some() || self.pending == 0).then_some(0)
     }
-
-    fn reclaim(&mut self) -> Option<Tty> {
-        match self.opened.take() {
-            Some((screen, input)) => tty::reclaim(&screen, &input),
-            None => self.terminal.take(),
-        }
-    }
 }
 
 struct Life {
     code: u8,
     errors: Vec<String>,
     restart: Option<Restart>,
-    terminal: Option<Tty>,
+    terminal: Option<Terminal>,
 }
 
 pub fn run(options: Options) -> Outcome {
@@ -131,7 +122,7 @@ fn drive(options: Options) -> Result<Outcome, Error> {
         roots: Vec::new(),
         carry: None,
     };
-    let mut terminal = Some(Tty::Fresh(terminal));
+    let mut terminal = Some(terminal);
     let mut errors = Vec::new();
     let code = loop {
         let life = live(&runtime, (&sources, &entry, debug), next, terminal.take())?;
@@ -150,12 +141,15 @@ fn drive(options: Options) -> Result<Outcome, Error> {
 
 fn live(
     runtime: &Runtime,
-    (sources, entry, debug): (&Sources, &str, bool),
+    (sources, entry, debug): (&[Sources], &str, bool),
     boot: Restart,
-    terminal: Option<Tty>,
+    terminal: Option<Terminal>,
 ) -> Result<Life, Error> {
     let layers = vm::layers(sources, &boot.roots);
     let lua = vm::create(layers.clone(), &boot.roots, debug)?;
+    if let Some(terminal) = terminal {
+        tty::provide(&lua, terminal);
+    }
     let wake = Arc::new(Notify::new());
     lua.set_app_data(State {
         args: boot.args.clone(),
@@ -166,8 +160,6 @@ fn live(
             .map(|root| root.display().to_string())
             .collect(),
         carry: boot.carry,
-        terminal,
-        opened: None,
         clipboard: None,
         started: Instant::now(),
         pending: 0,
@@ -182,11 +174,11 @@ fn live(
     let ran = local.block_on(runtime, start(&lua, entry, boot.args, &wake));
     drop(local);
     lua.gc_collect()?;
-    let mut state = lua.remove_app_data::<State>().ok_or(Error::Lost)?;
+    let state = lua.remove_app_data::<State>().ok_or(Error::Lost)?;
     let code = ran?;
     Ok(Life {
         code,
-        terminal: state.reclaim(),
+        terminal: tty::reclaim(&lua),
         errors: state.errors,
         restart: state.restart,
     })

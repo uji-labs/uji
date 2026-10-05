@@ -214,15 +214,9 @@ end
 
 local Highlighter = class()
 
-function Highlighter:init(language, palette)
+function Highlighter:init(language, styles)
     self.language = language
-    self.styles = {
-        plain = palette.text,
-        keyword = palette.highlight,
-        string = palette.code,
-        number = palette.code,
-        comment = palette.faint,
-    }
+    self.styles = styles
     self.block = nil
 end
 
@@ -287,11 +281,11 @@ end
 
 local M = {}
 
-function M.new(info, palette)
+function M.new(info, styles)
     local name = info and info:match(LANGUAGE_NAME)
     name = name and name:lower()
     local language = name and LANGUAGES[ALIASES[name] or name]
-    return language and Highlighter(language, palette)
+    return language and Highlighter(language, styles)
 end
 
 return M
