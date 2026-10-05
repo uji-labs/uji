@@ -69,11 +69,11 @@ return require("uji.themes.default")({
 | `text` | The words uji draws. |
 | `limits` | Sizes and timings. |
 | `options` | Anything the theme wants to keep for itself. |
-| `templates` | How each part is drawn. See [The screen](#the-screen) and [Templates](#templates). |
+| `views` | Replacements for the views uji draws. See [The screen](#the-screen) and [Views](#views). |
 
 Build a theme with `uji.themes.default`, which fills in everything you leave
 out. `colors` and `styles` can also hold names of your own, for your own
-templates.
+views.
 
 ## Colours
 
@@ -241,10 +241,9 @@ The default plain border is `┌ ┐ └ ┘ ─ │`, and the rounded one is
 
 ## The screen
 
-`templates.screen(ctx, screen)` lays out the whole screen. uji calls it each
-time it draws a frame, and it returns a view built with
-[ito](../ito/index.md). `screen` holds uji's parts, and each call gives a
-fresh view of that part:
+`uji.ui.Screen` is the view of the whole screen, and a theme replaces it in
+`views`. The replacement takes `screen`, which holds uji's parts, and each call
+gives a fresh view of that part:
 
 | Call | What it shows |
 |---|---|
@@ -266,11 +265,11 @@ keyboard items under it, and the bottom bar's items side by side:
 local ito = require("ito")
 
 return require("uji.themes.default")({
-  templates = {
-    screen = function(ctx, screen)
+  views = {
+    [uji.ui.Screen] = function(screen)
       local placement = ito.ToolbarPlacement
       return ito.VStack({
-        screen.composer():border(ctx.borders.rounded),
+        screen.composer():border(ito.theme().borders.rounded),
         screen.modals(),
         ito.ToolbarItems(placement.keyboard, ito.HStack),
         screen.transcript():grow(),
@@ -282,10 +281,10 @@ return require("uji.themes.default")({
 })
 ```
 
-The default screen is this template:
+The default screen is this view:
 
 ```lua
-screen = function(ctx, screen)
+function(screen)
   local placement = ito.ToolbarPlacement
   return ito.VStack({
     ito.HStack({
@@ -297,85 +296,82 @@ screen = function(ctx, screen)
     screen.activity():padding({ vertical = 1 }),
     screen.modals(),
     ito.ToolbarItems(placement.keyboard),
-    screen.composer():border(ctx.borders.plain, { edges = ito.Edges.horizontal }),
+    screen.composer():border(ito.theme().borders.plain, { edges = ito.Edges.horizontal }),
     ito.ToolbarItems(placement.bottom_bar),
   })
 end
 ```
 
 A screen that raises an error is replaced by the default screen for that
-frame, and uji shows the problem once as a notice, such as
-`theme screen: align takes one of ito.Alignment`.
+frame, and uji shows the problem once as a notice.
 
-## Templates
+## Views
 
-Every part of the screen is drawn by a template in `templates`, and a theme
-can replace any of them. A template is a function that takes `ctx` and the
-data of what it draws. Unless the table below says it can return a
-[view](../ito/views.md), it returns a list of lines. A line is a list of spans,
-`{ text, style }` where the style is an `ito.TextStyle` such as
-`ctx.styles.muted`, and can have an `on_click` function. A picker shown in
-`screen.modals()` sits at the bottom of the room it has.
+Everything uji draws is a view in `uji.ui`, and a theme replaces any of them in
+`views`, keyed by the view itself. A replacement is a function that takes the
+view's props and returns a [view](../ito/views.md).
 
 ```lua
-templates = {
-  notice = function(ctx, notice)
-    return { { { "note: ", ctx.styles.accent }, { notice.text, ctx.styles.text } } }
-  end,
-}
+local ito = require("ito")
+
+return require("uji.themes.default")({
+  views = {
+    [uji.ui.Notice] = function(props)
+      local styles = ito.theme().styles
+      return ito.HStack({ ito.Text("note: "):style(styles.accent), ito.Text(props.text):style(styles.text) })
+    end,
+  },
+})
 ```
 
-| Template | Data | What it draws |
+| View | Props | What it draws |
 |---|---|---|
-| `user` | `text` | One of your messages. |
-| `assistant` | `text`, `body`, `calls` | A reply. `body` is its markdown, already drawn, and `calls` are the tool calls in it. |
-| `tool_header` | `name`, `arguments`, `verb`, `detail` | A tool call. `verb` and `detail` come from the tool and can be `nil`. |
-| `tool_output` | `content`, `failed`, `expanded`, `toggle` | A tool's result. `toggle` opens or folds it when a line has it as `on_click`. |
-| `shell` | `command`, `code`, `output`, `failed`, `expanded`, `toggle` | A command you ran with `!`. |
-| `system`, `error`, `notice`, `queued`, `thinking` | `text` | A message or line of that kind. |
-| `partial` | `text` | The last line of a reply that is still arriving. |
-| `compaction` | none | The place where the session was compacted. |
-| `running` | `name`, `line` | The tool that is running and the last line it printed. |
-| `jump` | `follow` | The label that takes you back to the bottom. uji centres it in the bottom row of the transcript. |
-| `heading` | `level`, `lines` | A markdown heading. `lines` are already wrapped and drawn in the heading's style. |
-| `code_block` | `language`, `lines` | A fenced code block. `lines` holds lists of highlighted spans, and `language` can be `nil`. |
-| `math_block` | `lines` | Display maths, already turned into text. |
-| `table_row` | `cells`, `head` | One row of a table. `cells` holds one list of spans per cell, and `head` is true for the header row. |
-| `rule` | none | A markdown rule. |
-| `activity` | `frame`, `elapsed` | The line shown while the model works. `frame` is the spinner's current frame. |
-| `flash` | `text` | The copy message in the top right corner. |
-| `input` | `rows` | The input line. Each row has `before`, and the row with the cursor also has `after`, the text on each side of it. |
-| `select` | `title`, `query`, `items`, `matches`, `selection`, `current`, `height` | A list to choose from, as lines or a view. `matches` are the indexes into `items` that fit the query, `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row), and `height` is the room there is. |
-| `prompt` | `title`, `value` | A question with a text answer. |
-| `suggest` | `items`, `selection`, `height` | The command suggestions, as lines or a view. Its items have `name` and `desc`, and `selection` holds the chosen one. |
-| `confirm` | `title`, `body`, `allow`, `keys`, `scroll` | An approval, as `{ head = lines, body = lines, foot = lines }`. uji scrolls the body when it does not fit. `scroll` has `first`, `last` and `total` when it does not. |
-| `pick` | `title`, `items`, `matches`, `selection`, `preview`, `query`, `total`, `height` | The picker with a preview, as a view that uji lays out in the room the picker has. |
-| `sessions` | `directory`, `sessions`, `cursor`, `now`, `height` | The screen `uji list` shows, as a view of the whole screen. |
+| `uji.ui.Screen` | the parts | The whole screen. See [The screen](#the-screen). |
+| `uji.ui.UserMessage` | `message` | One of your messages. |
+| `uji.ui.ToolCall` | `call`, with `name` and `arguments` | A tool call, described the way its tool asks. |
+| `uji.ui.ToolOutput` | `content`, `failed`, `expanded`, `toggle` | A tool's result. `toggle` opens or folds it, and the default view calls it when you click a line. |
+| `uji.ui.Shell` | `command`, `code`, `output`, `failed`, `expanded`, `toggle` | A command you ran with `!`. |
+| `uji.ui.SystemMessage`, `uji.ui.ErrorMessage`, `uji.ui.Notice`, `uji.ui.Queued`, `uji.ui.Thinking` | `text` | A message or line of that kind. |
+| `uji.ui.Partial` | `text` | The last line of a reply that is still arriving. |
+| `uji.ui.Compaction` | none | The place where the session was compacted. |
+| `uji.ui.Running` | `name`, `line` | The tool that is running and the last line it printed. |
+| `uji.ui.Jump` | `follow` | The label that takes you back to the bottom, centred in the bottom row of the transcript. `follow` goes back. |
+| `uji.ui.Paragraph` | `tokens`, `indent`, `hanging` | A markdown paragraph or list item. Each token has `text`, `style` and `spaced`, and `indent` and `hanging` start the first and the following lines. |
+| `uji.ui.Heading` | `level`, `content` | A markdown heading. `content` is the heading's text as a view. |
+| `uji.ui.CodeBlock` | `language`, `lines` | A fenced code block. `lines` holds lists of highlighted spans, and `language` can be `nil`. |
+| `uji.ui.MathBlock` | `lines` | Display maths, already turned into text. |
+| `uji.ui.TableRow` | `cells`, `head` | One row of a table. `cells` holds one list of spans per cell, and `head` is true for the header row. |
+| `uji.ui.Rule` | none | A markdown rule. |
+| `uji.ui.Activity` | none | The line shown while the model works. |
+| `uji.ui.Flash` | none | The copy message in the top right corner. |
+| `uji.ui.Input` | none | The input line. |
+| `uji.ui.SelectList` | `title`, `query`, `items`, `matches`, `selection`, `current`, `height` | A list to choose from. `matches` are the indexes into `items` that fit the query, `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row), and `height` is the room there is. |
+| `uji.ui.PromptField` | `title`, `value` | A question with a text answer. |
+| `uji.ui.Suggestions` | `items`, `selection`, `height` | The command suggestions. Its items have `name` and `desc`. |
+| `uji.ui.Approval` | `title`, `body`, `allow`, `keys`, `scroll`, `width`, `height` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
+| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `preview`, `query`, `total`, `width`, `height` | The picker with a preview. |
+| `uji.ui.Sessions` | `directory`, `sessions`, `cursor`, `now`, `height` | The screen `uji list` shows. |
 
-A template can call another one through `ctx.templates`, as the default
-`assistant` does with `tool_header`. `ctx` holds the theme's `colors`,
-`styles`, `symbols`, `borders`, `text`, `limits` and `options`, and
-`ctx.width` is the room the template has. Asking `ctx.styles` for a name the
-theme does not have raises an error, such as
-`the theme has no style named heading7`. `ctx` also has these helpers.
+`ito.theme()` gives the theme's `colors`, `styles`, `symbols`, `borders`,
+`text`, `limits` and `options`. Asking its `styles` for a name the theme does
+not have raises an error, such as `the theme has no style named heading7`. It
+also has these helpers, which give the lines an `ito.Lines` draws.
 
 | Helper | Returns |
 |---|---|
 | `ctx:wrap(text, opts)` | `text` wrapped into lines. `opts` has `style`, a `prefix` for every line, `fill` to pad each line to the full width, and `width`. |
 | `ctx:chunks(text, width)` | The pieces of `text` wrapped to `width`, as strings. |
 | `ctx:fold(text, opts)` | The rows of `text` wrapped to `opts.width`, at most `opts.limit` of them, and how many rows are left out. Without a limit it gives every row. |
-| `ctx:element(name, data, width)` | The lines another template draws, falling back to the default one when it breaks. |
 | `ctx:typed(field, styles)` | The spans of a text field with the cursor in it. `field` has `text`, `cursor` and `hidden`, and `styles` has `text` and `cursor`. |
 | `ctx:clip(text, width)` | `text` cut to `width` columns. |
 | `ctx:pad(text, width)` | `text` padded with spaces to `width` columns. |
 | `ctx:measure(text)` | The number of columns `text` takes. |
 | `ctx:first(text, count)` | The first `count` characters of `text`. |
 
-A template that raises an error, or returns something other than a list, is
-replaced by the default one for that part, and uji shows the problem once as a
-notice, such as `theme queued: no queue today`. A template name uji does not
-know is a mistake in the theme, unless it has a dot, as the names of
-[plugin templates](../api/ui.md#ujiuitemplatename-default) do.
+A replacement that raises an error is skipped, uji draws the view's own default
+instead, and the problem shows once as a notice, such as
+`theme view: no queue today`. A plugin's views are replaced the same way: the
+plugin exports its view, and a theme keys its replacement by it.
 
 ## A theme from a base16 palette
 

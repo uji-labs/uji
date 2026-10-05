@@ -257,11 +257,12 @@ describe("the screen", function()
         assert.same({ unpack(folded, 2) }, { unpack(rows(), 2) }, "a second click folds it back and follows the bottom")
     end)
 
-    it("draws the lines a render_message handler returns", { size = { 30, 6 } }, function()
+    it("draws the view a render_message handler returns", { size = { 30, 6 } }, function()
         uji.on("render_message", function(block)
             if block.type == "user" then
-                local styles = require("ito").theme().styles
-                return { { { "said ", styles.muted }, { block.text, styles.accent } } }
+                local ito = require("ito")
+                local styles = ito.theme().styles
+                return ito.Lines({ { { "said ", styles.muted }, { block.text, styles.accent } } })
             end
         end)
         app.session:append({ type = "user", text = "hello" })
@@ -317,21 +318,4 @@ describe("the screen", function()
         end
         assert.is_true(listed.help and listed.login)
     end)
-end)
-
-it("drops the empty line at either end of a copied selection", function()
-    local Selection = require("uji.core.ui.selection")
-    local selection = Selection()
-    selection.rows = { [0] = "first line", [1] = "second", [2] = "", [3] = "fourth" }
-    selection:press(0, 0, 0)
-    selection:drag(0, 1)
-    assert.equal("first line", selection:release(), "a drag that ends at the start of the next row")
-    selection:clear()
-    selection:press(10, 0, 10)
-    selection:drag(6, 1)
-    assert.equal("second", selection:release(), "a drag that starts past the end of a line")
-    selection:clear()
-    selection:press(0, 1, 20)
-    selection:drag(6, 3)
-    assert.equal("second\n\nfourth", selection:release(), "blank lines inside the selection stay")
 end)

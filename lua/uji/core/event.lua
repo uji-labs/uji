@@ -1,6 +1,8 @@
+local ito = require("ito")
 local Registry = require("uji.core.registry")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
+local tables = require("uji.core.tables")
 
 local M = {
     events = {},
@@ -12,7 +14,7 @@ local function registry(event)
     local found = M.events[event]
     if not found then
         found = plugin.track(Registry(plugin.current))
-        M.events[event] = found
+        M.events = tables.with(M.events, event, found)
     end
     return found
 end
@@ -88,4 +90,4 @@ function M.fold(event, payload, field)
     return payload[field]
 end
 
-return M
+return ito.observable(M)

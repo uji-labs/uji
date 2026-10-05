@@ -12,6 +12,7 @@ const AFTER_PRELOAD: i64 = 2;
 const LUA_DIR: &str = "lua";
 const NATIVE_DIR: &str = "native";
 const NAMESPACE: &str = "uji.sys.";
+const MACHINE_CODE: (&str, &str) = ("sizemcode=4096", "maxmcode=16384");
 
 pub(crate) struct Export {
     pub(crate) module: &'static str,
@@ -123,6 +124,11 @@ fn natives(roots: &[PathBuf]) -> String {
 
 pub(crate) fn create(layers: Vec<Sources>, roots: &[PathBuf], debug: bool) -> mlua::Result<Lua> {
     let lua = lua(debug);
+    lua.globals()
+        .get::<Table>("jit")?
+        .get::<Table>("opt")?
+        .get::<mlua::Function>("start")?
+        .call::<()>(MACHINE_CODE)?;
     let package: Table = lua.globals().get("package")?;
     package.set("path", "")?;
     package.set("cpath", natives(roots))?;

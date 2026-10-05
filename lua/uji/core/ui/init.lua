@@ -6,17 +6,14 @@ local Composer = require("uji.core.ui.composer")
 local Confirm = require("uji.core.ui.views.confirm")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
-local Input = require("uji.core.ui.views.input")
 local ito = require("ito")
 local keys = require("uji.core.ui.keys")
 local Keymap = require("uji.core.ui.keymap")
+local list = require("uji.utils.list")
 local model = require("uji.core.model")
-local Messages = require("uji.core.ui.views.messages")
 local notices = require("uji.core.notices")
 local Pastes = require("uji.core.ui.paste")
 local render = require("uji.core.ui.render")
-local Scroll = require("uji.core.ui.scroll")
-local Selection = require("uji.core.ui.selection")
 local Stream = require("uji.core.ui.stream")
 local Suggest = require("uji.core.ui.views.suggest")
 local sys = require("uji.sys")
@@ -61,16 +58,18 @@ function Ui:init()
     self.modal = nil
     self.presented = {}
     self.capture = nil
-    self.scroll = Scroll()
-    self.selection = Selection()
-    self.views = { messages = Messages(), input = Input() }
+    self.scroll = ito.ScrollState({ follow = true })
     self.dirty = sys.promise()
     self.suspended = false
+    ito.observable(self)
 end
 
 function Ui:open()
     if not self.screen then
         self.screen, self.input = ito.open()
+        self.window = ito.Window(self.screen, function()
+            self:invalidate()
+        end)
     end
     return self.screen
 end
@@ -88,7 +87,7 @@ function Ui:toolbar(items)
             item:id(declared, index)
         end
     end
-    self.toolbars[#self.toolbars + 1] = declared
+    self.toolbars = list.appended(self.toolbars, declared)
     self:invalidate()
     return declared
 end
@@ -96,7 +95,7 @@ end
 function Ui:remove_toolbar(declared)
     for index, found in ipairs(self.toolbars) do
         if found == declared then
-            table.remove(self.toolbars, index)
+            self.toolbars = list.removed(self.toolbars, index)
             self:invalidate()
             return true
         end
@@ -110,9 +109,9 @@ function Ui:present(modal)
         top:close()
     end
     modal.ui = self
-    self.presented[#self.presented + 1] = modal
+    self.presented = list.appended(self.presented, modal)
     self.modal = modal
-    self.focused = nil
+    self:unfocus()
     self:invalidate()
     return modal
 end
@@ -124,9 +123,9 @@ end
 function Ui:close_modal(modal)
     for index, found in ipairs(self.presented) do
         if found == modal then
-            table.remove(self.presented, index)
+            self.presented = list.removed(self.presented, index)
             self.modal = self.presented[#self.presented]
-            self.focused = nil
+            self:unfocus()
             self:invalidate()
             return
         end
@@ -194,7 +193,7 @@ function Ui:loader_frame()
     return frames[math.floor(elapsed / interval) % #frames + 1]
 end
 
-function Ui:activity()
+function Ui:current_activity()
     if not self:working() then
         return nil
     end
@@ -472,13 +471,20 @@ function Ui:normal_key(chord)
     end
 end
 
+function Ui:unfocus()
+    if self.window then
+        self.window:unfocus()
+    end
+end
+
 function Ui:key(chord)
-    if self.selection:clear() then
+    local window = self.window
+    if window and window.selection:clear() then
         self:invalidate()
     end
     if self.capture then
         self:captured(chord)
-    elseif self.focused and self.focused(chord) then
+    elseif window and window:key(chord) then
         self:invalidate()
     else
         local binding = self.keymap:get(self:mode(), chord)
@@ -522,28 +528,20 @@ function Ui:copy(value)
 end
 
 function Ui:mouse(incoming)
-    local kind = incoming.kind
-    local scroll = (kind == "scroll_up" or kind == "scroll_down") and self:scrollable_at(incoming.row, incoming.col)
-    if scroll then
-        scroll(kind == "scroll_up" and -SCROLL_LINES or SCROLL_LINES)
-    elseif kind == "scroll_up" then
-        self:scroller():up(SCROLL_LINES)
-    elseif kind == "scroll_down" then
-        self:scroller():down(SCROLL_LINES)
+    local kind, window = incoming.kind, self.window
+    if kind == "scroll_up" or kind == "scroll_down" then
+        local rows = kind == "scroll_up" and -SCROLL_LINES or SCROLL_LINES
+        if not window:wheel(incoming.row, incoming.col, rows) then
+            self:scroller():scroll(rows)
+        end
     elseif incoming.button == "left" and kind == "down" then
-        self.clicking = self.screen:clicked(incoming.row, incoming.col)
-        self.selection:press(incoming.col, incoming.row, sys.os.clock())
+        window:press(incoming.row, incoming.col)
     elseif incoming.button == "left" and kind == "drag" then
-        self.clicking = nil
-        self.selection:drag(incoming.col, incoming.row)
+        window:drag(incoming.row, incoming.col)
     elseif incoming.button == "left" and kind == "up" then
-        local click = self.clicking
-        self.clicking = nil
-        local copied = self.selection:release()
+        local copied = window:release(incoming)
         if copied then
             self:copy(copied)
-        elseif click then
-            click(self, incoming)
         end
     else
         return
@@ -565,38 +563,8 @@ function Ui:handle(incoming)
 end
 
 function Ui:paint()
-    local screen = self.screen
-    local width, height = screen:size()
-    self.area = ito.layout.rect(0, 0, width, height)
-    local frame = render.frame(self, screen, self.area)
-    self:settle(frame)
-end
-
-function Ui:settle(frame)
-    local scoped = {}
-    for _, focusable in ipairs(frame.focusables) do
-        if focusable.scope == self.modal then
-            scoped[#scoped + 1] = focusable
-        end
-    end
-    local found
-    for _, focusable in ipairs(scoped) do
-        if focusable.target == self.focus then
-            found = focusable
-        end
-    end
-    if not found then
-        for _, focusable in ipairs(scoped) do
-            if focusable.wanted then
-                found = focusable
-                break
-            end
-        end
-    end
-    found = found or scoped[1]
-    self.focus = found and found.target
-    self.focused = found and found.handle
-    self.scrollables = frame.scrollables
+    self.window.scope = self.modal
+    local frame = render.frame(self)
     if frame.wake and not self.waking then
         self.waking = true
         task.spawn(function()
@@ -604,19 +572,6 @@ function Ui:settle(frame)
             self.waking = false
             self:invalidate()
         end)
-    end
-end
-
-function Ui:scrollable_at(row, col)
-    if not row or not col then
-        return nil
-    end
-    local list = self.scrollables or {}
-    for index = #list, 1, -1 do
-        local rect = list[index].rect
-        if row >= rect.y and row < rect.y + rect.height and col >= rect.x and col < rect.x + rect.width then
-            return list[index].scroll
-        end
     end
 end
 
@@ -660,6 +615,7 @@ function Ui:tick()
         while self:working() do
             sys.sleep(self.theme.tokens.limits.spinner_interval)
             if self:working() then
+                self.activity = self:current_activity()
                 self:invalidate()
             end
         end
@@ -710,9 +666,7 @@ function Ui:clear_stream()
 end
 
 function Ui:take_notices()
-    for _, message in ipairs(notices.take()) do
-        self.notices[#self.notices + 1] = message
-    end
+    self.notices = list.extended(self.notices, notices.take())
     self:invalidate()
 end
 
@@ -738,7 +692,7 @@ function Ui:listen()
         end,
         message_submitted = function()
             self.notices = {}
-            self.scroll:follow()
+            self.scroll:to_end()
             self:invalidate()
         end,
         stream_delta = function(payload)
@@ -751,11 +705,12 @@ function Ui:listen()
             self:progress(payload)
         end,
         status_changed = function()
+            self.activity = self:current_activity()
             self:tick()
             self:invalidate()
         end,
         scroll_to_bottom = function()
-            self.scroll:follow()
+            self.scroll:to_end()
         end,
     }
     for _, name in ipairs({ "message_appended", "queue_changed", "session_titled", "model_changed", "session_compacted" }) do

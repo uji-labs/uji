@@ -2,6 +2,7 @@ local app = require("uji.core.app")
 local class = require("uji.core.class")
 local notices = require("uji.core.notices")
 local Modal = require("uji.core.ui.views.modal")
+local Picker = require("uji.core.ui.pickers.picker")
 local Select = require("uji.core.ui.views.select")
 local sys = require("uji.sys")
 local tool = require("uji.core.tool")
@@ -129,9 +130,9 @@ function Pick:settle(value)
     Modal.settle(self, value)
 end
 
-function Pick:view(ui, ctx, area)
+function Pick:view(ui, _, room)
     self:refresh(ui)
-    return ctx:element("pick", {
+    return Picker({
         title = self.title,
         items = self.items,
         matches = self.matches,
@@ -139,8 +140,9 @@ function Pick:view(ui, ctx, area)
         preview = self.preview,
         query = self.query,
         total = #self.items,
-        height = area.height,
-    }, area.width)
+        height = room.height,
+        width = room.width,
+    })
 end
 
 return Pick

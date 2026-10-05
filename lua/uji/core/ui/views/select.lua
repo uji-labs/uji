@@ -2,6 +2,7 @@ local class = require("uji.core.class")
 local Line = require("ito").Line
 local Modal = require("uji.core.ui.views.modal")
 local model = require("uji.core.model")
+local SelectList = require("uji.core.ui.pickers.select_list")
 local sys = require("uji.sys")
 
 local PAGE = 10
@@ -61,23 +62,19 @@ function Select:key(chord, ui)
     end
 end
 
-function Select:data(height)
-    return {
+function Select:view(_, _, room)
+    if #self.items == 0 then
+        return nil
+    end
+    return SelectList({
         title = self.title,
         query = self.query,
         items = self.items,
         matches = self.matches,
         selection = self:selection(),
         current = model.current.model or "",
-        height = height,
-    }
-end
-
-function Select:view(_, ctx, area)
-    if #self.items == 0 then
-        return nil
-    end
-    return ctx:element("select", self:data(area.height), area.width)
+        height = room.height,
+    })
 end
 
 return Select

@@ -91,6 +91,8 @@ end)
 ## ito.ScrollView(child)
 
 Shows `child` at its full height and scrolls it with the mouse wheel.
+`:state(scroll)` scrolls by an [`ito.ScrollState`](#itoscrollstateopts) instead,
+so code of your own can move it too.
 `:follow_end()` keeps the bottom in view while the content grows, stops when
 you scroll up, and follows again once you scroll back to the bottom.
 
@@ -104,6 +106,48 @@ uji.fs.read("CHANGELOG.md", function(text)
   uji.ui.overlay(function()
     return ito.ScrollView(ito.Text(text)):border(ito.theme().borders.plain):title("CHANGELOG")
   end)
+end)
+```
+
+## ito.ScrollState(opts)
+
+Holds where a scrolling view is. `opts.follow` starts it at the end. Pass it
+to `ito.ScrollView(child):state(scroll)` or `ito.LazyVStack(...):state(scroll)`.
+
+| Member | Meaning |
+|---|---|
+| `scroll:scroll(rows)` | Moves down by `rows`, or up when it is negative. |
+| `scroll:to_top()` | Goes to the top. |
+| `scroll:to_end()` | Goes to the end and follows it while the content grows. |
+| `scroll.following` | Whether it is at the end and following it. |
+| `scroll.page` | The rows that show, for paging. |
+
+## ito.LazyVStack(items, row)
+
+Shows `items` one under another and builds only the rows that show, so a list
+of thousands stays fast. `row(item, index)` gives the view of an item, and an
+[`ito.Group`](views.md#itogroupchildren) makes each of its children a row.
+Without a state it follows nothing and starts at the top.
+
+| Modifier | Meaning |
+|---|---|
+| `:item_id(id)` | Gives each item a lasting id, so its place and state follow it when items come and go. Two items with one id raise an error. |
+| `:state(scroll)` | The [`ito.ScrollState`](#itoscrollstateopts) it scrolls by. |
+| `:footer(view)` | A view under the rows, right after the last one when they do not fill the room. |
+
+```lua
+local ito = require("ito")
+
+local scroll = ito.ScrollState({ follow = true })
+
+local Log = ito.view(function(props)
+  return ito.LazyVStack(props.lines, function(line)
+    return ito.Text(line.text)
+  end)
+    :item_id(function(line)
+      return line.id
+    end)
+    :state(scroll)
 end)
 ```
 

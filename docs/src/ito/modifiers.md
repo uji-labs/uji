@@ -44,11 +44,31 @@ Puts `title` in the top border. It is a string, or a line of spans as
 ## :background(colour)
 
 Fills the whole view with `colour`, an [`ito.Color`](#colours), before its
-content is drawn.
+content is drawn. An [`ito.TextStyle`](../configuration/themes.md#styles)
+works too, and sets the text colour and flags of the whole view as well.
 
 ```lua
 ito.Text(" deploying "):background(ito.rgb(0x2b2b2b))
 ```
+
+## :opaque()
+
+Clears the view's whole rectangle before it draws, so nothing drawn under it
+shows through.
+
+## :hidden(hide)
+
+Keeps the view and its state but neither draws it nor gives it room. `false`
+shows it again.
+
+```lua
+Editor():hidden(not open.value)
+```
+
+## :focus_scope(value)
+
+Marks the controls drawn inside the view with `value`. A
+[window](window.md) gives the keys only to controls in its own scope.
 
 ## :height(rows) and :width(columns)
 

@@ -84,7 +84,10 @@ ito.Text("3 files"):style(ito.theme().styles.muted)
 
 ## ito.Lines(lines)
 
-Draws `lines`, a list of lines, where each line is a list of spans. A span is
+Draws `lines`, a list of lines, where each line is a list of spans. `lines`
+can also be a function that takes the width the view gets and returns the
+lines, for text that wraps. Its lines are kept until the function or the width
+changes. A span is
 `{ text, style }`, and the style is an
 [`ito.TextStyle`](../configuration/themes.md#styles), such as one of the
 theme's `ito.theme().styles.muted`. A span without a style is drawn in the
@@ -109,6 +112,23 @@ end)
 ```
 
 [Styles](../configuration/themes.md#styles) lists the styles every theme has.
+
+```lua
+local Note = ito.view(function(props)
+  local build = ito.remember(function()
+    return function(width)
+      return ito.theme():wrap(props.text, { width = width, style = ito.theme().styles.text })
+    end
+  end, props.text)
+  return ito.Lines(build)
+end)
+```
+
+## ito.Group(children)
+
+Draws `children` one under another, like `ito.VStack`. Inside an
+[`ito.LazyVStack`](controls.md#itolazyvstackitems-row), each child becomes a row
+of its own, and only the ones that show are built.
 
 ## ito.ZStack(children)
 
@@ -165,6 +185,9 @@ Each child has `child:measure(room)`, which gives the width and height it
 wants, and `child:place(x, y, width, height)`, plus the `weight`,
 `alignment` and `layout_id` hints. A child that `place` never places is not
 drawn.
+
+Lay children out from `children` and `room` alone. ito lays a container out
+again only when its room or its children change.
 
 ```lua
 local Corners = ito.Layout(function(children, room)

@@ -51,7 +51,6 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.ui.prompt(opts, on_done)`](ui.md#ujiuipromptopts-on_done) | Asks for a line of text. |
 | [`uji.ui.confirm(opts, on_done)`](ui.md#ujiuiconfirmopts-on_done) | Asks a yes or no question, including uji's approval questions. |
 | [`uji.ui.overlay(content, opts)`](ui.md#ujiuioverlaycontent-opts) | Shows a view in a box over the screen until you close it. |
-| [`uji.ui.template(name, default)`](ui.md#ujiuitemplatename-default) | Returns a view that a theme can replace. |
 | [`uji.ui.Markdown(text)`](ui.md#ujiuimarkdowntext) | A view that draws markdown. |
 | [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |

@@ -1,6 +1,7 @@
 local class = require("uji.core.class")
 local Line = require("ito").Line
 local Modal = require("uji.core.ui.views.modal")
+local PromptField = require("uji.core.ui.pickers.prompt_field")
 
 local Prompt = class(Modal)
 
@@ -21,12 +22,11 @@ function Prompt:accept()
     self:settle(self.value.text)
 end
 
-function Prompt:data()
-    return { title = self.title, value = { text = self.value.text, cursor = self.value.cursor, hidden = self.hidden } }
-end
-
-function Prompt:view(_, ctx, area)
-    return ctx:element("prompt", self:data(), area.width)
+function Prompt:view()
+    return PromptField({
+        title = self.title,
+        value = { text = self.value.text, cursor = self.value.cursor, hidden = self.hidden },
+    })
 end
 
 return Prompt

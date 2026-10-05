@@ -1,6 +1,7 @@
 local class = require("uji.core.class")
 local keys = require("uji.core.ui.keys")
 local Modal = require("uji.core.ui.views.modal")
+local Suggestions = require("uji.core.ui.pickers.suggestions")
 
 local Suggest = class(Modal)
 
@@ -64,12 +65,11 @@ function Suggest:key(chord, ui)
     end
 end
 
-function Suggest:view(_, ctx, area)
-    if #self.items == 0 or area.height <= 0 then
+function Suggest:view(_, _, room)
+    if #self.items == 0 or room.height <= 0 then
         return nil
     end
-    local data = { items = self.items, selection = self:selection(), height = area.height }
-    return ctx:element("suggest", data, area.width)
+    return Suggestions({ items = self.items, selection = self:selection(), height = room.height })
 end
 
 return Suggest

@@ -3,6 +3,7 @@ local catalog = require("uji.core.catalog")
 local context = require("uji.core.context")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
+local ito = require("ito")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
 
@@ -231,4 +232,4 @@ function M.generate(opts)
     })
 end
 
-return M
+return ito.observable(M)

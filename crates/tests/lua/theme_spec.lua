@@ -113,8 +113,9 @@ local PROBE = default({
         sessions_updated = 10,
         sessions_id = 20,
     },
-    templates = {
-        screen = function(ctx, slots)
+    views = {
+        [uji.ui.Screen] = function(slots)
+            local ctx = ito.theme()
             return ito.VStack({
                 slots.composer():border(ctx.borders.plain),
                 slots.transcript():grow(),
@@ -228,8 +229,9 @@ describe("themes", function()
     it("sizes rows and columns by cells, shares and content", { size = { 40, 10 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    screen = function(ctx, slots)
+                views = {
+                    [uji.ui.Screen] = function(slots)
+                        local ctx = ito.theme()
                         local function label(value)
                             return ito.Lines({ { { value, ctx.styles.text } } })
                         end
@@ -291,8 +293,8 @@ describe("themes", function()
         assert.equal("second", (screen.rows(true)[10]:gsub("%s+$", "")))
         uji.ui.configure({
             theme = default({
-                templates = {
-                    screen = function(_, slots)
+                views = {
+                    [uji.ui.Screen] = function(slots)
                         return ito.VStack({ slots.transcript():grow(), slots.composer() })
                     end,
                 },
@@ -320,19 +322,19 @@ describe("themes", function()
                 "a view must give a view, not a table",
             },
             {
-                function(_, slots)
+                function(slots)
                     return ito.VStack({ slots.composer():align("up") })
                 end,
                 "align takes one of ito.Alignment",
             },
             {
-                function(_, slots)
+                function(slots)
                     return ito.VStack({ slots.composer():grow(0) })
                 end,
                 "grow takes a weight above 0, not 0",
             },
             {
-                function(_, slots)
+                function(slots)
                     return ito.VStack({ slots.composer():share(2) })
                 end,
                 "share takes a fraction from 0 to 1, not 2",
@@ -344,22 +346,18 @@ describe("themes", function()
                 "Text takes a string, not a number",
             },
             {
-                function(_, slots)
+                function(slots)
                     return ito.VStack({ slots.composer():border({}) })
                 end,
                 "a border needs top_left",
             },
-            {
-                function() end,
-                "a screen template must give a view",
-            },
         }
         for _, case in ipairs(cases) do
-            uji.ui.configure({ theme = default({ templates = { screen = case[1] } }) })
+            uji.ui.configure({ theme = default({ views = { [uji.ui.Screen] = case[1] } }) })
             local rows = screen.rows(true)
             ui:take_notices()
             local said = tostring(ui.notices[#ui.notices])
-            assert.is_true(has(said, "theme screen: ") and has(said, case[2]), said)
+            assert.is_true(has(said, case[2]), said)
             assert.equal(string.rep("─", 40), rows[#rows - 2])
         end
         local count = #ui.notices
@@ -371,8 +369,8 @@ describe("themes", function()
     it("floats a picker when the screen has no place for pickers", { size = { 40, 12 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    screen = function(_, slots)
+                views = {
+                    [uji.ui.Screen] = function(slots)
                         return ito.VStack({ slots.transcript():grow(), slots.composer() })
                     end,
                 },
@@ -387,8 +385,8 @@ describe("themes", function()
     it("draws an approval in a composer that sits in a row", { size = { 40, 12 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    screen = function(_, slots)
+                views = {
+                    [uji.ui.Screen] = function(slots)
                         return ito.VStack({
                             slots.transcript():grow(),
                             slots.modals(),
@@ -408,8 +406,8 @@ describe("themes", function()
     it("clears the room of a picker drawn over the transcript", { size = { 40, 12 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    screen = function(_, slots)
+                views = {
+                    [uji.ui.Screen] = function(slots)
                         return ito.VStack({
                             ito.ZStack({
                                 slots.transcript():grow(),
@@ -490,23 +488,17 @@ describe("themes", function()
         end
     end)
 
-    it("draws headings and code blocks with the templates a theme gives", { size = { 60, 20 } }, function()
+    it("draws headings and code blocks with the views a theme gives", { size = { 60, 20 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    heading = function(ctx, heading)
-                        local lines = {}
-                        for index, line in ipairs(heading.lines) do
-                            lines[index] = { { string.rep("#", heading.level) .. " ", ctx.styles.muted }, unpack(line) }
-                        end
-                        return lines
+                views = {
+                    [uji.ui.Heading] = function(props)
+                        local hashes = string.rep("#", props.level) .. " "
+                        return ito.HStack({ ito.Text(hashes):style(ito.theme().styles.muted), props.content })
                     end,
-                    code_block = function(ctx, block)
-                        local lines = { { { "<" .. (block.language or "code") .. ">", ctx.styles.dim } } }
-                        for _, spans in ipairs(block.lines) do
-                            lines[#lines + 1] = spans
-                        end
-                        return lines
+                    [uji.ui.CodeBlock] = function(props)
+                        local label = "<" .. (props.language or "code") .. ">"
+                        return ito.VStack({ ito.Text(label):style(ito.theme().styles.dim), ito.Lines(props.lines) })
                     end,
                 },
             }),
@@ -618,14 +610,14 @@ describe("themes", function()
         assert.is_nil(screen.find("J> Latest"))
     end)
 
-    it("draws an element the theme overrides, and the default for one that breaks", { size = { 60, 12 } }, function()
+    it("draws a view the theme overrides, and the default for one that breaks", { size = { 60, 12 } }, function()
         uji.ui.configure({
             theme = default({
-                templates = {
-                    notice = function(ctx, notice)
-                        return { { { "<<" .. notice.text .. ">>", ctx.styles.notice } } }
+                views = {
+                    [uji.ui.Notice] = function(props)
+                        return ito.Lines({ { { "<<" .. props.text .. ">>", ito.theme().styles.notice } } })
                     end,
-                    queued = function()
+                    [uji.ui.Queued] = function()
                         error("no queue today", 0)
                     end,
                 },
@@ -638,10 +630,10 @@ describe("themes", function()
         assert.is_true(has(all, "<<hello>>"))
         assert.is_true(has(all, " › later"))
         ui:take_notices()
-        assert.is_true(has(table.concat(ui.notices, "\n"), "theme queued: no queue today"))
-        local ok, err = pcall(uji.ui.configure, { theme = default({ templates = { bogus = function() end } }) })
+        assert.is_true(has(table.concat(ui.notices, "\n"), "theme view: no queue today"))
+        local ok, err = pcall(uji.ui.configure, { theme = default({ views = { bogus = function() end } }) })
         assert.is_false(ok)
-        assert.is_true(has(err, "theme default.templates.bogus: the default theme has no template named bogus"))
+        assert.is_true(has(err, "theme default.views: keys must be views made with ito.view, not bogus"))
     end)
 
     it("loads a theme by name and builds it on another", { size = { 40, 8 } }, function()
@@ -710,7 +702,7 @@ return require("uji.themes.default")({
             { { roles = {} }, "theme.roles: a theme has name, colors, styles" },
             { { palette = {} }, "theme.palette: a theme has name, colors, styles" },
             { { extends = "default" }, "theme.extends: a theme has name, colors, styles" },
-            { { templates = {} }, "theme.colors: must be a table, not a nil" },
+            { { views = {} }, "theme.colors: must be a table, not a nil" },
             { built({ colors = { text = "#d4d4d4" } }), "a TextStyle's foreground must be an ito.Color, not a string" },
             { built({ colors = { link = 245 } }), "theme default.colors.link: must be an ito.Color, not a number" },
             { built({ styles = { user = { fg = "text" } } }), "theme default.styles.user: must be an ito.TextStyle, not a table" },
