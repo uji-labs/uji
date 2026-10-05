@@ -74,7 +74,7 @@ pub(crate) fn restore() {
 
 pub(crate) fn reclaim(screen: &AnyUserData, input: &AnyUserData) -> Option<Tty> {
     Some(Tty::Opened(
-        screen.take::<screen::Screen>().ok()?,
+        screen.take::<screen::Screen>().ok()?.forget(),
         input.take::<input::Input>().ok()?,
     ))
 }

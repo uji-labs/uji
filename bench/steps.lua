@@ -157,7 +157,7 @@ end
 
 function Context:cold()
     app.session.stored = nil
-    ui.views.messages.transcript = Transcript()
+    ui.views.messages.transcript = Transcript(ui.views.messages.blocks)
     ui.scroll:follow()
     self:frame()
 end

@@ -217,7 +217,7 @@ function Selection:sync(screen, width, height, style, transcript)
             local from = row == start.y and start.x or 0
             local to = row == finish.y and finish.x or width
             if to > from then
-                screen:paint(y, from, to - from, 1, style)
+                screen:paint({ x = from, y = y, width = to - from, height = 1 }, style)
             end
         end
     end

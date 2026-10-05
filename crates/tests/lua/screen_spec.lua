@@ -213,11 +213,50 @@ describe("the screen", function()
         local finished = rows()
         assert.same(scrolled, finished, "the finished reply keeps the view where it was")
         assert.is_true(any(finished, "Jump to bottom"))
-        local jump = ui.views.messages.jump
-        ui:mouse({ kind = "down", button = "left", row = jump.row, col = jump.col })
+        local jump = screen.find("Jump to bottom")
+        ui:mouse({ kind = "down", button = "left", row = jump, col = 20 })
+        ui:mouse({ kind = "up", button = "left", row = jump, col = 20 })
         local followed = rows()
         assert.is_true(any(followed, "new 20"))
         assert.is_false(any(followed, "Jump to bottom"))
+    end)
+
+    it("opens hidden output on a click and folds it on the next", { size = { 40, 16 } }, function()
+        local copied = copied_to()
+        for index = 1, 30 do
+            app.session:append({ type = "user", text = "old " .. index })
+        end
+        local output = {}
+        for index = 1, 12 do
+            output[index] = "out " .. index
+        end
+        app.session:append({ type = "shell", command = "seq 12", output = table.concat(output, "\n"), code = 0 })
+        local function rows()
+            return trimmed(screen.rows(true))
+        end
+        local function click(label, from, to)
+            local row = screen.find(label)
+            ui:mouse({ kind = "down", button = "left", row = row, col = from })
+            if to then
+                ui:mouse({ kind = "drag", button = "left", row = row, col = to })
+            end
+            ui:mouse({ kind = "up", button = "left", row = row, col = to or from })
+        end
+        local folded = rows()
+        local top = screen.find("out 1")
+        assert.is_true(any(folded, "out 8"))
+        assert.is_false(any(folded, "out 9"))
+        assert.is_true(any(folded, "… +4 lines"))
+        click("… +4 lines", 8)
+        local opened = rows()
+        assert.equal(top, screen.find("out 1"), "the opened output stays where it was clicked")
+        assert.is_false(any(opened, "+4 lines"))
+        assert.is_true(any(opened, "Jump to bottom"))
+        click("out 3", 5, 10)
+        assert.equal("out 3", copied.value, "a drag selects instead of folding")
+        assert.same({ unpack(opened, 2) }, { unpack(rows(), 2) })
+        click("out 9", 7)
+        assert.same({ unpack(folded, 2) }, { unpack(rows(), 2) }, "a second click folds it back and follows the bottom")
     end)
 
     it("shares the room a line leaves between its fill spans", { size = { 30, 6 } }, function()

@@ -509,16 +509,20 @@ function Ui:mouse(incoming)
         self:scroller():up(SCROLL_LINES)
     elseif kind == "scroll_down" then
         self:scroller():down(SCROLL_LINES)
-    elseif incoming.button == "left" and kind == "down" and not self.modal and self.views.messages:jumps(incoming.row, incoming.col) then
-        self.scroll:follow()
     elseif incoming.button == "left" and kind == "down" then
+        self.clicking = self.screen:clicked(incoming.row, incoming.col)
         self.selection:press(incoming.col, incoming.row, sys.os.clock())
     elseif incoming.button == "left" and kind == "drag" then
+        self.clicking = nil
         self.selection:drag(incoming.col, incoming.row)
     elseif incoming.button == "left" and kind == "up" then
+        local click = self.clicking
+        self.clicking = nil
         local copied = self.selection:release()
         if copied then
             self:copy(copied)
+        elseif click then
+            click(self, incoming)
         end
     else
         return
@@ -614,7 +618,7 @@ function Ui:paint()
     self.selection:sync(screen, width, height, self.palette.reverse, not modal and pane or nil)
     if self.flashed then
         local size = math.min(text.width(self.flashed.text), width)
-        canvas.write(screen, 0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
+        screen:line(0, width - size, { { self.flashed.text, self.palette.reverse } }, size)
     end
 end
 

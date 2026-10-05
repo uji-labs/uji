@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::io;
 
-use mlua::Value;
+use mlua::{Function, Value};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use uji_macros::{methods, options};
 
@@ -48,10 +48,17 @@ pub(crate) fn row_text(buffer: &Buffer, row: u16) -> String {
         .collect()
 }
 
+struct Target {
+    area: Rect,
+    on_click: Option<Function>,
+}
+
 pub(crate) struct Screen {
     surface: Box<dyn Surface>,
     styles: Vec<Style>,
     cursor: Option<Cursor>,
+    targets: Vec<Target>,
+    flushed: bool,
 }
 
 impl Screen {
@@ -60,7 +67,22 @@ impl Screen {
             surface,
             styles: Vec::new(),
             cursor: None,
+            targets: Vec::new(),
+            flushed: false,
         }
+    }
+
+    pub(crate) fn forget(mut self) -> Self {
+        self.targets.clear();
+        self
+    }
+
+    fn target(&mut self, area: Rect, on_click: Option<Function>) {
+        if self.flushed {
+            self.flushed = false;
+            self.targets.clear();
+        }
+        self.targets.push(Target { area, on_click });
     }
 
     fn resolve(&self, id: Option<usize>) -> io::Result<Style> {
@@ -105,8 +127,9 @@ impl Screen {
     }
 
     fn cover(&mut self, area: Rect, style: Style, symbol: &str) {
+        let area = area.intersection(self.surface.buffer().area);
+        self.target(area, None);
         let buffer = self.surface.buffer();
-        let area = area.intersection(buffer.area);
         for row in area.top()..area.bottom() {
             for col in area.left()..area.right() {
                 if let Some(cell) = buffer.cell_mut((col, row)) {
@@ -140,6 +163,20 @@ fn color(text: Option<&str>) -> io::Result<Option<Color>> {
             .map_err(|_| io::Error::other(format!("invalid colour {text}")))
     })
     .transpose()
+}
+
+#[options]
+struct Area {
+    x: i64,
+    y: i64,
+    width: i64,
+    height: i64,
+}
+
+impl Area {
+    fn rect(&self) -> Rect {
+        region(self.y, self.x, self.width, self.height)
+    }
 }
 
 #[options]
@@ -197,6 +234,14 @@ impl Screen {
         let right = width.map_or(area.width, |width| {
             region(row, col, width, 1).right().min(area.width)
         });
+        let on_click = match &spans {
+            Value::Table(spans) => spans.raw_get("on_click")?,
+            _ => None,
+        };
+        self.target(
+            Rect::new(left, top, right.saturating_sub(left), 1),
+            on_click,
+        );
         let end = match spans {
             Value::Nil => Ok(left),
             Value::String(_) => self.span((left, top), right, spans),
@@ -212,35 +257,16 @@ impl Screen {
         end.map(i64::from)
     }
 
-    fn fill(
-        &mut self,
-        row: i64,
-        col: i64,
-        width: i64,
-        height: i64,
-        style: Option<usize>,
-        symbol: Option<&str>,
-    ) -> io::Result<()> {
+    fn fill(&mut self, area: &Area, style: Option<usize>, symbol: Option<&str>) -> io::Result<()> {
         let style = self.resolve(style)?;
-        self.cover(
-            region(row, col, width, height),
-            style,
-            symbol.unwrap_or(" "),
-        );
+        self.cover(area.rect(), style, symbol.unwrap_or(" "));
         Ok(())
     }
 
-    fn paint(
-        &mut self,
-        row: i64,
-        col: i64,
-        width: i64,
-        height: i64,
-        style: usize,
-    ) -> io::Result<()> {
+    fn paint(&mut self, area: &Area, style: usize) -> io::Result<()> {
         let style = self.resolve(Some(style))?;
         let buffer = self.surface.buffer();
-        let area = region(row, col, width, height).intersection(buffer.area);
+        let area = area.rect().intersection(buffer.area);
         buffer.set_style(area, style);
         Ok(())
     }
@@ -255,6 +281,18 @@ impl Screen {
 
     fn clear(&mut self) {
         self.surface.buffer().reset();
+        self.targets.clear();
+        self.flushed = false;
+    }
+
+    fn clicked(&mut self, row: i64, col: i64) -> Option<Function> {
+        let at = Position::new(u16::try_from(col).ok()?, u16::try_from(row).ok()?);
+        self.targets
+            .iter()
+            .rev()
+            .find(|target| target.area.contains(at))?
+            .on_click
+            .clone()
     }
 
     fn cursor(&mut self, row: Option<i64>, col: Option<i64>, name: Option<&str>) -> io::Result<()> {
@@ -273,6 +311,7 @@ impl Screen {
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        self.flushed = true;
         self.surface.present(self.cursor)
     }
 

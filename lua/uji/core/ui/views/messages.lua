@@ -16,6 +16,10 @@ local function split_committed(pending)
     return pending:sub(1, at), pending:sub(at + 1)
 end
 
+local function follow(ui)
+    ui.scroll:follow()
+end
+
 local function append(into, lines)
     for _, line in ipairs(lines) do
         into[#into + 1] = line
@@ -25,8 +29,8 @@ end
 local Messages = class()
 
 function Messages:init()
-    self.transcript = Transcript()
     self.blocks = Blocks()
+    self.transcript = Transcript(self.blocks)
 end
 
 function Messages:draw(ui, screen, area, window)
@@ -35,26 +39,22 @@ function Messages:draw(ui, screen, area, window)
     local floor = inner.y + inner.height - 1
     inner.height = math.max(inner.height - TRAILING_GAP, 0)
     local width, height = inner.width, inner.height
-    local blocks = self.blocks
-    local split = not blocks:prepare(palette, ui.styles)
     local committed, partial = split_committed(ui.stream:visible())
-    local parts = self.transcript:frame(
-        {
-            entries = app.session and app.session:entries() or {},
-            notices = ui.notices,
-            queued = app.agent and app.agent.queue or {},
-            thinking = ui.theme.show_thinking,
-            pending = committed,
-            reasoning = ui.reasoning,
-            width = width,
-            revision = ui.theme.revision,
-        },
-        split,
-        function(out, block)
-            blocks:render(out, block, width)
-        end,
-        height + (ui.scroll.anchor or 0)
-    )
+    local parts = self.transcript:frame({
+        entries = app.session and app.session:entries() or {},
+        notices = ui.notices,
+        queued = app.agent and app.agent.queue or {},
+        thinking = ui.theme.show_thinking,
+        pending = committed,
+        reasoning = ui.reasoning,
+        width = width,
+        revision = ui.theme.revision,
+        split = not self.blocks:prepare(palette, ui.styles),
+        want = height + (ui.scroll.anchor or 0),
+    })
+    if parts.toggled then
+        ui.scroll.anchor = ui.scroll.anchor or 0
+    end
     if parts.prepended then
         self.base = self.base + parts.prepended
     else
@@ -115,21 +115,14 @@ function Messages:draw(ui, screen, area, window)
     append(rows, notes)
     append(rows, below)
     canvas.lines(screen, inner, rows)
-    self.jump = nil
     if ui.scroll.anchor and floor >= inner.y then
         local size = math.min(text.width(JUMP), width)
         local col = inner.x + math.floor((width - size) / 2)
-        canvas.write(screen, floor, col, { { JUMP, palette.chosen_name } }, size)
-        self.jump = { row = floor, col = col, width = size }
+        screen:line(floor, col, { { JUMP, palette.chosen_name }, on_click = follow }, size)
     end
     local pane = self.pane
     pane.top, pane.height, pane.shift = inner.y, finish - start, inner.y - start + self.base
     return pane
-end
-
-function Messages:jumps(row, col)
-    local jump = self.jump
-    return jump ~= nil and row == jump.row and col >= jump.col and col < jump.col + jump.width
 end
 
 return Messages
