@@ -12,7 +12,7 @@ const AFTER_PRELOAD: i64 = 2;
 const LUA_DIR: &str = "lua";
 const NATIVE_DIR: &str = "native";
 const NAMESPACE: &str = "uji.sys.";
-const MACHINE_CODE: (&str, &str) = ("sizemcode=4096", "maxmcode=16384");
+const MACHINE_CODE: (&str, &str, &str) = ("sizemcode=16384", "maxmcode=65536", "maxtrace=8000");
 
 pub(crate) struct Export {
     pub(crate) module: &'static str,

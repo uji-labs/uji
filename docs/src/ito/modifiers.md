@@ -16,9 +16,19 @@ A value a modifier cannot use raises an error that names it, such as
 
 ## :padding(cells)
 
-Leaves `cells` blank cells on every side of the content. A table such as
-`{ vertical = 1, horizontal = 2 }` sets the rows above and below apart from
-the columns on the left and right, and a side it leaves out gets none.
+Leaves `cells` blank cells on every side of the content. A table sets only
+the sides it names: `top`, `bottom`, `leading` and `trailing` one at a time,
+`vertical` for the rows above and below, and `horizontal` for the columns on
+the left and right. A side it leaves out keeps what it had.
+
+Order matters, as it reads. Padding added before `:background` or `:border`
+sits inside them, and padding added after sits outside, so the background and
+the box leave it blank.
+
+```lua
+ito.Text("note"):padding({ leading = 2 })
+ito.Text("panel"):padding({ vertical = 1, horizontal = 2 })
+```
 
 ## :border(set, opts)
 
@@ -39,7 +49,7 @@ ito.Text("ready"):border(ito.theme().borders.plain, { edges = ito.Edges.horizont
 ## :title(title)
 
 Puts `title` in the top border. It is a string, or a line of spans as
-[`ito.Lines`](views.md#itolineslines) takes.
+[`ito.Lines`](views.md#itolineslines-value) takes.
 
 ## :background(colour)
 

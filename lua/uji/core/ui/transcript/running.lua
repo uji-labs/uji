@@ -1,10 +1,11 @@
 local ito = require("ito")
 
+local function lines(width, value)
+    local ctx, props = value.ctx, value.props
+    local text = props.name .. "  " .. ctx:clip(props.line, width)
+    return ctx:wrap(text, { prefix = " " .. ctx.symbols.running .. " ", style = ctx.styles.dim, width = width })
+end
+
 return ito.view(function(props)
-    local ctx = ito.theme()
-    local prefix = " " .. ctx.symbols.running .. " "
-    return ito.Lines(function(width)
-        local value = props.name .. "  " .. ctx:clip(props.line, width)
-        return ctx:wrap(value, { prefix = prefix, style = ctx.styles.dim, width = width })
-    end)
+    return ito.Lines(lines, { ctx = ito.theme(), props = props })
 end)

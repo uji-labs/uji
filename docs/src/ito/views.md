@@ -82,12 +82,12 @@ ito.Text("3 files"):style(ito.theme().styles.muted)
 
 `ito.Text` raises an error when `text` is not a string.
 
-## ito.Lines(lines)
+## ito.Lines(lines, value)
 
 Draws `lines`, a list of lines, where each line is a list of spans. `lines`
-can also be a function that takes the width the view gets and returns the
-lines, for text that wraps. Its lines are kept until the function or the width
-changes. A span is
+can also be a function that takes the width the view gets and `value`, and
+returns the lines, for text that wraps. Its lines are kept until the function,
+`value` or the width changes. A span is
 `{ text, style }`, and the style is an
 [`ito.TextStyle`](../configuration/themes.md#styles), such as one of the
 theme's `ito.theme().styles.muted`. A span without a style is drawn in the
@@ -114,13 +114,12 @@ end)
 [Styles](../configuration/themes.md#styles) lists the styles every theme has.
 
 ```lua
+local function note(width, value)
+  return value.theme:wrap(value.text, { width = width, style = value.theme.styles.text })
+end
+
 local Note = ito.view(function(props)
-  local build = ito.remember(function()
-    return function(width)
-      return ito.theme():wrap(props.text, { width = width, style = ito.theme().styles.text })
-    end
-  end, props.text)
-  return ito.Lines(build)
+  return ito.Lines(note, { theme = ito.theme(), text = props.text })
 end)
 ```
 

@@ -156,9 +156,6 @@ end
 
 function Context:cold()
     app.session.stored = nil
-    ui.window = ito.Window(ui.screen, function()
-        ui:invalidate()
-    end)
     ui.scroll:to_end()
     self:frame()
 end
@@ -253,6 +250,17 @@ function STEPS.top(ctx)
     while ui.scroll.moved ~= before do
         before = ui.scroll.moved
         ui.scroll:scroll(-height)
+        ctx:frame()
+    end
+end
+
+function STEPS.wheel(ctx, spec)
+    for _ = 1, spec.steps do
+        ui.scroll:scroll(-spec.rows)
+        ctx:frame()
+    end
+    for _ = 1, spec.steps do
+        ui.scroll:scroll(spec.rows)
         ctx:frame()
     end
 end

@@ -21,7 +21,7 @@ function M.reply(ctx, blocks)
     local margin = ctx.limits.reply_margin
     local out = {}
     for index, block in ipairs(blocks) do
-        out[index] = margin > 0 and ito.HStack({ ito.Text(string.rep(" ", margin)), block }) or block
+        out[index] = margin > 0 and block:padding({ leading = margin }) or block
     end
     return out
 end
@@ -41,13 +41,13 @@ local BODY = {
         end
         return out
     end,
-    tool = function(_, message, props)
+    tool = function(_, message, expanded, toggle)
         local content = message.content or ""
         return {
-            ToolOutput({ content = content, failed = failed(content), expanded = props.expanded, toggle = props.toggle }),
+            ToolOutput({ content = content, failed = failed(content), expanded = expanded, toggle = toggle }),
         }
     end,
-    shell = function(_, message, props)
+    shell = function(_, message, expanded, toggle)
         local output = message.output or ""
         return {
             Shell({
@@ -55,8 +55,8 @@ local BODY = {
                 code = message.code,
                 output = output,
                 failed = failed(output),
-                expanded = props.expanded,
-                toggle = props.toggle,
+                expanded = expanded,
+                toggle = toggle,
             }),
         }
     end,
@@ -71,20 +71,20 @@ local BODY = {
     end,
 }
 
-function M.entry(ctx, message, props)
+function M.entry(ctx, message, gap, thinking, custom, expanded, toggle)
     local out = {}
-    if props.gap > 0 then
-        out[1] = ito.Spacer():height(props.gap)
+    if gap > 0 then
+        out[1] = ito.Spacer():height(gap)
     end
-    if props.thinking and message.reasoning and message.reasoning ~= "" then
+    if thinking and message.reasoning and message.reasoning ~= "" then
         out[#out + 1] = Custom({
             payload = { type = "thinking", text = message.reasoning },
             fallback = Thinking({ text = message.reasoning }),
         })
     end
     local body = BODY[message.type]
-    local views = body and body(ctx, message, props) or {}
-    if props.custom then
+    local views = body and body(ctx, message, expanded, toggle) or {}
+    if custom then
         local listed = message.type == "assistant" and message.tool_calls or nil
         out[#out + 1] = Custom({
             payload = {

@@ -6,7 +6,6 @@ local ito = require("ito")
 local Jump = require("uji.core.ui.transcript.jump")
 local Live = require("uji.core.ui.transcript.live")
 local Message = require("uji.core.ui.transcript.message")
-local tables = require("uji.core.tables")
 
 local LIVE = {}
 
@@ -49,17 +48,13 @@ return ito.view(function()
             return nil
         end
         local previous = before(entries, index)
-        local id = item.id
         return Message({
             message = message,
+            id = item.id,
             gap = previous and not (opens_group(previous) and message.type == "tool") and ctx.limits.message_gap or 0,
             thinking = ui.theme.show_thinking,
             custom = event.has("render_message"),
-            expanded = expanded.value[id],
-            toggle = function()
-                expanded.value = tables.with(expanded.value, id, not expanded.value[id] or nil)
-                ui.scroll.following = false
-            end,
+            open = expanded,
         })
     end
     return ito.VStack({

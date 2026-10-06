@@ -58,6 +58,10 @@
       {
         "name": "scroll to the top of 500 messages",
         "run": [{ "top": true }]
+      },
+      {
+        "name": "wheel up and back down through 500 messages",
+        "run": [{ "wheel": { "steps": 200, "rows": 3 } }]
       }
     ],
     "document": [

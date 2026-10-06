@@ -61,7 +61,7 @@ local Renderer = class()
 
 function Renderer:init(ctx)
     self.blocks = {}
-    self.gaps = {}
+    self.pending = 0
     self.block = Block()
     self.ctx = ctx
     self.style = ctx.styles.text
@@ -75,6 +75,10 @@ function Renderer:init(ctx)
 end
 
 function Renderer:add(view)
+    if self.pending > 0 then
+        view:padding({ top = self.pending })
+        self.pending = 0
+    end
     self.blocks[#self.blocks + 1] = view
 end
 
@@ -87,17 +91,11 @@ function Renderer:flush()
 end
 
 function Renderer:gap()
-    local rows = self.ctx.limits.block_gap
-    if rows > 0 then
-        local spacer = ito.Spacer():height(rows)
-        self.gaps[spacer] = true
-        self:add(spacer)
-    end
+    self.pending = self.ctx.limits.block_gap
 end
 
 function Renderer:blank()
-    local last = self.blocks[#self.blocks]
-    if last and not self.gaps[last] then
+    if #self.blocks > 0 and self.pending == 0 then
         self:gap()
     end
 end
@@ -346,9 +344,6 @@ function Renderer:finish()
     self:flush()
     self:close_heading()
     self:close_code()
-    while #self.blocks > 0 and self.gaps[self.blocks[#self.blocks]] do
-        self.blocks[#self.blocks] = nil
-    end
     return self.blocks
 end
 
