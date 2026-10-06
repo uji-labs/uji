@@ -10,15 +10,16 @@ return ito.view(function()
     end)
     local line = ui.composer.line
     local draft = { text = line.text, cursor = line.cursor, revision = line.revision, focused = ui:composing() }
-    local styles = ctx.styles
+    local styles, prefix = ctx.styles, ctx.symbols.input
     return ito.Lines(function(width)
         local lines = {}
-        for index, row in ipairs(input:shown(ui, draft, width)) do
+        for index, row in ipairs(input:shown(ui, draft, math.max(width - ctx:measure(prefix), 1))) do
+            local spans = { { prefix, styles.accent }, { row.before, styles.input } }
             if row.after then
-                lines[index] = { { row.before, styles.input }, { ctx.symbols.cursor, styles.cursor }, { row.after, styles.input } }
-            else
-                lines[index] = { { row.before, styles.input } }
+                spans[3] = { ctx.symbols.cursor, styles.cursor }
+                spans[4] = { row.after, styles.input }
             end
+            lines[index] = spans
         end
         return lines
     end)

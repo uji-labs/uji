@@ -219,6 +219,7 @@ The default theme has these styles.
 | `symbols.column` | The line between table columns. | `│` |
 | `symbols.task_done`, `symbols.task_open` | The marks of a done and an open task. | `[x]`, `[ ]` |
 | `symbols.cursor` | The cursor in the input line and in pickers. | `█` |
+| `symbols.input` | The mark in front of each row of the input line, in the `accent` style. | `""` |
 | `symbols.mask` | What hidden input, such as a key, shows instead of each character. | `•` |
 | `symbols.pointer` | The mark beside the chosen item in a list or an approval. | `›` |
 | `symbols.prompt` | The mark before what you type in a picker or prompt. | `>` |
