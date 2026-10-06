@@ -91,7 +91,8 @@ function M.interrupt()
 end
 
 function M.compact()
-    return app.agent:compact() == true
+    local started, reason = app.agent:compact()
+    return started == true, reason
 end
 
 function M.list(opts)

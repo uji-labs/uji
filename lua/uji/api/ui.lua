@@ -36,11 +36,6 @@ local function strings(list, what)
     return list
 end
 
-local function callable(value)
-    local meta = type(value) == "table" and getmetatable(value)
-    return type(value) == "function" or (meta and meta.__call ~= nil)
-end
-
 local M = {}
 
 M.ui = {
@@ -84,7 +79,7 @@ M.ui = {
         return ui:confirm(opts)
     end),
     overlay = function(content, opts)
-        if not callable(content) then
+        if not check.callable(content) then
             error("uji.ui.overlay needs a function that returns a view", 2)
         end
         local overlay = ui:present(Overlay(content, opts))

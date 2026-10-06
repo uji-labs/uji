@@ -63,6 +63,9 @@ uji.command.add("login", {
         if not provider then
             return
         end
+        if provider.loop then
+            return configure(provider)
+        end
         local needs_url = provider.base_url == ""
         local blank = needs_url and { base_url = "", model = "" } or nil
         if provider.oauth then
