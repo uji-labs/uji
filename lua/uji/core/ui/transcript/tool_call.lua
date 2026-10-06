@@ -13,20 +13,19 @@ local function heading(ctx, call)
     return called .. " " .. call.name .. " " .. ctx:first(call.arguments, ctx.limits.argument_preview)
 end
 
+local function lines(width, value)
+    local ctx, head, marker = value.ctx, value.head, value.marker
+    local indent = string.rep(" ", ctx:measure(marker))
+    local chunks = ctx:chunks(head, math.max(width - ctx:measure(marker) - 1, 1))
+    local out = { { { marker, ctx.styles.muted }, { chunks[1] or "", ctx.styles.bold } } }
+    for index = 2, #chunks do
+        out[index] = { { indent .. chunks[index], ctx.styles.text } }
+    end
+    return out
+end
+
 return ito.view(function(props)
     local ctx = ito.theme()
-    local build = ito.remember(function()
-        local head = heading(ctx, calls.describe(props.call)):gsub("\n", " ")
-        local marker = " " .. ctx.symbols.tool .. " "
-        local indent = string.rep(" ", ctx:measure(marker))
-        return function(width)
-            local chunks = ctx:chunks(head, math.max(width - ctx:measure(marker) - 1, 1))
-            local lines = { { { marker, ctx.styles.muted }, { chunks[1] or "", ctx.styles.bold } } }
-            for index = 2, #chunks do
-                lines[index] = { { indent .. chunks[index], ctx.styles.text } }
-            end
-            return lines
-        end
-    end, props.call, ctx)
-    return ito.Lines(build)
+    local head = heading(ctx, calls.describe(props.call)):gsub("\n", " ")
+    return ito.Lines(lines, { ctx = ctx, head = head, marker = " " .. ctx.symbols.tool .. " " })
 end)

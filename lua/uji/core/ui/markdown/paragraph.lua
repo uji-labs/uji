@@ -25,11 +25,10 @@ local function wrapped(tokens, indent, hanging, width)
     return lines
 end
 
+local function lines(width, props)
+    return wrapped(props.tokens, props.indent, props.hanging, width)
+end
+
 return ito.view(function(props)
-    local build = ito.remember(function()
-        return function(width)
-            return wrapped(props.tokens, props.indent, props.hanging, width)
-        end
-    end, props.tokens)
-    return ito.Lines(build)
+    return ito.Lines(lines, props)
 end)
