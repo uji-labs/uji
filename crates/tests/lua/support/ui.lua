@@ -35,6 +35,19 @@ function M.rows(fresh)
     return rows
 end
 
+function M.runs()
+    ui.screen:clear()
+    ui:paint()
+    local _, height = ui.screen:size()
+    local runs = {}
+    for row = 0, height - 1 do
+        for _, run in ipairs(ui.screen:spans(row)) do
+            runs[#runs + 1] = run
+        end
+    end
+    return runs
+end
+
 function M.screen()
     return table.concat(M.rows())
 end

@@ -131,17 +131,12 @@ local function has(value, part)
 end
 
 local function colours(found)
-    ui.screen:clear()
-    ui:paint()
-    local _, height = ui.screen:size()
-    for row = 0, height - 1 do
-        for _, run in ipairs(ui.screen:spans(row)) do
-            if run.fg then
-                found[run.fg] = true
-            end
-            if run.bg then
-                found[run.bg] = true
-            end
+    for _, run in ipairs(screen.runs()) do
+        if run.fg then
+            found[run.fg] = true
+        end
+        if run.bg then
+            found[run.bg] = true
         end
     end
     return found
@@ -570,6 +565,19 @@ describe("themes", function()
         end
     end)
 
+    it("opens a list on its current item and labels it with the theme's word", { size = { 60, 12 } }, function()
+        uji.ui.configure({ theme = PROBE })
+        for _, make in ipairs({ Select, Pick }) do
+            local modal = make({ title = "Pick", items = { "a", "b", "c" }, current = "b" })
+            ui:present(modal)
+            assert.equal("b", modal:chosen())
+            local shown = table.concat(screen.rows(true), "\n")
+            assert.is_true(has(shown, "b (now)"))
+            assert.is_false(has(shown, "a (now)"))
+            ui.modal:close()
+        end
+    end)
+
     it("draws the sessions picker with the theme's words and sizes", { size = { 80, 10 } }, function()
         uji.ui.configure({ theme = PROBE })
         local listed = { { title = "first", updated = 0, id = "abc" } }
@@ -705,7 +713,7 @@ return require("uji.themes.default")({
             { { extends = "default" }, "theme.extends: a theme has name, colors, styles" },
             { { views = {} }, "theme.colors: must be a table, not a nil" },
             { built({ colors = { text = "#d4d4d4" } }), "a TextStyle's foreground must be an ito.Color, not a string" },
-            { built({ colors = { link = 245 } }), "theme default.colors.link: must be an ito.Color, not a number" },
+            { built({ colors = { brand = 245 } }), "theme default.colors.brand: must be an ito.Color, not a number" },
             { built({ styles = { user = { fg = "text" } } }), "theme default.styles.user: must be an ito.TextStyle, not a table" },
             { built({ symbols = { spiner = { "x" } } }), "theme default.symbols.spiner: the default theme has no symbol named spiner" },
             { built({ limits = { suggest_rows = -1 } }), "theme default.limits.suggest_rows: must be a number that is not negative" },
@@ -722,6 +730,37 @@ return require("uji.themes.default")({
             assert.is_true(has(err, case[2]), "expected " .. case[2] .. ", got " .. tostring(err))
             assert.equal(tokens, ui.theme.tokens)
             assert.equal(revision, ui.theme.revision)
+        end
+    end)
+
+    it("draws links and code in the colours a theme adds", { size = { 40, 8 } }, function()
+        local S = ito.TextStyle
+        local added = { link = ito.rgb(0x010101), keyword = ito.rgb(0x020202), number = ito.rgb(0x030303), comment = ito.rgb(0x040404) }
+        uji.ui.configure({ theme = default({ colors = added }) })
+        local styles = ui.theme.tokens.styles
+        assert.equal(S({ foreground = added.link, underline = true }), styles.link)
+        assert.equal(S({ foreground = added.keyword }), styles.code_keyword)
+        assert.equal(S({ foreground = added.number }), styles.code_number)
+        assert.equal(S({ foreground = added.comment, italic = true }), styles.code_comment)
+    end)
+
+    it("paints the screen and the lists over it with the theme's screen style", { size = { 40, 12 } }, function()
+        local function backgrounds()
+            local found = {}
+            for _, run in ipairs(screen.runs()) do
+                found[run.bg or "none"] = true
+            end
+            return found
+        end
+        assert.same({ none = true }, backgrounds())
+        uji.ui.configure({ theme = default({ colors = { background = ito.rgb(0x0a0b0c) } }) })
+        assert.same({ ["#0A0B0C"] = true }, backgrounds())
+        for _, modal in ipairs({ Select({ title = "Pick", items = { "a", "b" } }), Pick({ title = "Find", items = { "a", "b" } }) }) do
+            ui:present(modal)
+            local found = backgrounds()
+            assert.is_nil(found.none)
+            assert.is_true(found["#0A0B0C"])
+            ui.modal:close()
         end
     end)
 
@@ -751,7 +790,7 @@ return require("uji.themes.default")({
         assert.equal(1, raised)
         local ok, err = pcall(uji.ui.save_theme, 42)
         assert.is_false(ok)
-        assert.is_true(has(err, "uji.ui.save_theme needs a theme name"))
+        assert.is_true(has(err, "uji.ui.save_theme needs a name"))
     end)
 
     it("stops a template that asks for a style the theme lacks", { size = { 40, 8 } }, function()

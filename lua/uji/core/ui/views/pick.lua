@@ -137,6 +137,7 @@ function Pick:view(ui, _, room)
         items = self.items,
         matches = self.matches,
         selection = self:selection(),
+        current = self.current,
         preview = self.preview,
         query = self.query,
         total = #self.items,

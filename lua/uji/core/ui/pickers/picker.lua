@@ -13,10 +13,12 @@ return ito.view(function(props)
     local split = props.width < ctx.limits.preview_min * 2 and props.width or math.floor(props.width / 2)
     local results = ito.List(props.matches, function(match, _, active)
         local item = props.items[match]
-        if active then
-            return ito.Text(ctx.symbols.prompt .. " " .. item):style(styles.chosen)
+        local style = active and styles.chosen or styles.text
+        local line = { { (active and ctx.symbols.prompt .. " " or "  ") .. item, style } }
+        if item == props.current then
+            line[#line + 1] = { " " .. ctx.text.current, active and style or styles.muted }
         end
-        return ito.Text("  " .. item):style(styles.text)
+        return ito.Lines({ line })
     end)
         :selection(props.selection)
         :passive()

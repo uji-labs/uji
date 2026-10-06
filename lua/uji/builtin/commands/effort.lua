@@ -6,18 +6,11 @@ uji.command.add("effort", {
             uji.notify("this model has no reasoning effort to set")
             return
         end
-        local current = uji.model.current().effort
-        local items, efforts = {}, {}
-        for _, name in ipairs(available) do
-            local label = name == current and name .. " (current)" or name
-            items[#items + 1] = label
-            efforts[label] = name
-        end
-        local choice = uji.ui.select({ title = "Reasoning effort", items = items })
+        local choice = uji.ui.select({ title = "Reasoning effort", items = available, current = uji.model.current().effort })
         if not choice then
             return
         end
-        uji.model.use({ effort = efforts[choice] })
-        uji.notify("reasoning effort: " .. efforts[choice])
+        uji.model.use({ effort = choice })
+        uji.notify("reasoning effort: " .. choice)
     end,
 })
