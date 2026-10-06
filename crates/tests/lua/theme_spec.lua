@@ -130,6 +130,14 @@ local function has(value, part)
     return tostring(value):find(part, 1, true) ~= nil
 end
 
+local function diagnosed(part)
+    local count = 0
+    for _, entry in ipairs(uji.diagnostics.list()) do
+        count = count + (has(entry.text, part) and 1 or 0)
+    end
+    return count
+end
+
 local function colours(found)
     for _, run in ipairs(screen.runs()) do
         if run.fg then
@@ -278,12 +286,7 @@ describe("themes", function()
         assert.equal("first", rows[9]:gsub("%s+$", ""))
         assert.equal("second", rows[10]:gsub("%s+$", ""))
         screen.rows(true)
-        ui:take_notices()
-        local raised = 0
-        for _, notice in ipairs(ui.notices) do
-            raised = raised + (has(notice, "toolbar item: no badge today") and 1 or 0)
-        end
-        assert.equal(1, raised)
+        assert.equal(1, diagnosed("toolbar item: no badge today"))
         assert.is_true(first:remove())
         assert.is_false(first:remove())
         assert.equal("second", (screen.rows(true)[10]:gsub("%s+$", "")))
@@ -298,12 +301,7 @@ describe("themes", function()
         })
         screen.rows(true)
         screen.rows(true)
-        ui:take_notices()
-        local missing = 0
-        for _, notice in ipairs(ui.notices) do
-            missing = missing + (has(notice, "toolbar: nothing shows the items placed at bottom_bar") and 1 or 0)
-        end
-        assert.equal(1, missing)
+        assert.equal(1, diagnosed("toolbar: nothing shows the items placed at bottom_bar"))
         assert.has_error(function()
             uji.ui.toolbar("x")
         end, "uji.ui.toolbar takes a list of ito.ToolbarItem")
@@ -351,15 +349,15 @@ describe("themes", function()
         for _, case in ipairs(cases) do
             uji.ui.configure({ theme = default({ views = { [uji.ui.Screen] = case[1] } }) })
             local rows = screen.rows(true)
-            ui:take_notices()
-            local said = tostring(ui.notices[#ui.notices])
-            assert.is_true(has(said, case[2]), said)
+            local latest = uji.diagnostics.list()[1]
+            assert.is_true(has(latest.text, case[2]), latest.text)
             assert.equal(string.rep("─", 40), rows[#rows - 2])
         end
-        local count = #ui.notices
+        local count = #uji.diagnostics.list()
         screen.rows(true)
+        assert.equal(count, #uji.diagnostics.list(), "the same problem is recorded once")
         ui:take_notices()
-        assert.equal(count, #ui.notices, "the same problem is reported once")
+        assert.same({}, ui.notices)
     end)
 
     it("floats a picker when the screen has no place for pickers", { size = { 40, 12 } }, function()
@@ -652,8 +650,7 @@ describe("themes", function()
         local all = screen.screen()
         assert.is_true(has(all, "<<hello>>"))
         assert.is_true(has(all, " › later"))
-        ui:take_notices()
-        assert.is_true(has(table.concat(ui.notices, "\n"), "theme view: no queue today"))
+        assert.equal(1, diagnosed("theme view: no queue today"))
         local ok, err = pcall(uji.ui.configure, { theme = default({ views = { bogus = function() end } }) })
         assert.is_false(ok)
         assert.is_true(has(err, "theme default.views: keys must be views made with ito.view, not bogus"))

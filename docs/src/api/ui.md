@@ -26,7 +26,8 @@ An item draws again when something it reads changes: its
 | `handle:remove()` | Takes the items off the screen, and returns `true` if they were on it. |
 
 Raises an error when `items` is not a list of `ito.ToolbarItem`. An item that
-raises an error draws nothing, and uji says why once in a notice.
+raises an error draws nothing, and uji records why once, where `/diagnostics`
+shows it.
 
 ```lua
 local ito = require("ito")

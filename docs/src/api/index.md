@@ -177,6 +177,12 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.defer(seconds, callback)`](timers.md#ujideferseconds-callback) | Runs `callback` after a delay and returns a function that cancels it. |
 | [`uji.notify(message)`](timers.md#ujinotifymessage) | Shows a notice in the transcript. |
 
+## Diagnostics
+
+| Name | Does |
+|---|---|
+| [`uji.diagnostics.list(on_done)`](diagnostics.md#ujidiagnosticsliston_done) | Returns the errors uji recorded, newest first. |
+
 ## Quitting and reloading
 
 | Name | Does |
