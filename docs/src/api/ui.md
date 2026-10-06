@@ -257,3 +257,31 @@ uji.ui.configure({
 The cursor, the spinner, the size of the suggestion list and the words of an
 approval belong to the theme, under `styles`, `symbols`, `limits` and `text`, as
 [Themes](../configuration/themes.md) describes.
+
+## uji.ui.theme()
+
+Returns the theme in use: its name, or the table you gave
+`uji.ui.configure`.
+
+```lua
+local before = uji.ui.theme()
+uji.ui.configure({ theme = "harbor" })
+uji.ui.configure({ theme = before })
+```
+
+## uji.ui.save_theme(name)
+
+Keeps `name` as your theme for the next time uji starts. It doesn't change the
+theme in use, so call `uji.ui.configure` for that.
+
+```lua
+uji.ui.configure({ theme = "harbor" })
+uji.ui.save_theme("harbor")
+```
+
+uji puts the saved theme on before it runs your config, so a theme your config
+sets with `uji.ui.configure` still wins. When the saved theme no longer loads,
+for example after you remove the pack it came from, uji shows a notice and
+starts without it.
+
+Raises an error when `name` is not a string.

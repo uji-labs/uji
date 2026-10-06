@@ -3,6 +3,7 @@ local default = require("uji.themes.default")
 local Confirm = require("uji.core.ui.views.confirm")
 local ito = require("ito")
 local fixture = require("support.fixture")
+local model = require("uji.core.model")
 local plugin = require("uji.core.plugin")
 local sandbox = require("support.sandbox")
 local screen = require("support.ui")
@@ -722,6 +723,35 @@ return require("uji.themes.default")({
             assert.equal(tokens, ui.theme.tokens)
             assert.equal(revision, ui.theme.revision)
         end
+    end)
+
+    it("tells which theme is in use", { size = { 40, 8 } }, function()
+        uji.ui.configure({ theme = PROBE })
+        assert.equal(PROBE, uji.ui.theme())
+        theme_file("plain", 'return require("uji.themes.default")({ name = "plain" })')
+        uji.ui.configure({ theme = "plain" })
+        assert.equal("plain", uji.ui.theme())
+    end)
+
+    it("keeps a saved theme and names one that no longer loads", { size = { 40, 8 } }, function()
+        theme_file("kept", 'return require("uji.themes.default")({ name = "kept" })')
+        uji.ui.save_theme("kept")
+        assert.equal("kept", model.setting("ui.theme"))
+        assert.equal("default", uji.ui.theme())
+        ui.theme:restore()
+        assert.equal("kept", uji.ui.theme())
+        uji.ui.save_theme("gone")
+        ui.theme:restore()
+        assert.equal("kept", uji.ui.theme())
+        ui:take_notices()
+        local raised = 0
+        for _, notice in ipairs(ui.notices) do
+            raised = raised + (has(notice, "saved theme: no theme named gone") and 1 or 0)
+        end
+        assert.equal(1, raised)
+        local ok, err = pcall(uji.ui.save_theme, 42)
+        assert.is_false(ok)
+        assert.is_true(has(err, "uji.ui.save_theme needs a theme name"))
     end)
 
     it("stops a template that asks for a style the theme lacks", { size = { 40, 8 } }, function()

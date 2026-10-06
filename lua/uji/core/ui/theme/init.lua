@@ -1,8 +1,11 @@
 local class = require("uji.core.class")
 local default = require("uji.themes.default")()
+local model = require("uji.core.model")
+local notices = require("uji.core.notices")
 local Themes = require("ito").Themes
 
 local MODULE = "uji.themes."
+local SAVED = "ui.theme"
 
 local OPTIONS = {
     theme = "theme",
@@ -72,6 +75,21 @@ function Theme:configure(opts)
         self.suggest_enabled = opts.suggest.enabled
     end
     self:use(selection, tokens)
+end
+
+function Theme:save(name)
+    model.set_setting(SAVED, name)
+end
+
+function Theme:restore()
+    local name = model.setting(SAVED)
+    if not name then
+        return
+    end
+    local ok, err = pcall(self.select, self, name)
+    if not ok then
+        notices.push("saved theme: " .. tostring(err))
+    end
 end
 
 function Theme:toggle_thinking()

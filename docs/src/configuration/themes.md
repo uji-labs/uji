@@ -1,7 +1,8 @@
 # Themes
 
-uji starts out in `default`, and `uji.ui.configure` switches to another one
-by name.
+uji starts out in `default`, or in the theme you
+[saved](#choosing-and-keeping-a-theme), and `uji.ui.configure` switches to
+another one by name.
 
 ```lua
 uji.ui.configure({ theme = "harbor" })
@@ -10,6 +11,28 @@ uji.ui.configure({ theme = "harbor" })
 A name loads `lua/uji/themes/<name>.lua` from your config directory or from a
 [pack](packs.md), and that file returns the theme. You can also pass the theme
 itself.
+
+## Choosing and keeping a theme
+
+`uji.modules("uji.themes")` lists every theme uji can load, from uji, your
+config directory and your packs. `uji.ui.save_theme` keeps one for the next
+start.
+
+```lua
+local names = {}
+for index, module in ipairs(uji.modules("uji.themes")) do
+  names[index] = module:match("[^.]+$")
+end
+uji.ui.select({ title = "Theme", items = names }, function(name)
+  if name then
+    uji.ui.configure({ theme = name })
+    uji.ui.save_theme(name)
+  end
+end)
+```
+
+uji puts the saved theme on before it runs your config, so a theme your config
+sets still wins.
 
 ## Building a theme
 
