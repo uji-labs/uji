@@ -84,6 +84,7 @@ local function run(args)
     app.argv = args
     app.flags = parsed.flags
     require("uji.core.model").attach(store)
+    require("uji.core.ui").theme:restore()
     require("uji.builtin.commands")
     local config = require("uji.core.config")
     config.load()

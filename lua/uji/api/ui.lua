@@ -107,6 +107,15 @@ M.ui = {
         raise(pcall(ui.theme.configure, ui.theme, opts))
         ui:invalidate()
     end,
+    theme = function()
+        return ui.theme.selection
+    end,
+    save_theme = function(name)
+        if type(name) ~= "string" then
+            error("uji.ui.save_theme needs a theme name", 2)
+        end
+        ui.theme:save(name)
+    end,
 }
 
 M.ui.Markdown = markdown.Markdown

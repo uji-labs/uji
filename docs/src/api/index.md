@@ -55,6 +55,8 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |
 | [`uji.ui.configure(opts)`](ui.md#ujiuiconfigureopts) | Sets colours and screen behaviour. |
+| [`uji.ui.theme()`](ui.md#ujiuitheme) | Returns the theme in use. |
+| [`uji.ui.save_theme(name)`](ui.md#ujiuisave_themename) | Keeps a theme for the next time uji starts. |
 
 ## Model context
 
