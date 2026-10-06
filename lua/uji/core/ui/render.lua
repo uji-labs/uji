@@ -1,9 +1,9 @@
+local diagnostics = require("uji.core.diagnostics")
 local Flash = require("uji.core.ui.flash")
 local host = require("uji.core.ui.host")
 local ito = require("ito")
 local presentations = require("uji.core.ui.presentations")
 local screens = require("uji.core.ui.screen")
-local sys = require("uji.sys")
 
 local M = {}
 
@@ -28,11 +28,9 @@ end)
 function M.frame(ui)
     local window, ctx = ui.window, ui.theme:context()
     ctx.width, ctx.height = ui.screen:size()
-    local ok, root, frame = pcall(window.place, window, host.Host:provide(ui, Root({ ui = ui })), ctx)
-    if ok then
-        ui.screen_failure = nil
-    else
-        ui:report("screen_failure", "screen: " .. sys.message(root))
+    local ok, root, frame = xpcall(window.place, diagnostics.capture, window, host.Host:provide(ui, Root({ ui = ui })), ctx)
+    diagnostics.report("screen", not ok and root or nil)
+    if not ok then
         root, frame = window:place(host.Host:provide(ui, Root({ ui = ui, plain = true })), ctx)
     end
     return window:draw(root, frame)

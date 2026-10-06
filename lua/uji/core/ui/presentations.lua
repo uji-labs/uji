@@ -1,7 +1,7 @@
+local diagnostics = require("uji.core.diagnostics")
 local host = require("uji.core.ui.host")
 local Input = require("uji.core.ui.input")
 local ito = require("ito")
-local sys = require("uji.sys")
 
 local FULL = 100
 local PLAIN = ito.TextStyle({})
@@ -43,20 +43,18 @@ M.Presentation = ito.view(function(props)
     return sheet
 end)
 
-local function guarded(ui)
-    return {
-        failed = function(problem)
-            ui:report("modal_failure", "modal: " .. sys.message(problem))
-        end,
-    }
-end
+local GUARDED = {
+    failed = function(problem)
+        diagnostics.report("modal", { text = problem })
+    end,
+}
 
-local function layers(ui, modals, build)
+local function layers(modals, build)
     local out = {}
     for index, modal in ipairs(modals) do
         out[index] = ito.SubcomposeLayout(function(room)
             return build(modal, room)
-        end, guarded(ui))
+        end, GUARDED)
             :id(modal)
             :hidden(index < #modals)
     end
@@ -69,14 +67,14 @@ M.Composer = ito.view(function()
     if #takeovers == 0 then
         return Input()
     end
-    return ito.VStack(layers(ui, takeovers, function(modal, room)
+    return ito.VStack(layers(takeovers, function(modal, room)
         return M.Presentation({ modal = modal, room = room })
     end))
 end)
 
 M.Modals = ito.view(function()
     local ui = host.Host.current
-    return ito.VStack(layers(ui, ui:inlines(), function(modal, room)
+    return ito.VStack(layers(ui:inlines(), function(modal, room)
         return ito.VStack({ ito.Spacer(), M.Presentation({ modal = modal, room = room, clears = true }) })
     end)):preference(host.Hosted, true)
 end)
@@ -87,7 +85,7 @@ M.Floating = ito.view(function(props)
     return ito.SubcomposeLayout(function(screen)
         local width = math.floor(screen.width * limits.float_width / FULL)
         local height = math.floor(screen.height * limits.float_height / FULL)
-        local shown = layers(ui, floats, function(modal, room)
+        local shown = layers(floats, function(modal, room)
             return M.Presentation({ modal = modal, room = room, clears = true, fills = true })
         end)
         for index, layer in ipairs(shown) do

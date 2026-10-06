@@ -351,7 +351,7 @@ end
 ```
 
 A screen that raises an error is replaced by the default screen for that
-frame, and uji shows the problem once as a notice.
+frame, and uji records the problem once, where `/diagnostics` shows it.
 
 ## Views
 
@@ -417,8 +417,8 @@ also has these helpers, which give the lines an `ito.Lines` draws.
 | `ctx:first(text, count)` | The first `count` characters of `text`. |
 
 A replacement that raises an error is skipped, uji draws the view's own default
-instead, and the problem shows once as a notice, such as
-`theme view: no queue today`. A plugin's views are replaced the same way: the
+instead, and the problem is recorded once, such as
+`theme view: no queue today`, where `/diagnostics` shows it. A plugin's views are replaced the same way: the
 plugin exports its view, and a theme keys its replacement by it.
 
 ## A theme from a base16 palette

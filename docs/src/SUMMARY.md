@@ -54,6 +54,7 @@
   - [uji.pack](api/pack.md)
   - [uji.config](api/config.md)
   - [Timers and notices](api/timers.md)
+  - [uji.diagnostics](api/diagnostics.md)
   - [Quitting and reloading](api/app.md)
 - [ito](ito/index.md)
   - [Views](ito/views.md)

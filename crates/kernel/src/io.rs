@@ -46,6 +46,11 @@ pub(crate) fn reason(err: &mlua::Error) -> String {
 }
 
 #[function]
+fn traceback(lua: &Lua, level: Option<usize>) -> mlua::Result<String> {
+    Ok(lua.traceback(None, level.unwrap_or(1))?.to_string_lossy())
+}
+
+#[function]
 fn message(lua: &Lua, value: Value) -> mlua::Result<String> {
     if let Value::Error(err) = &value {
         return Ok(reason(err));

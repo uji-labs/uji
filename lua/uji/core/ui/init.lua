@@ -4,6 +4,7 @@ local class = require("uji.core.class")
 local command = require("uji.core.command")
 local Composer = require("uji.core.ui.composer")
 local Confirm = require("uji.core.ui.views.confirm")
+local diagnostics = require("uji.core.diagnostics")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
 local ito = require("ito")
@@ -158,13 +159,6 @@ function Ui:floats(hosted)
     return self:presentations(function(modal)
         return modal.float or (not hosted and not modal.takeover)
     end)
-end
-
-function Ui:report(field, problem)
-    if self[field] ~= problem then
-        self[field] = problem
-        notices.push("theme " .. problem)
-    end
 end
 
 function Ui:mode()
@@ -586,12 +580,8 @@ function Ui:frames()
         self.dirty = sys.promise()
         if not self.suspended then
             self.stream:reveal_step()
-            local ok, err = pcall(self.render, self)
-            local problem = not ok and sys.message(err) or nil
-            if problem and problem ~= self.failure then
-                notices.push("render: " .. problem)
-            end
-            self.failure = problem
+            local ok, failure = xpcall(self.render, diagnostics.capture, self)
+            diagnostics.report("render", not ok and failure or nil)
             if self.stream:revealing() then
                 self:invalidate()
             end
