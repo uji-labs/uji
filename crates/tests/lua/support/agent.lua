@@ -55,6 +55,8 @@ local function answer(keys)
     end)
 end
 
+M.answer = answer
+
 function M.messages()
     local rows = app.store.db:query("SELECT data FROM messages WHERE session_id = ? ORDER BY seq", { app.session.id })
     local out = {}

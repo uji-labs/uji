@@ -183,13 +183,15 @@ function Agent:submit(text, attached)
     for _, message in ipairs(turn) do
         self:append(message)
     end
-    self:start(system)
+    self:start(system, { text = text, images = images.checked(attached) })
 end
 
-function Agent:start(system)
-    local Loop = require("uji.core.loop")
+function Agent:start(system, prompt)
+    local provider = model.current.provider
+    local Loop = provider and provider.loop or require("uji.core.loop")
     local loop = Loop(self, {
         system = system,
+        prompt = prompt,
         messages = view.build(self.session:entries()),
         tools = tool.specs(self.tools),
         model = model.current.model,
@@ -203,7 +205,7 @@ function Agent:start(system)
     self.task = task.spawn_in(self.ctx, function()
         local ok, err = pcall(loop.run, loop)
         if not ok then
-            self:failed("uji.core.loop: " .. sys.message(err))
+            self:failed("loop: " .. sys.message(err))
         end
     end)
 end
@@ -502,6 +504,12 @@ function Agent:interrupt()
     end
     if turn and turn.cancel_tool then
         local ok, err = pcall(turn.cancel_tool)
+        if not ok then
+            notices.push(sys.message(err))
+        end
+    end
+    if turn and turn.loop.interrupt then
+        local ok, err = pcall(turn.loop.interrupt, turn.loop)
         if not ok then
             notices.push(sys.message(err))
         end

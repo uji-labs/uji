@@ -9,6 +9,7 @@ local FIELDS = {
     id = true,
     name = true,
     api = true,
+    loop = true,
     base_url = true,
     auth_env = true,
     oauth = true,
@@ -64,6 +65,13 @@ end
 local function api(value, id)
     if value ~= nil and (type(value) ~= "table" or type(value.stream) ~= "function") then
         error("the api of provider " .. id .. " needs a stream method", 0)
+    end
+    return value
+end
+
+local function loop(value, id)
+    if value ~= nil and (type(value) ~= "table" or type(value.run) ~= "function") then
+        error("the loop of provider " .. id .. " needs a run method", 0)
     end
     return value
 end
@@ -162,7 +170,7 @@ function Provider:merge(list)
 end
 
 function Provider:apply(patch)
-    for _, key in ipairs({ "name", "api", "base_url", "auth_env", "oauth", "context_window" }) do
+    for _, key in ipairs({ "name", "api", "loop", "base_url", "auth_env", "oauth", "context_window" }) do
         if patch[key] ~= nil then
             self[key] = patch[key]
         end
@@ -208,6 +216,7 @@ local function create(spec)
         id = spec.id,
         name = spec.name,
         api = spec.api,
+        loop = spec.loop,
         base_url = spec.base_url,
         auth_env = spec.auth_env or {},
         oauth = spec.oauth,
@@ -249,6 +258,7 @@ function M.add(patch)
         end
     end
     api(patch.api, patch.id)
+    loop(patch.loop, patch.id)
     local existing = M.get(patch.id)
     if existing then
         existing:apply(patch)
