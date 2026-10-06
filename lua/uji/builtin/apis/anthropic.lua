@@ -6,6 +6,7 @@ local MAX_TOKENS = "max_tokens"
 local TTL = { long = "1h" }
 local BINDING = "thinking-binding-controls-2026-08-01"
 local EFFORT = { minimal = "low", low = "low", medium = "medium", high = "high", xhigh = "xhigh", max = "max" }
+local RETRIED = { overloaded_error = 529, api_error = 500, rate_limit_error = 429 }
 
 local Anthropic = uji.class()
 
@@ -265,7 +266,22 @@ local function block(parts, event)
     return parts.blocks and event.index and parts.blocks[event.index]
 end
 
+local function failed(reported)
+    reported = type(reported) == "table" and reported or {}
+    local kind = type(reported.type) == "string" and reported.type or "error"
+    local message = kind .. ": " .. (type(reported.message) == "string" and reported.message or "the provider reported an error")
+    local status = RETRIED[kind]
+    if status then
+        return { kind = "http", status = status, message = message }
+    end
+    return { kind = "provider", message = message }
+end
+
 function Anthropic:read(event, parts)
+    if event.type == "error" then
+        parts.failure = parts.failure or failed(event.error)
+        return
+    end
     if event.type == "content_block_start" then
         open_block(parts, event)
     end

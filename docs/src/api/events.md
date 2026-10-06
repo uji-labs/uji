@@ -157,6 +157,24 @@ uji.on("after_tool", function(result)
 end)
 ```
 
+### before_stop
+
+Runs when the model answers without calling a tool, before uji ends the turn.
+The payload has `text`, the answer, and `continued`, how many times a handler
+already sent the model back to work in this turn. The first handler to return
+a string wins: uji gives the model that string as a message and the turn goes
+on. Return `nil` to let the turn end. The transcript does not show the
+message. uji keeps going for as long as a handler returns a string, so check
+`continued` to stop.
+
+```lua
+uji.on("before_stop", function(stop)
+  if stop.continued == 0 and not stop.text:find("tests pass", 1, true) then
+    return "Run the tests and fix what fails before you finish."
+  end
+end)
+```
+
 ### render_message
 
 Runs when uji draws a block of the transcript. The payload has `type`, `text`

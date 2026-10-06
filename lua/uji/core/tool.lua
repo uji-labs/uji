@@ -31,6 +31,9 @@ function M.add(name, spec)
     if subject ~= nil and type(subject) ~= "string" and type(subject) ~= "function" then
         error("subject must be a string or a function", 2)
     end
+    if spec.parts ~= nil and type(spec.parts) ~= "function" then
+        error("parts must be a function", 2)
+    end
     if spec.policy ~= nil and not ACTIONS[spec.policy] then
         error("policy `" .. tostring(spec.policy) .. "` is not allow, ask or deny", 2)
     end
@@ -43,6 +46,7 @@ function M.add(name, spec)
         description = spec.description or "",
         parameters = spec.parameters,
         subject = subject,
+        parts = spec.parts,
         policy = spec.policy,
         display = spec.display or {},
         run = spec.run,
@@ -159,6 +163,37 @@ function M.detail(tool, args)
         return tool.subject
     end
     return tool.subject(args)
+end
+
+function M.body(tool, args)
+    local body = tool and tool.display.body
+    if body == nil then
+        return nil
+    end
+    if type(body) ~= "function" then
+        error("display.body must be a function", 0)
+    end
+    local text = body(args)
+    if text ~= nil and type(text) ~= "string" then
+        error("display.body returned a " .. type(text) .. ", not a string", 0)
+    end
+    return text
+end
+
+function M.parts(tool, args)
+    if tool == nil or tool.parts == nil then
+        return nil
+    end
+    local parts = tool.parts(args)
+    if type(parts) ~= "table" then
+        error("parts returned a " .. type(parts) .. ", not a list of strings", 0)
+    end
+    for _, part in ipairs(parts) do
+        if type(part) ~= "string" then
+            error("parts returned a " .. type(part) .. " in its list, not a string", 0)
+        end
+    end
+    return parts
 end
 
 function M.subject(tool, name, args)

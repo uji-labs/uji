@@ -116,7 +116,12 @@ M.ui = {
     end,
 }
 
-M.ui.Markdown = markdown.Markdown
+M.ui.Markdown = function(text)
+    if type(text) ~= "string" then
+        error("uji.ui.Markdown needs a string", 2)
+    end
+    return markdown.Markdown({ text = text })
+end
 
 M.ui.Screen = require("uji.core.ui.screen").Screen
 M.ui.Activity = require("uji.core.ui.activity")

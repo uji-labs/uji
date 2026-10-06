@@ -36,6 +36,21 @@ local function listed(names)
     return out
 end
 
+local function reported(tasks)
+    local out = sys.json.array({})
+    for index, item in ipairs(tasks) do
+        out[index] = {
+            label = item.label,
+            status = item.status,
+            line = item.line,
+            detail = item.detail,
+            group = item.group,
+            seconds = item.finished and math.floor(item.finished - item.started) or nil,
+        }
+    end
+    return out
+end
+
 local function listen(session, json)
     local function emit(line)
         if json then
@@ -55,7 +70,9 @@ local function listen(session, json)
             emit('{"type":"message","message":' .. Session.encode(entries[#entries].message) .. "}")
         end,
         tool_progress = function(payload)
-            if payload.name and payload.line and payload.line ~= "" then
+            if payload.changed == "tasks" then
+                emit(sys.json.encode({ type = "tasks", tool = payload.name, tasks = reported(payload.tasks) }))
+            elseif payload.name and payload.line and payload.line ~= "" then
                 emit(sys.json.encode({ type = "progress", tool = payload.name, line = payload.line }))
             end
         end,

@@ -89,6 +89,7 @@ function Loop:init(agent, turn)
     for key, value in pairs(turn) do
         self[key] = value
     end
+    self.continued = 0
     self.names, self.known = {}, {}
     for _, tool in ipairs(self.tools) do
         self.names[#self.names + 1] = tool.name
@@ -209,12 +210,18 @@ function Loop:run()
             replay = answer.replay,
         }
         if #calls == 0 then
-            if not self.agent:queued() then
+            local reason = not self.agent:queued() and self.agent:before_stop(message, self.continued)
+            if not reason and not self.agent:queued() then
                 return self.agent:done(message)
             end
             self.agent:assistant_step(message)
             self.messages[#self.messages + 1] = message
-            self:steer()
+            if reason then
+                self.continued = self.continued + 1
+                self.messages[#self.messages + 1] = self.agent:resume(reason)
+            else
+                self:steer()
+            end
         else
             self.agent:assistant_step(message)
             self.messages[#self.messages + 1] = message

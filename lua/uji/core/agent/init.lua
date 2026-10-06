@@ -7,6 +7,7 @@ local ito = require("ito")
 local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local notices = require("uji.core.notices")
+local Progress = require("uji.core.agent.progress")
 local process = require("uji.core.system.process")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
@@ -274,6 +275,21 @@ function Agent:done(message)
     self:send_queued()
 end
 
+function Agent:before_stop(message, continued)
+    local reason = event.ask("before_stop", { text = message.text, continued = continued })
+    if type(reason) == "string" and reason:find("%S") then
+        return reason
+    end
+    if reason ~= nil and type(reason) ~= "string" then
+        notices.push("before_stop handlers return a string or nil, not a " .. type(reason))
+    end
+end
+
+function Agent:resume(reason)
+    self:append({ type = "context", text = reason })
+    return { type = "user", text = reason }
+end
+
 function Agent:after_tool(name, content)
     local ok, folded = pcall(event.fold, "after_tool", { name = name, content = content }, "content")
     if not ok or type(folded) ~= "string" then
@@ -289,7 +305,12 @@ function Agent:verdict(name, entry, args)
         notices.push(name .. " subject: " .. sys.message(subject))
         return { ask = true }
     end
-    local action = tool.compiled():evaluate(name, subject, entry and entry.policy)
+    local split, parts = pcall(tool.parts, entry, args)
+    if not split then
+        notices.push(name .. " parts: " .. sys.message(parts))
+        return { ask = true }
+    end
+    local action = tool.compiled():decide(name, subject, parts, entry and entry.policy)
     if action == "allow" then
         return { allow = true }
     elseif action == "deny" then
@@ -300,7 +321,13 @@ end
 
 function Agent:question(name, entry, args)
     local question = entry and entry.display.question or ("Would you like to run `" .. name .. "`?")
-    local ok, detail = pcall(tool.detail, entry, args)
+    local ok, detail = pcall(tool.body, entry, args)
+    if not ok then
+        notices.push(name .. " body: " .. sys.message(detail))
+    end
+    if not ok or detail == nil then
+        ok, detail = pcall(tool.detail, entry, args)
+    end
     if not ok or detail == nil then
         detail = listing(args)
     end
@@ -349,12 +376,16 @@ function Agent:run_tool(call, args)
     local entry = tool.get(call.name)
     event.emit("tool_started", { name = call.name })
     local promise = sys.promise()
+    local live = Progress(call.name)
     local ctx = {
         done = function(value)
             promise:resolve(value)
         end,
         progress = function(line)
-            event.emit("tool_progress", { name = call.name, line = line })
+            live:report(line)
+        end,
+        task = function(label, opts)
+            return live:task(label, opts)
         end,
     }
     local ok, result = pcall(entry.run, args, ctx)

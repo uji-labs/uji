@@ -218,6 +218,7 @@ The default theme has these styles.
 | `symbols.quote` | The bar beside a quote. | `│` |
 | `symbols.column` | The line between table columns. | `│` |
 | `symbols.task_done`, `symbols.task_open` | The marks of a done and an open task. | `[x]`, `[ ]` |
+| `symbols.job_done`, `symbols.job_failed`, `symbols.job_queued` | The marks of a finished, a failed and a waiting task under the running tool. A running one shows the spinner. | `✓`, `✗`, `○` |
 | `symbols.cursor` | The cursor in the input line and in pickers. | `█` |
 | `symbols.input` | The mark in front of each row of the input line, in the `accent` style. | `""` |
 | `symbols.mask` | What hidden input, such as a key, shows instead of each character. | `•` |
@@ -236,6 +237,9 @@ The default theme has these styles.
 | `text.confirm_allow`, `text.confirm_deny` | The rest of each approval answer, after `confirm_yes` and `confirm_no`. | `"proceed"`, `"and tell uji what to do differently"` |
 | `text.scroll` | The line an approval shows when its details do not fit. | `"lines %d-%d of %d, scroll for more"` |
 | `text.working` | The line shown while the model works. `%d` is the seconds so far. | `"Working (%ds)"` |
+| `text.task_running`, `text.task_queued`, `text.task_done`, `text.task_failed` | The words for each state of a task under the running tool. | `"running"`, `"queued"`, `"done"`, `"failed"` |
+| `text.task_separator` | What goes between the parts of a task's line. | `" · "` |
+| `text.tasks_more` | The line under the tasks that do not fit. `%d` is how many, and `%s` counts them by state. | `"+%d more (%s)"` |
 | `text.copied`, `text.copied_terminal` | The message after you copy a selection. `%d` is the line count. | `"copied %d line(s)"`, `"copied %d line(s) via the terminal"` |
 | `text.pasted_lines`, `text.pasted_chars` | The placeholder for a long paste in the input line. The numbers are the paste's number and its size. | `"[paste #%d +%d lines]"`, `"[paste #%d %d chars]"` |
 | `text.image` | The placeholder for an attached image. | `"[image #%d]"` |
@@ -247,6 +251,7 @@ The default theme has these styles.
 | `limits.spinner_interval` | Seconds between spinner frames. | `0.08` |
 | `limits.suggest_rows` | Rows the command suggestions may use. | `5` |
 | `limits.tool_preview` | Rows of tool output shown before you open it. | `8` |
+| `limits.tasks` | The most tasks shown under the running tool. Running and failed ones show first. | `8` |
 | `limits.argument_preview` | Characters of a tool call's arguments shown when it has no verb. | `200` |
 | `limits.message_gap` | Blank rows between messages. | `1` |
 | `limits.section_gap` | Blank rows before the notices, the queue and the running tool. | `1` |

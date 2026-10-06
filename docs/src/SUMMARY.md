@@ -19,6 +19,7 @@
   - [skills](plugins/skills.md)
   - [websearch](plugins/websearch.md)
   - [subagent](plugins/subagent.md)
+  - [workflow](plugins/workflow.md)
   - [readonly](plugins/readonly.md)
 - [Examples](examples/index.md)
   - [A tool of your own](examples/tool.md)
