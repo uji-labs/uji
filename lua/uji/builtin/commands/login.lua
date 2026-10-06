@@ -64,8 +64,7 @@ uji.command.add("login", {
             return
         end
         if provider.loop then
-            configure(provider)
-            return uji.notify(provider.name .. " signs in on its own; nothing to set up here")
+            return configure(provider)
         end
         local needs_url = provider.base_url == ""
         local blank = needs_url and { base_url = "", model = "" } or nil

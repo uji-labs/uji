@@ -40,7 +40,7 @@ function M.serve(script)
     end)
 end
 
-local function answer(keys)
+function M.answer(keys)
     local next, answered = 1, nil
     sys.task.spawn(function()
         while keys[next] do
@@ -54,8 +54,6 @@ local function answer(keys)
         end
     end)
 end
-
-M.answer = answer
 
 function M.messages()
     local rows = app.store.db:query("SELECT data FROM messages WHERE session_id = ? ORDER BY seq", { app.session.id })
@@ -73,7 +71,7 @@ function M.run(opts)
     for _, message in ipairs(opts.history or {}) do
         app.session:append(message)
     end
-    answer(opts.answers or {})
+    M.answer(opts.answers or {})
     local finished = sys.promise()
     uji.on("turn_finished", function()
         if #app.agent.queue == 0 then

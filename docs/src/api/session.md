@@ -104,13 +104,15 @@ uji.session.interrupt()
 ## uji.session.compact()
 
 Starts summarising the earlier messages to free context, the way `/compact`
-does, and returns `true`. It returns `false` when a turn is running or there
-is nothing to compact yet. uji fires
+does, and returns `true`. It returns `false` and the reason when a turn is
+running, when there is nothing to compact yet, or when the provider runs its
+own loop and keeps its own context. uji fires
 [`session_compacted`](events.md#session_compacted) when the summary is saved.
 
 ```lua
-if not uji.session.compact() then
-  uji.notify("nothing to compact")
+local started, reason = uji.session.compact()
+if not started then
+  uji.notify(reason)
 end
 ```
 

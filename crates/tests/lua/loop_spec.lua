@@ -29,7 +29,6 @@ local function start(script)
         name = "Fake",
         api = uji.api.openai(),
         loop = Fake(script),
-        base_url = "",
         models = { "m" },
     })
     uji.model.use({ provider = "fake", model = "m" })
@@ -92,10 +91,73 @@ it("reports a loop that raises", { timeout = 10 }, function()
     assert.equal("loop: boom", agent.last_error(submit("go")))
 end)
 
-it("lists the loop on the provider row and skips the login questions", { timeout = 10 }, function()
+it("ends a turn whose loop returns without an answer", { timeout = 10 }, function()
+    start(function() end)
+    assert.equal("loop: the turn ended without an answer", agent.last_error(submit("go")))
+    assert.is_false(app.agent:working())
+end)
+
+it("keeps the next turn running when a finished loop raises", { timeout = 10 }, function()
+    local runs = 0
+    start(function(loop)
+        runs = runs + 1
+        if runs == 1 then
+            uji.session.submit("second")
+            loop.agent:done({ type = "assistant", text = "one", tool_calls = {} })
+            error("late", 0)
+        end
+        loop.agent:done({ type = "assistant", text = "two", tool_calls = {} })
+    end)
+    local messages = submit("first")
+    assert.equal(2, runs)
+    assert.equal("two", agent.last_answer(messages))
+    for _, message in ipairs(messages) do
+        assert.is_not.equal("error", message.type)
+    end
+end)
+
+it("rejects a loop that is not a class", function()
+    local ok, err = pcall(uji.provider.add, {
+        id = "odd",
+        name = "Odd",
+        api = uji.api.openai(),
+        loop = { run = function() end },
+        models = { "m" },
+    })
+    assert.is_false(ok)
+    assert.truthy(tostring(err):find("the loop of provider odd must be a class with a run method", 1, true))
+end)
+
+it("lists the loop on the provider row and needs no base_url", { timeout = 10 }, function()
     start(function(loop)
         loop.agent:done({ type = "assistant", text = "", tool_calls = {} })
     end)
-    assert.is_true(uji.provider.get("fake").loop)
+    local row = uji.provider.get("fake")
+    assert.is_true(row.loop)
+    assert.equal("", row.base_url)
     assert.is_false(uji.provider.get("openai").loop)
+end)
+
+it("leaves the context to a provider with its own loop", { timeout = 10 }, function()
+    start(function(loop)
+        loop.agent:done({ type = "assistant", text = "", tool_calls = {} })
+    end)
+    local started, reason = uji.session.compact()
+    assert.is_false(started)
+    assert.equal("Fake keeps its own context", reason)
+end)
+
+it("switches to a provider with its own loop at login without asking for a url or key", { timeout = 10 }, function()
+    uji.provider.add({ id = "fake", name = "Fake", api = uji.api.openai(), loop = Fake(function() end), models = { "m" } })
+    local asked = {}
+    uji.ui.select = function(opts)
+        asked[#asked + 1] = opts.title
+        return opts.title == "Provider" and "Fake" or nil
+    end
+    uji.ui.prompt = function(opts)
+        asked[#asked + 1] = opts.title
+    end
+    require("uji.core.command").run("login")
+    assert.same({ "Provider" }, asked)
+    assert.equal("fake", uji.model.current().provider)
 end)

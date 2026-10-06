@@ -19,6 +19,7 @@ local KEEP_CEILING_FRACTION = 4
 local STOPPED = "error: uji stopped before this tool returned a result"
 local WHILE_RUNNING = "error: interrupted by the user while this tool ran"
 local BEFORE_RUNNING = "error: interrupted by the user before this tool ran"
+local UNFINISHED = "the turn ended without an answer"
 
 local function listing(arguments)
     local keys = {}
@@ -53,6 +54,11 @@ local function decision_of(answer)
     if answer.ask == true then
         return { ask = true }
     end
+end
+
+local function loop_provider()
+    local provider = model.current.provider
+    return provider and provider.loop and provider or nil
 end
 
 local Agent = class()
@@ -177,19 +183,20 @@ function Agent:submit(text, attached)
         return self:enqueue(text, attached)
     end
     event.emit("message_submitted", { text = text })
-    self:append(said(text, attached))
+    local sent = said(text, attached)
+    self:append(sent)
     self:maybe_title(text)
     local system, turn = self:prompt(text)
     for _, message in ipairs(turn) do
         self:append(message)
     end
-    self:start(system, { text = text, images = images.checked(attached) })
+    self:start(system, { text = text, images = sent.images })
 end
 
 function Agent:start(system, prompt)
-    local provider = model.current.provider
+    local provider = loop_provider()
     local Loop = provider and provider.loop or require("uji.core.loop")
-    local loop = Loop(self, {
+    local opts = {
         system = system,
         prompt = prompt,
         messages = view.build(self.session:entries()),
@@ -199,13 +206,17 @@ function Agent:start(system, prompt)
         reasoning = model.current.reasoning,
         max_output = model.max_output(),
         cache = model.retention(),
-    })
+    }
+    local turn = { calls = {}, answered = {} }
     self:begin()
-    self.turn = { loop = loop, calls = {}, answered = {} }
+    self.turn = turn
     self.task = task.spawn_in(self.ctx, function()
-        local ok, err = pcall(loop.run, loop)
-        if not ok then
-            self:failed("loop: " .. sys.message(err))
+        local ok, err = pcall(function()
+            turn.loop = Loop(self, opts)
+            turn.loop:run()
+        end)
+        if self.turn == turn then
+            self:failed("loop: " .. (ok and UNFINISHED or sys.message(err)))
         end
     end)
 end
@@ -407,7 +418,7 @@ function Agent:fold(messages)
 end
 
 function Agent:compact_if_needed()
-    if not context.compaction.enabled then
+    if not context.compaction.enabled or loop_provider() then
         return false
     end
     local budget = self:budget()
@@ -422,13 +433,17 @@ function Agent:compact_if_needed()
 end
 
 function Agent:compact(keep)
+    local provider = loop_provider()
+    if provider then
+        return false, provider.name .. " keeps its own context"
+    end
     if self:working() then
-        return false
+        return false, "a turn is running"
     end
     local stored = self.session:entries()
     local cut = view.find_cut(stored, keep or self:keep_recent_now())
     if not cut then
-        return false
+        return false, "nothing to compact yet"
     end
     local first = stored[cut.from].message
     local previous, carried, earlier = nil, {}, {}
@@ -508,7 +523,7 @@ function Agent:interrupt()
             notices.push(sys.message(err))
         end
     end
-    if turn and turn.loop.interrupt then
+    if turn and turn.loop and turn.loop.interrupt then
         local ok, err = pcall(turn.loop.interrupt, turn.loop)
         if not ok then
             notices.push(sys.message(err))

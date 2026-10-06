@@ -1,3 +1,4 @@
+local check = require("uji.core.check")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 
@@ -70,8 +71,8 @@ local function api(value, id)
 end
 
 local function loop(value, id)
-    if value ~= nil and (type(value) ~= "table" or type(value.run) ~= "function") then
-        error("the loop of provider " .. id .. " needs a run method", 0)
+    if value ~= nil and (not check.callable(value) or type(value.run) ~= "function") then
+        error("the loop of provider " .. id .. " must be a class with a run method", 0)
     end
     return value
 end
@@ -217,7 +218,7 @@ local function create(spec)
         name = spec.name,
         api = spec.api,
         loop = spec.loop,
-        base_url = spec.base_url,
+        base_url = spec.base_url or "",
         auth_env = spec.auth_env or {},
         oauth = spec.oauth,
         context_window = spec.context_window,
@@ -264,8 +265,8 @@ function M.add(patch)
         existing:apply(patch)
         return
     end
-    if not (patch.name and patch.api and patch.base_url) then
-        error("provider `" .. patch.id .. "` is new, so it needs a name, an api and a base_url", 2)
+    if not (patch.name and patch.api and (patch.base_url or patch.loop)) then
+        error("provider `" .. patch.id .. "` is new, so it needs a name, an api and a base_url or a loop", 2)
     end
     M.providers[#M.providers + 1] = create(patch)
 end
