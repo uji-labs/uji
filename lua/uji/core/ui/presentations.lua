@@ -4,8 +4,17 @@ local ito = require("ito")
 local sys = require("uji.sys")
 
 local FULL = 100
+local PLAIN = ito.TextStyle({})
 
 local M = {}
+
+function M.backdrop(view, ctx)
+    local style = ctx.styles.screen
+    if style == PLAIN then
+        return view
+    end
+    return view:background(style)
+end
 
 M.Presentation = ito.view(function(props)
     local ui, modal = host.Host.current, props.modal
@@ -29,7 +38,7 @@ M.Presentation = ito.view(function(props)
         ito.ToolbarItems(placement.bottom_bar),
     })):focus_scope(modal)
     if props.clears then
-        sheet:opaque()
+        M.backdrop(sheet:opaque(), ito.theme())
     end
     return sheet
 end)

@@ -14,7 +14,7 @@ local Root = ito.view(function(props)
     for _, declared in ipairs(ui.toolbars) do
         main:toolbar(declared.items)
     end
-    return ito.ZStack({
+    local root = ito.ZStack({
         alignment = ito.Alignment.top_leading,
         main:overlay_preference_value(host.Hosted, function(hosted)
             return presentations.Floating({ hosted = hosted })
@@ -22,6 +22,7 @@ local Root = ito.view(function(props)
         ito.SelectionHighlight(),
         Flash():align(ito.Alignment.top_trailing),
     })
+    return presentations.backdrop(root, ito.theme())
 end)
 
 function M.frame(ui)
@@ -40,7 +41,8 @@ end
 function M.show(ui, element)
     local screen = ui:open()
     screen:clear()
-    ito.Window(screen, function() end):render(host.Host:provide(ui, element), ui.theme:context())
+    local ctx = ui.theme:context()
+    ito.Window(screen, function() end):render(host.Host:provide(ui, presentations.backdrop(element, ctx)), ctx)
 end
 
 return M

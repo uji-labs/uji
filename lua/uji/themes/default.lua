@@ -16,6 +16,7 @@ local function styles(c)
     local S = ito.TextStyle
     return {
         plain = S({}),
+        screen = S({ background = c.background }),
         text = S({ foreground = c.text }),
         bold = S({ foreground = c.text, bold = true }),
         muted = S({ foreground = c.muted }),
@@ -49,12 +50,12 @@ local function styles(c)
         strong = S({ bold = true }),
         emphasis = S({ italic = true }),
         strikethrough = S({ strikethrough = true }),
-        link = S({ underline = true }),
+        link = S({ foreground = c.link, underline = true }),
         table_head = S({ bold = true }),
-        code_keyword = S({ foreground = c.accent }),
+        code_keyword = S({ foreground = c.keyword or c.accent }),
         code_string = S({ foreground = c.code }),
-        code_number = S({ foreground = c.code }),
-        code_comment = S({ foreground = c.muted, italic = true, dim = true }),
+        code_number = S({ foreground = c.number or c.code }),
+        code_comment = S({ foreground = c.comment or c.muted, italic = true, dim = c.comment == nil }),
         selection = S({ reverse = true }),
     }
 end

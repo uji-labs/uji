@@ -1,7 +1,6 @@
 local class = require("uji.core.class")
 local Line = require("ito").Line
 local Modal = require("uji.core.ui.views.modal")
-local model = require("uji.core.model")
 local SelectList = require("uji.core.ui.pickers.select_list")
 local sys = require("uji.sys")
 
@@ -14,12 +13,19 @@ Select.mode = "select"
 function Select:init(opts)
     Modal.init(self)
     self.title = opts.title or ""
+    self.current = opts.current
     self.items = {}
     for index, item in ipairs(opts.items or {}) do
         self.items[index] = tostring(item)
     end
     self.query = Line()
     self:rerank()
+    for at, index in ipairs(self.matches) do
+        if self.items[index] == self.current then
+            self.cursor = at
+            break
+        end
+    end
 end
 
 function Select:line()
@@ -72,7 +78,7 @@ function Select:view(_, _, room)
         items = self.items,
         matches = self.matches,
         selection = self:selection(),
-        current = model.current.model or "",
+        current = self.current,
         height = room.height,
     })
 end

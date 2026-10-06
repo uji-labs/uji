@@ -124,6 +124,29 @@ The default theme has these colours.
 | `error` | `ito.Color.red` |
 | `notice` | `ito.Color.red` |
 
+A theme can also set these colours, which the default theme leaves out.
+
+| Colour | Paints | Without it |
+|---|---|---|
+| `background` | The `screen` style. | The terminal's own background. |
+| `link` | Links in the `link` style. | Links in the text's colour. |
+| `keyword` | The `code_keyword` style. | `accent`. |
+| `number` | The `code_number` style. | `code`. |
+| `comment` | The `code_comment` style, in italic. | `muted`, in italic and dim. |
+
+A theme with a `background` colour paints every cell. A terminal draws a
+painted cell fully opaque unless it applies its opacity to painted cells too,
+which Ghostty does with `background-opacity-cells = true`.
+
+```lua
+local ito = require("ito")
+
+return require("uji.themes.default")({
+  name = "night",
+  colors = { background = ito.rgb(0x1a1b26), comment = ito.rgb(0x565f89) },
+})
+```
+
 ## Styles
 
 A style is an `ito.TextStyle` value. It takes a table with `foreground`,
@@ -145,6 +168,7 @@ The default theme has these styles.
 | Style | Used for | Default |
 |---|---|---|
 | `plain` | Text with the terminal's own style. | no style |
+| `screen` | The background of the whole screen, and of the lists and boxes drawn over it. | on `background` |
 | `text` | Body text. | `text` |
 | `bold` | Titles and tool calls. | `text`, bold |
 | `muted` | Secondary text. | `muted` |
@@ -170,9 +194,9 @@ The default theme has these styles.
 | `confirm_selected` | The chosen answer. | `accent`, bold |
 | `confirm_unselected` | The other answer. | `muted` |
 | `heading1` to `heading6` | Markdown headings of each level. | `accent`, bold for 1 and 2, `text`, bold for the rest |
-| `strong`, `emphasis`, `strikethrough`, `link` | Markdown bold, italic, struck and linked text, merged on top of the text around it. | bold, italic, strikethrough, underline |
+| `strong`, `emphasis`, `strikethrough`, `link` | Markdown bold, italic, struck and linked text, merged on top of the text around it. | bold, italic, strikethrough, `link` underlined |
 | `table_head` | The header row of a table, merged on top of each cell. | bold |
-| `code_keyword`, `code_string`, `code_number`, `code_comment` | Highlighted code. | `accent`, `code`, `code`, `muted` italic dim |
+| `code_keyword`, `code_string`, `code_number`, `code_comment` | Highlighted code. | `keyword`, `code`, `number`, `comment` italic |
 | `selection` | Text you select with the mouse. | reverse |
 
 ## Symbols, words and sizes
@@ -372,7 +396,7 @@ return require("uji.themes.default")({
 | `uji.ui.PromptField` | `title`, `value` | A question with a text answer. |
 | `uji.ui.Suggestions` | `items`, `selection`, `height` | The command suggestions. Its items have `name` and `desc`. |
 | `uji.ui.Approval` | `title`, `body`, `allow`, `keys`, `scroll`, `width`, `height` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
-| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `preview`, `query`, `total`, `width`, `height` | The picker with a preview. |
+| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `current`, `preview`, `query`, `total`, `width`, `height` | The picker with a preview. |
 | `uji.ui.Sessions` | `directory`, `sessions`, `cursor`, `now`, `height` | The screen `uji list` shows. |
 
 `ito.theme()` gives the theme's `colors`, `styles`, `symbols`, `borders`,

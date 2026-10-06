@@ -2,6 +2,7 @@ local class = require("uji.core.class")
 local default = require("uji.themes.default")()
 local model = require("uji.core.model")
 local notices = require("uji.core.notices")
+local sys = require("uji.sys")
 local Themes = require("ito").Themes
 
 local MODULE = "uji.themes."
@@ -88,7 +89,7 @@ function Theme:restore()
     end
     local ok, err = pcall(self.select, self, name)
     if not ok then
-        notices.push("saved theme: " .. tostring(err))
+        notices.push("saved theme: " .. sys.message(err))
     end
 end
 

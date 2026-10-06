@@ -274,12 +274,14 @@ describe("the screen", function()
     it("uses the picker a plugin puts in place for core commands", { size = { 40, 10 } }, function()
         local asked
         uji.model.use({ provider = "anthropic", model = "claude-sonnet-5" })
+        local effort = uji.model.current().effort
         uji.ui.select = function(opts)
-            asked = opts.title
+            asked = opts
             return "high"
         end
         require("uji.core.command").run("effort")
-        assert.equal("Reasoning effort", asked)
+        assert.equal("Reasoning effort", asked.title)
+        assert.equal(effort, asked.current)
         assert.equal("high", require("uji.core.model").setting("llm.effort"))
     end)
 
@@ -291,7 +293,10 @@ describe("the screen", function()
                 want = provider.models[2].id
             end
         end
+        uji.model.use({ provider = "anthropic", model = "claude-sonnet-5" })
+        local marked
         uji.ui.select = function(opts)
+            marked = opts.current
             for _, item in ipairs(opts.items) do
                 if item:sub(-#want) == want then
                     return item
@@ -299,6 +304,7 @@ describe("the screen", function()
             end
         end
         require("uji.core.command").run("models")
+        assert.equal("claude-sonnet-5", marked:match("[^ ]+$"))
         local current = uji.model.current()
         assert.equal("groq", current.provider)
         assert.equal(want, current.model)

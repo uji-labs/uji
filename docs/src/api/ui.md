@@ -61,12 +61,17 @@ local width, height = uji.ui.size()
 
 ## uji.ui.select(opts, on_done)
 
-Shows a list to choose from. `opts.title` is the title and `opts.items` is a
-list of strings. `on_done` receives the chosen item, or `nil` if you cancel.
-Without `on_done`, the call waits and returns the chosen item.
+Shows a list to choose from. `on_done` receives the chosen item, or `nil` if
+you cancel. Without `on_done`, the call waits and returns the chosen item.
+
+| Option | Type | Meaning |
+|---|---|---|
+| `title` | string | The title. |
+| `items` | list of strings | The items to choose from. |
+| `current` | string | The item in use. The list opens on it and labels it with the theme's `text.current`. |
 
 ```lua
-uji.ui.select({ title = "Branch", items = { "main", "dev" } }, function(choice)
+uji.ui.select({ title = "Branch", items = { "main", "dev" }, current = "main" }, function(choice)
   if choice then
     uji.notify("picked " .. choice)
   end
@@ -83,6 +88,7 @@ chosen item.
 |---|---|---|
 | `title` | string | The title. |
 | `items` | list of strings | The items to filter. |
+| `current` | string | The item in use. The list opens on it and labels it with the theme's `text.current`. |
 | `preview` | function | Receives the highlighted item and returns lines to show. Without it, an item like `path:line:` shows that part of the file. |
 | `on_query` | function | Makes the list live. Receives the query each time typing pauses, and a `show(items)` function that replaces the list. |
 
@@ -284,4 +290,4 @@ sets with `uji.ui.configure` still wins. When the saved theme no longer loads,
 for example after you remove the pack it came from, uji shows a notice and
 starts without it.
 
-Raises an error when `name` is not a string.
+Raises an error when `name` is empty or not a string.

@@ -111,9 +111,7 @@ M.ui = {
         return ui.theme.selection
     end,
     save_theme = function(name)
-        if type(name) ~= "string" then
-            error("uji.ui.save_theme needs a theme name", 2)
-        end
+        check.name(name, "uji.ui.save_theme")
         ui.theme:save(name)
     end,
 }
