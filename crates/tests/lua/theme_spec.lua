@@ -565,6 +565,20 @@ describe("themes", function()
         end
     end)
 
+    it("puts the theme's input mark in front of each row of the input line", { size = { 20, 10 } }, function()
+        uji.ui.configure({ theme = default({ symbols = { input = "» " } }) })
+        ui:set_input("one two three four five six")
+        local marked = {}
+        for _, row in ipairs(screen.rows(true)) do
+            if row:sub(1, #"» ") == "» " then
+                marked[#marked + 1] = row
+            end
+        end
+        assert.equal(2, #marked)
+        assert.is_true(has(marked[1], "one two"))
+        assert.is_true(has(marked[2], "six"))
+    end)
+
     it("opens a list on its current item and labels it with the theme's word", { size = { 60, 12 } }, function()
         uji.ui.configure({ theme = PROBE })
         for _, make in ipairs({ Select, Pick }) do

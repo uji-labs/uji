@@ -78,6 +78,7 @@ local SYMBOLS = {
     task_done = "[x]",
     task_open = "[ ]",
     cursor = "█",
+    input = "",
     mask = "•",
     pointer = "›",
     prompt = ">",
