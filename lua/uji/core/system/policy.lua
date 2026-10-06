@@ -105,18 +105,32 @@ function Policy.tool_rules(name, value, notices)
     return out
 end
 
-function Policy:evaluate(tool, subject, declared)
-    local fallback = declared or self.default
+function Policy:match(tool, subject)
     local rules = self.tools[tool]
     if not rules then
-        return fallback
+        return nil
     end
     for _, rule in ipairs(rules.rules) do
         if rule.matcher:test(subject) then
             return rule.action
         end
     end
-    return rules.default or fallback
+end
+
+function Policy:evaluate(tool, subject, declared)
+    local rules = self.tools[tool]
+    return self:match(tool, subject) or rules and rules.default or declared or self.default
+end
+
+function Policy:decide(tool, subject, parts, declared)
+    if not parts or #parts == 0 then
+        return self:evaluate(tool, subject, declared)
+    end
+    local action = self:match(tool, subject) or "allow"
+    for _, part in ipairs(parts) do
+        action = strictest(action, self:evaluate(tool, part, declared))
+    end
+    return action
 end
 
 return Policy

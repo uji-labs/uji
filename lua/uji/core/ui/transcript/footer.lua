@@ -19,7 +19,7 @@ return ito.view(function()
     local running = ui.running
     if running then
         rows[#rows + 1] = ito.Spacer():height(gap)
-        rows[#rows + 1] = Running({ name = running.name, line = running.line })
+        rows[#rows + 1] = Running({ name = running.name, line = running.line, tasks = running.tasks })
     end
     local queued = app.agent and app.agent.queue or {}
     if #queued > 0 then

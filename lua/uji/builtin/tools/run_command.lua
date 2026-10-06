@@ -1,5 +1,6 @@
 local field = require("uji.builtin.tools.field")
 local process = require("uji.core.system.process")
+local shell = require("uji.core.system.shell")
 
 local TIMEOUT = 120
 
@@ -32,6 +33,9 @@ uji.tool.add("run_command", {
     },
     subject = function(args)
         return field.text(args, "command")
+    end,
+    parts = function(args)
+        return shell.commands(field.text(args, "command"))
     end,
     policy = "ask",
     display = {

@@ -643,7 +643,7 @@ end
 
 function Ui:progress(payload)
     if payload.name then
-        self.running = { name = payload.name, line = payload.line or "" }
+        self.running = { name = payload.name, line = payload.line or "", tasks = payload.tasks or {} }
     elseif not payload.owner or (self.running and self.running.name == payload.owner) then
         self.running = nil
     end
