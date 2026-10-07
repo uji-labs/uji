@@ -11,6 +11,23 @@ local COLORS = {
     cursor = ito.Color.white,
     error = ito.Color.red,
     notice = ito.Color.red,
+    syntax = {
+        keyword = ito.Color.cyan,
+        string = ito.rgb(0xe0af68),
+        number = ito.rgb(0xe0af68),
+        comment = ito.rgb(0x808080),
+        func = ito.rgb(0xdcdcaa),
+        type = ito.rgb(0x4ec9b0),
+        constant = ito.rgb(0x569cd6),
+    },
+    diff = {
+        added = ito.rgb(0x5fd75f),
+        removed = ito.rgb(0xd75f5f),
+        added_bg = ito.rgb(0x005f00),
+        removed_bg = ito.rgb(0x5f0000),
+        added_word_bg = ito.rgb(0x008700),
+        removed_word_bg = ito.rgb(0x870000),
+    },
 }
 
 local function styles(c)
@@ -53,11 +70,24 @@ local function styles(c)
         strikethrough = S({ strikethrough = true }),
         link = S({ foreground = c.link, underline = true }),
         table_head = S({ bold = true }),
-        code_keyword = S({ foreground = c.keyword or c.accent }),
-        code_string = S({ foreground = c.code }),
-        code_number = S({ foreground = c.number or c.code }),
-        code_comment = S({ foreground = c.comment or c.muted, italic = true, dim = c.comment == nil }),
         selection = S({ reverse = true }),
+        syntax = {
+            keyword = S({ foreground = c.syntax.keyword }),
+            string = S({ foreground = c.syntax.string }),
+            number = S({ foreground = c.syntax.number }),
+            comment = S({ foreground = c.syntax.comment, italic = true }),
+            func = S({ foreground = c.syntax.func }),
+            type = S({ foreground = c.syntax.type }),
+            constant = S({ foreground = c.syntax.constant }),
+        },
+        diff = {
+            added = S({ background = c.diff.added_bg }),
+            removed = S({ foreground = c.text, background = c.diff.removed_bg }),
+            added_sign = S({ foreground = c.diff.added, background = c.diff.added_bg }),
+            removed_sign = S({ foreground = c.diff.removed, background = c.diff.removed_bg }),
+            added_word = S({ background = c.diff.added_word_bg }),
+            removed_word = S({ background = c.diff.removed_word_bg }),
+        },
     }
 end
 
@@ -131,6 +161,10 @@ local TEXT = {
     quit = "quit",
     working = "Working (%ds)",
     job = "job %d",
+    added = "Added %d %s",
+    removed = "removed %d %s",
+    line = "line",
+    lines = "lines",
     copied = "copied %d line(s)",
     copied_terminal = "copied %d line(s) via the terminal",
     pasted_lines = "[paste #%d +%d lines]",
@@ -142,6 +176,8 @@ local LIMITS = {
     spinner_interval = 0.08,
     suggest_rows = 5,
     tool_preview = 8,
+    diff_preview = 20,
+    diff_context = 3,
     argument_preview = 200,
     message_gap = 1,
     section_gap = 1,

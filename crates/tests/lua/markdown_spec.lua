@@ -33,19 +33,35 @@ it("turns TeX into readable text", function()
 end)
 
 it("highlights a known language and skips an unknown one", function()
-    local styles = { plain = "text", keyword = "keyword", string = "literal", number = "literal", comment = "comment" }
+    local styles = {
+        text = "text",
+        syntax = {
+            keyword = "keyword",
+            string = "string",
+            number = "number",
+            comment = "comment",
+            func = "func",
+            type = "type",
+            constant = "constant",
+        },
+    }
     local python = highlight.new("python title=x", styles)
     assert.same({
         { "def", "keyword" },
-        { " f(x): ", "text" },
+        { " ", "text" },
+        { "f", "func" },
+        { "(x): ", "text" },
         { "return", "keyword" },
         { " ", "text" },
-        { '"a"', "literal" },
+        { '"a"', "string" },
         { " ", "text" },
         { "# b", "comment" },
     }, python:line('def f(x): return "a" # b'))
-    assert.same({ { '"""doc', "literal" } }, python:line('"""doc'))
-    assert.same({ { 'string"""', "literal" }, { " ", "text" }, { "1", "literal" } }, python:line('string""" 1'))
+    assert.same({ { "class", "keyword" }, { " ", "text" }, { "Box", "type" }, { ":", "text" } }, python:line("class Box:"))
+    assert.same({ { "    value = ", "text" }, { "True", "constant" } }, python:line("    value = True"))
+    assert.same({ { '"""doc', "comment" } }, python:line('"""doc'))
+    assert.same({ { 'string"""', "comment" }, { " ", "text" }, { "1", "number" } }, python:line('string""" 1'))
+    assert.truthy(highlight.new("ts", styles))
     assert.is_nil(highlight.new("brainfuck", styles))
     assert.is_nil(highlight.new(nil, styles))
 end)

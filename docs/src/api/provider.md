@@ -98,7 +98,7 @@ The loop reports back through `agent`:
 | `agent:tool_running(call)` | Names the call that runs now, so an interrupt can say so. |
 | `agent:approve(name, arguments, subject)` | Runs uji's approval: the tool policy, `before_tool` handlers and the question on screen. `subject` is what [policy rules](tool.md#ujitoolpolicyrules) match, such as a command line or a path, and defaults to the tool's own subject or its name. Returns `{ allow = true, arguments = ... }` or `{ deny = "reason" }`. |
 | `agent:after_tool(name, content)` | Runs the `after_tool` handlers over a result. |
-| `agent:tool_result(call, content, images)` | Stores a `tool` message for a call. |
+| `agent:tool_result(call, result)` | Stores a `tool` message for a call. `result` is a string, or a table with `text`, `images`, `diff` and `summary`, the same as a [tool's result](tool.md#ujitooladdname-spec). |
 | `agent:usage(spent)` | Adds `input`, `output`, `cache_read` and `cache_write` tokens to the session. |
 | `agent:done(message)` | Stores the last `assistant` message and ends the turn. |
 | `agent:failed(text)` | Stores an `error` message and ends the turn. |

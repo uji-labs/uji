@@ -125,6 +125,27 @@ describe("the default look", function()
         look("expanded")
     end)
 
+    it("draws an edit as a diff and a read as its summary", { size = { 80, 16 } }, function()
+        local before = 'def main():\n    name = "world"\n    print("Hello, " + name)\n    return 0\n'
+        local after = 'def main():\n    name = "world"\n    print("Hi, " + name)\n    print("bye")\n    return 0\n'
+        local edit = '{"path":"greet.py","old_string":"x","new_string":"y"}'
+        app.session:append({ type = "assistant", text = "", tool_calls = { { id = "a", name = "edit_file", arguments = edit } } })
+        app.session:append({
+            type = "tool",
+            tool_call_id = "a",
+            name = "edit_file",
+            content = "edited greet.py at line 3",
+            diff = uji.diff(before, after, "greet.py"),
+        })
+        app.session:append({
+            type = "assistant",
+            text = "",
+            tool_calls = { { id = "b", name = "read_file", arguments = '{"path":"greet.py"}' } },
+        })
+        app.session:append({ type = "tool", tool_call_id = "b", name = "read_file", content = after, summary = "Read 5 lines" })
+        look("diff")
+    end)
+
     it("shows the jump to the bottom when scrolled up", { size = { 80, 16 } }, function()
         for index = 1, 30 do
             app.session:append({ type = "user", text = "line " .. index })

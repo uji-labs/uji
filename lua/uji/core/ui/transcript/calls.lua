@@ -6,7 +6,7 @@ local M = {}
 
 function M.describe(call)
     local found = { name = call.name, arguments = call.arguments or "" }
-    local entry = tool.get(call.name)
+    local entry = tool.described(call.name)
     local ok, args = pcall(sys.json.decode, call.arguments or "", { nulls = false })
     if entry and ok and type(args) == "table" then
         local fine, detail = pcall(tool.detail, entry, args)

@@ -28,6 +28,23 @@ local PROBE = default({
         cursor = ito.rgb(0x707070),
         error = ito.rgb(0x909090),
         notice = ito.rgb(0xa0a0a0),
+        syntax = {
+            keyword = ito.rgb(0xb0b0b0),
+            string = ito.rgb(0xb1b1b1),
+            number = ito.rgb(0xb2b2b2),
+            comment = ito.rgb(0xb3b3b3),
+            func = ito.rgb(0xb4b4b4),
+            type = ito.rgb(0xb5b5b5),
+            constant = ito.rgb(0xb6b6b6),
+        },
+        diff = {
+            added = ito.rgb(0xc0c0c0),
+            removed = ito.rgb(0xc1c1c1),
+            added_bg = ito.rgb(0xc2c2c2),
+            removed_bg = ito.rgb(0xc3c3c3),
+            added_word_bg = ito.rgb(0xc4c4c4),
+            removed_word_bg = ito.rgb(0xc5c5c5),
+        },
     },
     symbols = {
         spinner = { "P" },
@@ -746,13 +763,22 @@ return require("uji.themes.default")({
 
     it("draws links and code in the colours a theme adds", { size = { 40, 8 } }, function()
         local S = ito.TextStyle
-        local added = { link = ito.rgb(0x010101), keyword = ito.rgb(0x020202), number = ito.rgb(0x030303), comment = ito.rgb(0x040404) }
-        uji.ui.configure({ theme = default({ colors = added }) })
+        local link = ito.rgb(0x010101)
+        local syntax = {
+            keyword = ito.rgb(0x020202),
+            string = ito.rgb(0x030303),
+            number = ito.rgb(0x040404),
+            comment = ito.rgb(0x050505),
+            func = ito.rgb(0x060606),
+            type = ito.rgb(0x070707),
+            constant = ito.rgb(0x080808),
+        }
+        uji.ui.configure({ theme = default({ colors = { link = link, syntax = syntax } }) })
         local styles = ui.theme.tokens.styles
-        assert.equal(S({ foreground = added.link, underline = true }), styles.link)
-        assert.equal(S({ foreground = added.keyword }), styles.code_keyword)
-        assert.equal(S({ foreground = added.number }), styles.code_number)
-        assert.equal(S({ foreground = added.comment, italic = true }), styles.code_comment)
+        assert.equal(S({ foreground = link, underline = true }), styles.link)
+        assert.equal(S({ foreground = syntax.keyword }), styles.syntax.keyword)
+        assert.equal(S({ foreground = syntax.func }), styles.syntax.func)
+        assert.equal(S({ foreground = syntax.comment, italic = true }), styles.syntax.comment)
     end)
 
     it("paints the screen and the lists over it with the theme's screen style", { size = { 40, 12 } }, function()

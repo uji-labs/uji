@@ -121,6 +121,13 @@ to `ito.ScrollView(child):state(scroll)` or `ito.LazyVStack(...):state(scroll)`.
 | `scroll:to_end()` | Goes to the end and follows it while the content grows. |
 | `scroll.following` | Whether it is at the end and following it. |
 | `scroll.page` | The rows that show, for paging. |
+| `scroll.offset` | The first row that shows, counted from `0`. |
+| `scroll.total` | The rows the content of an `ito.ScrollView` has. |
+
+`page`, `offset` and `total` are set when the scrolling view is laid out. A
+view that shows them, such as a "rows 1-10 of 40" line under it, reads them in
+an [`ito.SubcomposeLayout`](views.md#itosubcomposelayoutbuild-opts), which is
+built after the views above it are laid out.
 
 ## ito.LazyVStack(items, row)
 

@@ -3,26 +3,21 @@ local ito = require("ito")
 local text = ito.text
 
 local function wrapped(tokens, indent, hanging, width)
-    local usable = math.max(width - text.width(indent), 1)
-    local lines, spans, used, first = {}, { { indent } }, 0, true
+    if #tokens == 0 then
+        return {}
+    end
+    local line = {}
     for _, token in ipairs(tokens) do
-        local size = text.width(token.text)
-        local gap = (token.spaced and used > 0) and 1 or 0
-        if used > 0 and used + gap + size > usable then
-            lines[#lines + 1] = spans
-            spans, used, first = { { hanging } }, 0, false
+        if token.spaced and #line > 0 then
+            line[#line + 1] = { " " }
         end
-        if used > 0 and token.spaced then
-            spans[#spans + 1] = { " " }
-            used = used + 1
-        end
-        spans[#spans + 1] = { token.text, token.style }
-        used = used + size
+        line[#line + 1] = { token.text, token.style }
     end
-    if used > 0 or not first then
-        lines[#lines + 1] = spans
+    local rows = ito.spans.wrap(line, math.max(width - text.width(indent), 1))
+    for index, row in ipairs(rows) do
+        table.insert(row, 1, { index == 1 and indent or hanging })
     end
-    return lines
+    return rows
 end
 
 local function lines(width, props)

@@ -1,0 +1,29 @@
+ 0| • Edited greet.py
+  |0+3 fg=#808080; 3+15 fg=#D4D4D4 bold
+ 1|   └ Added 2 lines, removed 1 line
+  |0+34 fg=#808080
+ 2|      1   def main():
+  |5+5 fg=#808080 dim; 10+3 fg=Cyan; 13+1 fg=#D4D4D4; 14+4 fg=#DCDCAA; 18+3 fg=#D4D4D4
+ 3|      2       name = "world"
+  |5+5 fg=#808080 dim; 10+11 fg=#D4D4D4; 21+7 fg=#E0AF68
+ 4|      3 -     print("Hello, " + name)
+  |5+5 fg=#D75F5F bg=#5F0000; 10+11 fg=#D4D4D4 bg=#5F0000; 21+5 fg=#D4D4D4 bg=#870000; 26+54 fg=#D4D4D4 bg=#5F0000
+ 5|      3 +     print("Hi, " + name)
+  |5+5 fg=#5FD75F bg=#005F00; 10+4 fg=#D4D4D4 bg=#005F00; 14+5 fg=#DCDCAA bg=#005F00; 19+1 fg=#D4D4D4 bg=#005F00; 20+1 fg=#E0AF68 bg=#005F00; 21+2 fg=#E0AF68 bg=#008700; 23+3 fg=#E0AF68 bg=#005F00; 26+8 fg=#D4D4D4 bg=#005F00; 34+46 bg=#005F00
+ 6|      4 +     print("bye")
+  |5+5 fg=#5FD75F bg=#005F00; 10+4 fg=#D4D4D4 bg=#005F00; 14+5 fg=#DCDCAA bg=#005F00; 19+1 fg=#D4D4D4 bg=#005F00; 20+5 fg=#E0AF68 bg=#005F00; 25+1 fg=#D4D4D4 bg=#005F00; 26+54 bg=#005F00
+ 7|      5       return 0
+  |5+5 fg=#808080 dim; 10+4 fg=#D4D4D4; 14+6 fg=Cyan; 20+1 fg=#D4D4D4; 21+1 fg=#E0AF68
+ 8|
+ 9| • Read greet.py
+  |0+3 fg=#808080; 3+13 fg=#D4D4D4 bold
+10|   └ Read 5 lines
+  |0+17 fg=#808080
+11|
+12|
+13|────────────────────────────────────────────────────────────────────────────────
+  |0+80 fg=#808080
+14|█
+  |0+1 fg=White blink; 1+79 fg=#808080
+15|────────────────────────────────────────────────────────────────────────────────
+  |0+80 fg=#808080

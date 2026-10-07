@@ -21,6 +21,24 @@ Ranks the list of strings `items` against `query` the way the pickers do, as
 positions in `items` with the best match first. An empty query gives every
 position in order.
 
+## uji.highlight(language)
+
+Gives a highlighter for `language`, or `nil` when uji does not know it.
+`language` is a name such as `"python"`, a file extension such as `"rs"`, or a
+file name such as `"Makefile"`. `highlighter:line(text)` splits one line into
+tokens, each with `text` and `kind`, which is one of `"plain"`, `"keyword"`,
+`"string"`, `"number"`, `"comment"`, `"func"`, `"type"` and `"constant"`. Give
+it the lines in order, since a comment or a string can run across lines.
+
+```lua
+local highlighter = uji.highlight("lua")
+local kinds = {}
+for _, token in ipairs(highlighter:line("local n = 42 -- answer")) do
+  kinds[#kinds + 1] = token.kind .. ": " .. token.text
+end
+uji.notify(table.concat(kinds, ", "))
+```
+
 ## uji.markdown(source)
 
 Parses Markdown into a list of events. Each event is itself a list that starts

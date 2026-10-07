@@ -123,6 +123,15 @@ The default theme has these colours.
 | `cursor` | `ito.Color.white` |
 | `error` | `ito.Color.red` |
 | `notice` | `ito.Color.red` |
+| `syntax.keyword`, `syntax.string`, `syntax.number`, `syntax.comment` | `ito.Color.cyan`, `ito.rgb(0xe0af68)`, `ito.rgb(0xe0af68)`, `ito.rgb(0x808080)` |
+| `syntax.func`, `syntax.type`, `syntax.constant` | `ito.rgb(0xdcdcaa)`, `ito.rgb(0x4ec9b0)`, `ito.rgb(0x569cd6)` |
+| `diff.added`, `diff.removed` | `ito.rgb(0x5fd75f)`, `ito.rgb(0xd75f5f)` |
+| `diff.added_bg`, `diff.removed_bg` | `ito.rgb(0x005f00)`, `ito.rgb(0x5f0000)` |
+| `diff.added_word_bg`, `diff.removed_word_bg` | `ito.rgb(0x008700)`, `ito.rgb(0x870000)` |
+
+`syntax` and `diff` are groups: tables of colours under one name. `syntax`
+colours the code in replies and diffs, and `diff` colours the lines a diff adds
+and removes. A theme that sets a group sets every colour in it.
 
 A theme can also set these colours, which the default theme leaves out.
 
@@ -130,9 +139,6 @@ A theme can also set these colours, which the default theme leaves out.
 |---|---|---|
 | `background` | The `screen` style. | The terminal's own background. |
 | `link` | Links in the `link` style. | Links in the text's colour. |
-| `keyword` | The `code_keyword` style. | `accent`. |
-| `number` | The `code_number` style. | `code`. |
-| `comment` | The `code_comment` style, in italic. | `muted`, in italic and dim. |
 
 A theme with a `background` colour paints every cell. A terminal draws a
 painted cell fully opaque unless it applies its opacity to painted cells too,
@@ -143,7 +149,7 @@ local ito = require("ito")
 
 return require("uji.themes.default")({
   name = "night",
-  colors = { background = ito.rgb(0x1a1b26), comment = ito.rgb(0x565f89) },
+  colors = { background = ito.rgb(0x1a1b26), link = ito.rgb(0x7dcfff) },
 })
 ```
 
@@ -162,6 +168,9 @@ local note = ito.TextStyle({ foreground = ito.Color.yellow, italic = true })
 
 `style:merge(other)` gives a style with the colours and flags of `other` on
 top of those of `style`.
+
+Styles come in groups too, such as `styles.syntax` and `styles.diff`. A theme
+that sets a group sets every style in it.
 
 The default theme has these styles.
 
@@ -196,8 +205,11 @@ The default theme has these styles.
 | `heading1` to `heading6` | Markdown headings of each level. | `accent`, bold for 1 and 2, `text`, bold for the rest |
 | `strong`, `emphasis`, `strikethrough`, `link` | Markdown bold, italic, struck and linked text, merged on top of the text around it. | bold, italic, strikethrough, `link` underlined |
 | `table_head` | The header row of a table, merged on top of each cell. | bold |
-| `code_keyword`, `code_string`, `code_number`, `code_comment` | Highlighted code. | `keyword`, `code`, `number`, `comment` italic |
+| `syntax.keyword`, `syntax.string`, `syntax.number`, `syntax.comment`, `syntax.func`, `syntax.type`, `syntax.constant` | Highlighted code, in replies and in diffs. | the `syntax` colour of the same name, `syntax.comment` in italic |
 | `selection` | Text you select with the mouse. | reverse |
+| `diff.added`, `diff.removed` | Added and removed lines in a diff, across the whole row. | on `diff.added_bg`, `text` on `diff.removed_bg` |
+| `diff.added_sign`, `diff.removed_sign` | The number and the `+` or `-` of those lines. | `diff.added` on `diff.added_bg`, `diff.removed` on `diff.removed_bg` |
+| `diff.added_word`, `diff.removed_word` | The words that changed on those lines, merged on top. | on `diff.added_word_bg`, on `diff.removed_word_bg` |
 
 ## Symbols, words and sizes
 
@@ -237,6 +249,8 @@ The default theme has these styles.
 | `text.scroll` | The line an approval shows when its details do not fit. | `"lines %d-%d of %d, scroll for more"` |
 | `text.working` | The line shown while the model works. `%d` is the seconds so far. | `"Working (%ds)"` |
 | `text.job` | The name of a background job wherever uji shows one: the footer, `/jobs`, its notices and the `job_output` and `stop_job` lines. `%d` is its number. | `"job %d"` |
+| `text.added`, `text.removed` | The parts of the line above a diff, joined by a comma when both are there. `%d` is the count and `%s` is `text.line` or `text.lines`. The line starts with a capital letter. | `"Added %d %s"`, `"removed %d %s"` |
+| `text.line`, `text.lines` | The word for one line and for more. | `"line"`, `"lines"` |
 | `text.copied`, `text.copied_terminal` | The message after you copy a selection. `%d` is the line count. | `"copied %d line(s)"`, `"copied %d line(s) via the terminal"` |
 | `text.pasted_lines`, `text.pasted_chars` | The placeholder for a long paste in the input line. The numbers are the paste's number and its size. | `"[paste #%d +%d lines]"`, `"[paste #%d %d chars]"` |
 | `text.image` | The placeholder for an attached image. | `"[image #%d]"` |
@@ -248,6 +262,8 @@ The default theme has these styles.
 | `limits.spinner_interval` | Seconds between spinner frames. | `0.08` |
 | `limits.suggest_rows` | Rows the command suggestions may use. | `5` |
 | `limits.tool_preview` | Rows of tool output shown before you open it. | `8` |
+| `limits.diff_preview` | Rows of a diff shown before you open it. | `20` |
+| `limits.diff_context` | Unchanged lines that [`uji.diff`](../api/tool.md#ujidiffold-new-path) keeps around each change. | `3` |
 | `limits.argument_preview` | Characters of a tool call's arguments shown when it has no verb. | `200` |
 | `limits.message_gap` | Blank rows between messages. | `1` |
 | `limits.section_gap` | Blank rows before the notices, the queue and the running tool. | `1` |
@@ -378,7 +394,8 @@ return require("uji.themes.default")({
 | `uji.ui.Screen` | the parts | The whole screen. See [The screen](#the-screen). |
 | `uji.ui.UserMessage` | `message` | One of your messages. |
 | `uji.ui.ToolCall` | `call`, with `name` and `arguments` | A tool call, described the way its tool asks. |
-| `uji.ui.ToolOutput` | `content`, `failed`, `expanded`, `toggle` | A tool's result. `toggle` opens or folds it, and the default view calls it when you click a line. |
+| `uji.ui.ToolOutput` | `content`, `summary`, `diff`, `failed`, `expanded`, `toggle` | A tool's result. It shows the `diff` when the result has one with changes, otherwise the `summary` until it is opened, otherwise the content. `toggle` opens or folds it, and the default view calls it when you click a line. |
+| `uji.ui.Diff` | `diff`, `indent`, `limit`, `toggle` | The lines of a diff, with their numbers and colours, in a tool's result and in the approval question. `diff` is what [`uji.diff`](../api/tool.md#ujidiffold-new-path) gives, `indent` goes before each line, `limit`, when given, folds it after that many rows, and `toggle` opens or folds it. |
 | `uji.ui.Shell` | `command`, `code`, `output`, `failed`, `expanded`, `toggle` | A command you ran with `!`. |
 | `uji.ui.SystemMessage`, `uji.ui.ErrorMessage`, `uji.ui.Notice`, `uji.ui.Queued`, `uji.ui.Thinking` | `text` | A message or line of that kind. |
 | `uji.ui.Partial` | `text` | The last line of a reply that is still arriving. |

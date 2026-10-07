@@ -230,14 +230,7 @@ end
 function START.code_block(self, language)
     self:break_block()
     self.in_code = true
-    local styles = self.ctx.styles
-    self.highlighter = highlight.new(language, {
-        plain = styles.text,
-        keyword = styles.code_keyword,
-        string = styles.code_string,
-        number = styles.code_number,
-        comment = styles.code_comment,
-    })
+    self.highlighter = highlight.new(language, self.ctx.styles)
     self.code_block = { language = language ~= "" and language or nil, lines = {} }
 end
 

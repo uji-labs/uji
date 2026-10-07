@@ -12,6 +12,7 @@ local ACTIONS = { allow = true, ask = true, deny = true }
 
 local M = {
     registry = plugin.track(Registry(plugin.current)),
+    displays = plugin.track(Registry(plugin.current)),
     disabled = {},
     rules = {},
     confined = true,
@@ -53,6 +54,20 @@ end
 
 function M.get(name)
     return M.registry:get(name)
+end
+
+function M.display(name, opts)
+    check.name(name, "uji.tool.display")
+    check.options(opts, "uji.tool.display")
+    return M.displays:add(name, {
+        name = name,
+        subject = opts.subject,
+        display = { verb = opts.verb, question = opts.question, preview = opts.preview },
+    })
+end
+
+function M.described(name)
+    return M.registry:get(name) or M.displays:get(name)
 end
 
 function M.list()
