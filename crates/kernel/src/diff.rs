@@ -1,4 +1,4 @@
-use similar::{ChangeTag, InlineChange, TextDiff};
+use similar::{Algorithm, ChangeTag, InlineChange, TextDiff};
 use uji_macros::{function, value};
 
 #[value]
@@ -47,7 +47,9 @@ fn line(change: &InlineChange<'_, str>) -> Line {
 
 #[function]
 fn diff(old: &str, new: &str, context: usize) -> Vec<Vec<Line>> {
-    let diff = TextDiff::from_lines(old, new);
+    let diff = TextDiff::configure()
+        .algorithm(Algorithm::Patience)
+        .diff_lines(old, new);
     diff.grouped_ops(context)
         .iter()
         .map(|group| {
