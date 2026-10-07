@@ -23,6 +23,14 @@ function M.with(map, key, value)
     return copy
 end
 
+function M.merged(base, changes)
+    local copy = M.copy(base)
+    for key, value in pairs(changes or {}) do
+        copy[key] = value
+    end
+    return copy
+end
+
 function M.same(left, right)
     if #left ~= #right then
         return false

@@ -1,5 +1,6 @@
 local class = require("uji.core.class")
 local event = require("uji.core.event")
+local notices = require("uji.core.notices")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
 
@@ -100,6 +101,15 @@ function Capture:push(line)
     end
 end
 
+function Capture:since(seen)
+    local from = math.max(seen + 1, self.first)
+    local lines = {}
+    for at = from, self.last do
+        lines[#lines + 1] = self.lines[at]
+    end
+    return lines, from - seen - 1, self.last
+end
+
 function Capture:finish()
     if self.file then
         self.file:close()
@@ -168,6 +178,64 @@ function M.watch(proc, timeout, on_line)
         return { timed_out = true }
     end
     return { code = exit.code or -1, signal = exit.signal }
+end
+
+local function call(handler, ...)
+    if handler then
+        local ok, err = pcall(handler, ...)
+        if not ok then
+            notices.push("job: " .. tostring(err))
+        end
+    end
+end
+
+function M.start(spec)
+    local stopped = false
+    local proc, err = M.spawn({ argv = spec.argv, cwd = spec.cwd, stdin = true })
+    if not proc then
+        task.spawn(function()
+            call(spec.on_stderr, "spawn: " .. tostring(err))
+            call(spec.on_exit, -1)
+        end)
+        return {
+            send = function() end,
+            close = function() end,
+            stop = function() end,
+        }
+    end
+    task.spawn(function()
+        local result = M.watch(proc, spec.timeout, function(stream, line)
+            call(stream == "stderr" and spec.on_stderr or spec.on_stdout, line)
+        end)
+        if result.timed_out then
+            return call(spec.on_exit, -1, "timeout")
+        end
+        if stopped then
+            return call(spec.on_exit, -1, "stopped")
+        end
+        call(spec.on_exit, result.code)
+    end)
+    local queue = task.sequence()
+    return {
+        send = function(text)
+            local data = tostring(text)
+            if data:sub(-1) ~= "\n" then
+                data = data .. "\n"
+            end
+            queue(function()
+                proc:write(data)
+            end)
+        end,
+        close = function()
+            queue(function()
+                proc:close()
+            end)
+        end,
+        stop = function()
+            stopped = true
+            proc:kill()
+        end,
+    }
 end
 
 function M.run(spec, on_line)

@@ -2,6 +2,7 @@ local process = require("uji.core.system.process")
 local sandbox = require("support.sandbox")
 local server = require("support.server")
 local sys = require("uji.sys")
+local wait = require("support.wait")
 
 local CONFIG = [[
 uji.provider.add({
@@ -85,6 +86,30 @@ local function after(calls)
         end
         return server.tool_calls(0, calls)
     end)
+end
+
+local function rounds(calls)
+    return server.start(function(request)
+        local done = 0
+        for _, message in ipairs(request.body.messages or {}) do
+            done = done + (message.role == "tool" and 1 or 0)
+        end
+        if not server.has_tools(request) or not calls[done + 1] then
+            return server.text("finished")
+        end
+        return server.tool_calls(done, { calls[done + 1] })
+    end)
+end
+
+local STARTS_SERVER = "sleep 30 & echo $! > server.pid; wait"
+local WAITS_FOR_SERVER = "while [ ! -s server.pid ]; do sleep 0.05; done"
+
+local function command(text, background)
+    return { "run_command", sys.json.encode({ command = text, run_in_background = background }) }
+end
+
+local function server_pid(dir)
+    return (sys.fs.read(dir.work .. "/server.pid") or ""):match("%d+")
 end
 
 local function replying(text)
@@ -198,4 +223,30 @@ it("starts in the saved theme before the config runs", function()
     configure(dir, mock, string.format('require("uji.sys").fs.write(%q, uji.ui.theme())', seen))
     assert.equal(0, uji_run(dir, { "hi" }).code)
     assert.equal("kept", sandbox.read(seen))
+end)
+
+it("stops the background jobs it started when it exits", function()
+    local mock = rounds({ command(STARTS_SERVER, true), command(WAITS_FOR_SERVER) })
+    local dir = prepare(mock)
+    assert.equal(0, uji_run(dir, { "go" }).code)
+    local pid = server_pid(dir)
+    wait.eventually(function()
+        return not wait.alive(pid)
+    end)
+end)
+
+it("exits on an interrupt and stops its jobs", function()
+    local mock = rounds({ command(STARTS_SERVER, true), command(WAITS_FOR_SERVER .. "; sleep 30") })
+    local dir = prepare(mock)
+    local argv = { sandbox.bin, "run", "--config-dir", dir.cfg, "--data-dir", dir.data, "--db", dir.db, "go" }
+    local proc = assert(process.spawn({ argv = argv, cwd = dir.work }))
+    wait.eventually(function()
+        return server_pid(dir) ~= nil
+    end)
+    local pid = server_pid(dir)
+    process.run({ argv = { "kill", "-INT", tostring(proc.pid) } }, function() end)
+    assert.equal(130, proc:wait().code)
+    wait.eventually(function()
+        return not wait.alive(pid)
+    end)
 end)

@@ -8,6 +8,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::Notify;
 use tokio::task::LocalSet;
 
+use crate::signals::Signals;
 use crate::vm::{self, Sources};
 use crate::{net, task};
 
@@ -187,8 +188,12 @@ fn live(
 async fn start(lua: &Lua, entry: &str, args: Vec<String>, wake: &Notify) -> Result<u8, Error> {
     let main: Function = vm::require(lua, entry)?;
     task::start(lua, &main, lua.create_sequence_from(args)?)?;
+    let mut signals = Signals::new()?;
     loop {
-        wake.notified().await;
+        tokio::select! {
+            () = wake.notified() => {}
+            code = signals.next() => State::of_mut(lua)?.exit = Some(code),
+        }
         if let Some(code) = State::of(lua)?.stopped() {
             return Ok(code);
         }

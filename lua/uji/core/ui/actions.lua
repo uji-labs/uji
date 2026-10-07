@@ -1,6 +1,8 @@
 local Line = require("ito").Line
 local Registry = require("uji.core.registry")
 local check = require("uji.core.check")
+local jobs = require("uji.core.jobs")
+local notices = require("uji.core.notices")
 local plugin = require("uji.core.plugin")
 local tables = require("uji.core.tables")
 
@@ -31,6 +33,12 @@ local RUN = {
     end,
     interrupt = function(ui)
         ui:interrupt()
+    end,
+    background = function()
+        local _, err = jobs.background()
+        if err then
+            notices.push(err)
+        end
     end,
     toggle_thinking = function(ui)
         ui:toggle_thinking()

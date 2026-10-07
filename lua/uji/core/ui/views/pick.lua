@@ -69,10 +69,7 @@ function Pick:query_later()
 end
 
 function Pick:show(items)
-    self.items = {}
-    for index, item in ipairs(items or {}) do
-        self.items[index] = tostring(item)
-    end
+    self:fill(items)
     self.matches = {}
     for index = 1, #self.items do
         self.matches[index] = index
@@ -93,7 +90,7 @@ function Pick:fetch(item)
         end
         return type(lines) == "table" and lines or {}
     end
-    local path, line = location(item)
+    local path, line = location(self.label(item))
     if not path then
         return {}
     end

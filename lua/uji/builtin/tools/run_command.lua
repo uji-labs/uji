@@ -1,19 +1,22 @@
 local field = require("uji.builtin.tools.field")
+local jobs = require("uji.core.jobs")
 local process = require("uji.core.system.process")
-
-local TIMEOUT = 120
 
 uji.tool.add("run_command", {
     description = "Run a shell command and return its combined stdout and stderr, plus the exit code when it "
         .. "is non-zero. Every command starts in the working directory, so there is no need to `cd` "
         .. "into it first. Use it to build, test, run linters, search with `rg`, `grep` or `find`, and "
         .. "explore with `ls`. Read and change files with `read_file`, `edit_file` and `write_file`. "
-        .. "The command is non-interactive: it cannot prompt, and it is killed at the timeout. Output is "
+        .. "The command is non-interactive: it cannot prompt. Output is "
         .. string.format(
-            "truncated to the last %d lines or %s, whichever is hit first, and then the full output is saved to a temp file.",
+            "truncated to the last %d lines or %s, whichever is hit first, and then the full output is saved to a temp file. ",
             process.MAX_LINES,
             process.size(process.MAX_BYTES)
-        ),
+        )
+        .. "Set `run_in_background` for a dev server, a watch build or anything else you do not need to "
+        .. "wait for: it returns at once with a job id. A command still running at its timeout moves to the "
+        .. "background instead of being stopped. uji tells you when a background job ends, so do not poll "
+        .. "`job_output` for it; read its output then, and stop it with `stop_job`.",
     parameters = {
         type = "object",
         properties = {
@@ -23,8 +26,13 @@ uji.tool.add("run_command", {
             },
             timeout = {
                 type = "integer",
-                description = "Seconds before the command is killed. Defaults to 120.",
+                description = "Seconds before the command moves to the background. Defaults to 120. "
+                    .. "With run_in_background, the seconds before it is stopped, 30 minutes by default.",
                 minimum = 1,
+            },
+            run_in_background = {
+                type = "boolean",
+                description = "Start the command as a background job and return at once.",
             },
         },
         required = { "command" },
@@ -43,30 +51,23 @@ uji.tool.add("run_command", {
         if missing then
             return missing
         end
-        local timeout = math.max(field.count(args, "timeout") or TIMEOUT, 1)
-        local output = process.Capture()
-        local function line(text)
-            output:push(text)
-            ctx.progress(text)
-        end
-        local job = uji.job.start({
-            cmd = field.text(args, "command"),
+        local background = args.run_in_background == true
+        local job, err = jobs.start({
+            command = field.text(args, "command"),
             cwd = uji.session.info().directory,
-            timeout = timeout,
-            on_stdout = line,
-            on_stderr = line,
-            on_exit = function(code, reason)
-                local text = output:finish()
-                if reason == "timeout" then
-                    return ctx.done("error: command timed out after " .. timeout .. "s")
-                end
-                if code == 0 then
-                    return ctx.done(text:find("%S") and text or text .. "(no output, exit code 0)")
-                end
-                ctx.done((text == "" and "" or text .. "\n") .. "(exit code " .. code .. ")")
-            end,
+            timeout = field.count(args, "timeout"),
+            background = background,
+            done = ctx.done,
+            progress = ctx.progress,
         })
-        job.close()
-        return job.stop
+        if not job then
+            return "error: " .. err
+        end
+        if background then
+            return jobs.started(job)
+        end
+        return function()
+            jobs.stop(job)
+        end
     end,
 })

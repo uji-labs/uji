@@ -14,6 +14,7 @@ mod net;
 mod os;
 mod proc;
 mod promise;
+mod signals;
 mod task;
 mod utils;
 mod vm;

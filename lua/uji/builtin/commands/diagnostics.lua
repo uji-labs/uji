@@ -8,16 +8,14 @@ uji.command.add("diagnostics", {
             uji.notify("no diagnostics yet")
             return
         end
-        local items, chosen = {}, {}
-        for index, entry in ipairs(entries) do
-            items[index] = entry.time .. "  " .. entry.source .. "  " .. (text.lines(entry.text)[1] or "")
-            chosen[items[index]] = entry
-        end
         uji.ui.pick({
             title = "Diagnostics",
-            items = items,
-            preview = function(item)
-                return text.lines(chosen[item].text)
+            items = entries,
+            label = function(entry)
+                return entry.time .. "  " .. entry.source .. "  " .. (text.lines(entry.text)[1] or "")
+            end,
+            preview = function(entry)
+                return text.lines(entry.text)
             end,
         })
     end,

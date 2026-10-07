@@ -87,7 +87,9 @@ end
 
 function M.open_browser(url)
     local launcher = LAUNCHERS[sys.os.platform] or "xdg-open"
-    local proc = sys.proc.spawn({ launcher, url })
+    local argv = sys.os.platform == "windows" and { launcher, url }
+        or { "sh", "-c", '"$0" "$1" >/dev/null 2>&1 &', launcher, url }
+    local proc = sys.proc.spawn(argv)
     if proc then
         task.spawn(function()
             proc:wait()

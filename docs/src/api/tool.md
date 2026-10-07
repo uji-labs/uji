@@ -1,8 +1,9 @@
 # uji.tool
 
-uji ships four tools, `read_file`, `edit_file`, `write_file` and
-`run_command`. The functions below add your own, switch tools off and on, and
-decide which calls need your approval.
+uji ships six tools: `read_file`, `edit_file`, `write_file`, `run_command`,
+and `job_output` and `stop_job` for [background jobs](jobs.md). The functions
+below add your own, switch tools off and on, and decide which calls need your
+approval.
 
 ## uji.tool.add(name, spec)
 

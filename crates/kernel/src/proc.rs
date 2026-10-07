@@ -62,6 +62,7 @@ fn signal(_: ExitStatus) -> Option<i32> {
 
 pub(crate) struct Proc {
     pid: Option<u32>,
+    group: Option<i32>,
     stdin: Mutex<Option<ChildStdin>>,
     output: Mutex<mpsc::UnboundedReceiver<Line>>,
     status: watch::Receiver<Option<Exit>>,
@@ -69,7 +70,7 @@ pub(crate) struct Proc {
 }
 
 impl Proc {
-    fn start(mut child: Child) -> Self {
+    fn start(mut child: Child, grouped: bool) -> Self {
         let (lines, output) = mpsc::unbounded_channel();
         if let Some(stdout) = child.stdout.take() {
             tokio::spawn(pipe(stdout, Stream::Stdout, lines.clone()));
@@ -80,10 +81,14 @@ impl Proc {
         let (report, status) = watch::channel(None);
         let (kill, killed) = mpsc::unbounded_channel();
         let pid = child.id();
+        let group = pid
+            .filter(|_| grouped)
+            .and_then(|id| i32::try_from(id).ok());
         let stdin = child.stdin.take();
-        tokio::spawn(supervise(child, killed, report));
+        tokio::spawn(supervise(child, group, killed, report));
         Self {
             pid,
+            group,
             stdin: Mutex::new(stdin),
             output: Mutex::new(output),
             status,
@@ -115,15 +120,53 @@ async fn pipe(reader: impl AsyncRead + Unpin, stream: Stream, lines: mpsc::Unbou
     }
 }
 
+impl Drop for Proc {
+    fn drop(&mut self) {
+        if self.status.borrow().is_none() {
+            stop_group(self.group);
+        }
+    }
+}
+
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn own_session(command: &mut Command) {
+    unsafe {
+        command.pre_exec(|| {
+            nix::unistd::setsid()
+                .map(drop)
+                .map_err(std::io::Error::from)
+        });
+    }
+}
+
+#[cfg(not(unix))]
+fn own_session(_: &mut Command) {}
+
+#[cfg(unix)]
+fn stop_group(group: Option<i32>) -> bool {
+    use nix::sys::signal::{Signal, killpg};
+    use nix::unistd::Pid;
+    group.is_some_and(|id| killpg(Pid::from_raw(id), Signal::SIGKILL).is_ok())
+}
+
+#[cfg(not(unix))]
+fn stop_group(_: Option<i32>) -> bool {
+    false
+}
+
 async fn supervise(
     mut child: Child,
+    group: Option<i32>,
     mut killed: mpsc::UnboundedReceiver<()>,
     report: watch::Sender<Option<Exit>>,
 ) {
     let status = tokio::select! {
         status = child.wait() => status,
         _ = killed.recv() => {
-            drop(child.start_kill());
+            if !stop_group(group) {
+                drop(child.start_kill());
+            }
             child.wait().await
         }
     };
@@ -219,5 +262,10 @@ fn command(line: &[String], opts: SpawnOptions) -> std::io::Result<Command> {
 
 #[function(proc)]
 fn spawn(argv: &[String], opts: SpawnOptions) -> std::io::Result<Proc> {
-    Ok(Proc::start(command(argv, opts)?.spawn()?))
+    let grouped = opts.stdio.as_deref() != Some("inherit");
+    let mut command = command(argv, opts)?;
+    if grouped {
+        own_session(&mut command);
+    }
+    Ok(Proc::start(command.spawn()?, grouped))
 }
