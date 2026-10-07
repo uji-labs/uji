@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::process::{ExitCode, Termination};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -8,9 +9,8 @@ use tokio::runtime::Runtime;
 use tokio::sync::Notify;
 use tokio::task::LocalSet;
 
-use crate::signals::Signals;
 use crate::vm::{self, Sources};
-use crate::{net, task};
+use crate::{net, signals, task};
 
 pub struct Options {
     pub sources: Vec<Sources>,
@@ -23,6 +23,16 @@ pub struct Options {
 pub struct Outcome {
     pub code: u8,
     pub errors: Vec<String>,
+    signal: Option<i32>,
+}
+
+impl Termination for Outcome {
+    fn report(self) -> ExitCode {
+        if let Some(signal) = self.signal {
+            signals::die(signal);
+        }
+        ExitCode::from(self.code)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -51,6 +61,7 @@ pub(crate) struct State {
     pub(crate) pending: usize,
     pub(crate) collect: bool,
     pub(crate) exit: Option<u8>,
+    pub(crate) signal: Option<i32>,
     pub(crate) restart: Option<Restart>,
     pub(crate) errors: Vec<String>,
     pub(crate) on_error: Option<Function>,
@@ -94,6 +105,7 @@ impl State {
 
 struct Life {
     code: u8,
+    signal: Option<i32>,
     errors: Vec<String>,
     restart: Option<Restart>,
     terminal: Option<Terminal>,
@@ -103,6 +115,7 @@ pub fn run(options: Options) -> Outcome {
     drive(options).unwrap_or_else(|err| Outcome {
         code: 1,
         errors: vec![err.to_string()],
+        signal: None,
     })
 }
 
@@ -110,7 +123,8 @@ fn drive(options: Options) -> Result<Outcome, Error> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    drop(runtime.spawn_blocking(net::warm));
+    runtime.spawn_blocking(net::warm);
+    signals::force(&runtime)?;
     let Options {
         sources,
         entry,
@@ -125,19 +139,23 @@ fn drive(options: Options) -> Result<Outcome, Error> {
     };
     let mut terminal = Some(terminal);
     let mut errors = Vec::new();
-    let code = loop {
+    let (code, signal) = loop {
         let life = live(&runtime, (&sources, &entry, debug), next, terminal.take())?;
         errors.extend(life.errors);
         terminal = life.terminal;
         match life.restart {
             Some(restart) => next = restart,
-            None => break life.code,
+            None => break (life.code, life.signal),
         }
     };
     tty::restore();
     drop(terminal);
     runtime.shutdown_background();
-    Ok(Outcome { code, errors })
+    Ok(Outcome {
+        code,
+        errors,
+        signal,
+    })
 }
 
 fn live(
@@ -166,6 +184,7 @@ fn live(
         pending: 0,
         collect: false,
         exit: None,
+        signal: None,
         restart: None,
         errors: Vec::new(),
         on_error: None,
@@ -179,6 +198,7 @@ fn live(
     let code = ran?;
     Ok(Life {
         code,
+        signal: state.signal,
         terminal: tty::reclaim(&lua),
         errors: state.errors,
         restart: state.restart,
@@ -186,14 +206,11 @@ fn live(
 }
 
 async fn start(lua: &Lua, entry: &str, args: Vec<String>, wake: &Notify) -> Result<u8, Error> {
+    signals::listen(lua)?;
     let main: Function = vm::require(lua, entry)?;
     task::start(lua, &main, lua.create_sequence_from(args)?)?;
-    let mut signals = Signals::new()?;
     loop {
-        tokio::select! {
-            () = wake.notified() => {}
-            code = signals.next() => State::of_mut(lua)?.exit = Some(code),
-        }
+        wake.notified().await;
         if let Some(code) = State::of(lua)?.stopped() {
             return Ok(code);
         }

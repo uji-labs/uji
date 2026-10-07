@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
 
-use uji_kernel::{Options, Sources, Terminal, VirtualHandle, virtual_terminal};
+use uji_kernel::{Options, Outcome, Sources, Terminal, VirtualHandle, virtual_terminal};
 
 const ENTRY: &str = "uji.boot";
 const SCRIPT: &str = "-l";
@@ -33,7 +32,7 @@ fn screen(args: &mut Vec<String>) -> Option<(Terminal, VirtualHandle)> {
     Some((Terminal::Virtual(terminal), handle))
 }
 
-fn main() -> ExitCode {
+fn main() -> Outcome {
     let mut args: Vec<String> = std::env::args().collect();
     let (sources, entry) = script(&args)
         .unwrap_or_else(|| (vec![Sources::Embedded(uji_lua::FILES)], String::from(ENTRY)));
@@ -52,5 +51,5 @@ fn main() -> ExitCode {
     for error in &outcome.errors {
         eprintln!("uji: error: {error}");
     }
-    ExitCode::from(outcome.code)
+    outcome
 }

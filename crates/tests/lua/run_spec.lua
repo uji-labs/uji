@@ -103,6 +103,13 @@ end
 
 local STARTS_SERVER = "sleep 30 & echo $! > server.pid; wait"
 local WAITS_FOR_SERVER = "while [ ! -s server.pid ]; do sleep 0.05; done"
+local BUSY = [[
+return function()
+    require("uji.sys.fs").write(%q, "")
+    while true do
+    end
+end
+]]
 
 local function command(text, background)
     return { "run_command", sys.json.encode({ command = text, run_in_background = background }) }
@@ -245,8 +252,23 @@ it("exits on an interrupt and stops its jobs", function()
     end)
     local pid = server_pid(dir)
     process.run({ argv = { "kill", "-INT", tostring(proc.pid) } }, function() end)
-    assert.equal(130, proc:wait().code)
+    assert.equal(2, proc:wait().signal)
     wait.eventually(function()
         return not wait.alive(pid)
     end)
+end)
+
+it("exits at a second interrupt while lua is busy", function()
+    local ready = sandbox.work .. "/busy"
+    local script = sandbox.work .. "/busy.lua"
+    sys.fs.write(script, string.format(BUSY, ready))
+    local proc = assert(process.spawn({ argv = { sandbox.bin, "-l", script }, cwd = sandbox.work }))
+    wait.eventually(function()
+        return sys.fs.stat(ready) ~= nil
+    end)
+    for _ = 1, 2 do
+        process.run({ argv = { "kill", "-INT", tostring(proc.pid) } }, function() end)
+        sys.sleep(0.2)
+    end
+    assert.equal(2, proc:wait().signal)
 end)

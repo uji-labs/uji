@@ -26,7 +26,7 @@ pub(crate) fn start(lua: &Lua, function: &Function, args: impl IntoLuaMulti) -> 
     let (handle, registration) = AbortHandle::new_pair();
     let owner = lua.clone();
     State::of_mut(lua)?.pending += 1;
-    drop(tokio::task::spawn_local(async move {
+    tokio::task::spawn_local(async move {
         let mut call = pin!(Abortable::new(call, registration));
         let ran = std::future::poll_fn(|cx| {
             if State::of(&owner).is_ok_and(|state| state.stopping()) {
@@ -50,7 +50,7 @@ pub(crate) fn start(lua: &Lua, function: &Function, args: impl IntoLuaMulti) -> 
             }
         };
         finish(&owner, cancelled);
-    }));
+    });
     Ok(Task(handle))
 }
 

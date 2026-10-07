@@ -1,11 +1,9 @@
-use std::process::ExitCode;
-
-use uji_kernel::{Options, Sources, Terminal};
+use uji_kernel::{Options, Outcome, Sources, Terminal};
 
 const ENTRY: &str = "uji.boot";
 const RUNTIME: &str = "UJI_RUNTIME";
 
-fn main() -> ExitCode {
+fn main() -> Outcome {
     let own = std::env::var_os(RUNTIME).map_or(Sources::Embedded(uji_lua::FILES), |dir| {
         Sources::Directory(dir.into())
     });
@@ -19,5 +17,5 @@ fn main() -> ExitCode {
     for error in &outcome.errors {
         eprintln!("uji: error: {error}");
     }
-    ExitCode::from(outcome.code)
+    outcome
 }
