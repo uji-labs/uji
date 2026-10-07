@@ -2,6 +2,7 @@ local app = require("uji.core.app")
 local Custom = require("uji.core.ui.transcript.custom")
 local host = require("uji.core.ui.host")
 local ito = require("ito")
+local Job = require("uji.core.ui.transcript.job")
 local jobs = require("uji.core.jobs")
 local Notice = require("uji.core.ui.transcript.notice")
 local Queued = require("uji.core.ui.transcript.queued")
@@ -26,7 +27,7 @@ return ito.view(function()
     if #active > 0 then
         rows[#rows + 1] = ito.Spacer():height(gap)
         for _, job in ipairs(active) do
-            rows[#rows + 1] = Running({ name = "job " .. job.id .. "  " .. job.command, line = job.last })
+            rows[#rows + 1] = Job({ job = job })
         end
     end
     local queued = app.agent and app.agent.queue or {}

@@ -174,7 +174,8 @@ local function finish(job, code, reason)
         end
         return done(result(job, text))
     end
-    notices.push("job " .. job.id .. " (" .. job.command .. ") " .. job:status())
+    local name = string.format(require("uji.core.ui").theme.tokens.text.job, job.id)
+    notices.push(name .. " (" .. job.command .. ") " .. job:status())
     if job.state ~= "stopped" then
         M.unreported = list.appended(M.unreported, job)
         wake()

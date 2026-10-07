@@ -1,5 +1,6 @@
 local field = require("uji.builtin.tools.field")
 local jobs = require("uji.core.jobs")
+local ui = require("uji.core.ui")
 
 local PARAMETERS = {
     type = "object",
@@ -11,7 +12,8 @@ local PARAMETERS = {
 }
 
 local function subject(args)
-    return "job " .. tostring(field.count(args, "id"))
+    local id = field.count(args, "id")
+    return id and string.format(ui.theme.tokens.text.job, id)
 end
 
 local function lookup(args)

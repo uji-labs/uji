@@ -1,4 +1,5 @@
 local text = require("ito").text
+local ui = require("uji.core.ui")
 
 local function ordered(listed)
     table.sort(listed, function(left, right)
@@ -23,7 +24,7 @@ uji.command.add("jobs", {
             title = "Jobs",
             items = ordered(listed),
             label = function(item)
-                return "job " .. item.id .. "  " .. item.status .. "  " .. item.command
+                return string.format(ui.theme.tokens.text.job, item.id) .. "  " .. item.status .. "  " .. item.command
             end,
             preview = function(item)
                 return text.lines(item.tail)

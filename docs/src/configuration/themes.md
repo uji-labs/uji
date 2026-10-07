@@ -236,6 +236,7 @@ The default theme has these styles.
 | `text.confirm_allow`, `text.confirm_deny` | The rest of each approval answer, after `confirm_yes` and `confirm_no`. | `"proceed"`, `"and tell uji what to do differently"` |
 | `text.scroll` | The line an approval shows when its details do not fit. | `"lines %d-%d of %d, scroll for more"` |
 | `text.working` | The line shown while the model works. `%d` is the seconds so far. | `"Working (%ds)"` |
+| `text.job` | The name of a background job wherever uji shows one: the footer, `/jobs`, its notices and the `job_output` and `stop_job` lines. `%d` is its number. | `"job %d"` |
 | `text.copied`, `text.copied_terminal` | The message after you copy a selection. `%d` is the line count. | `"copied %d line(s)"`, `"copied %d line(s) via the terminal"` |
 | `text.pasted_lines`, `text.pasted_chars` | The placeholder for a long paste in the input line. The numbers are the paste's number and its size. | `"[paste #%d +%d lines]"`, `"[paste #%d %d chars]"` |
 | `text.image` | The placeholder for an attached image. | `"[image #%d]"` |
@@ -383,6 +384,7 @@ return require("uji.themes.default")({
 | `uji.ui.Partial` | `text` | The last line of a reply that is still arriving. |
 | `uji.ui.Compaction` | none | The place where the session was compacted. |
 | `uji.ui.Running` | `name`, `line` | The tool that is running and the last line it printed. |
+| `uji.ui.Job` | `job` | A background job that is running. `job` has `id`, `command` and `last`, the last line it printed. |
 | `uji.ui.Jump` | `follow` | The label that takes you back to the bottom, centred in the bottom row of the transcript. `follow` goes back. |
 | `uji.ui.Paragraph` | `tokens`, `indent`, `hanging` | A markdown paragraph or list item. Each token has `text`, `style` and `spaced`, and `indent` and `hanging` start the first and the following lines. |
 | `uji.ui.Heading` | `level`, `content` | A markdown heading. `content` is the heading's text as a view. |

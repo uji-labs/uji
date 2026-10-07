@@ -130,6 +130,7 @@ local TEXT = {
     resume = "resume",
     quit = "quit",
     working = "Working (%ds)",
+    job = "job %d",
     copied = "copied %d line(s)",
     copied_terminal = "copied %d line(s) via the terminal",
     pasted_lines = "[paste #%d +%d lines]",

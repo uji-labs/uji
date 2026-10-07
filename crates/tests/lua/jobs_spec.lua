@@ -6,6 +6,7 @@ local sandbox = require("support.sandbox")
 local screen = require("support.ui")
 local server = require("support.server")
 local sys = require("uji.sys")
+local tool = require("uji.core.tool")
 local ui = require("uji.core.ui")
 local wait = require("support.wait")
 
@@ -127,25 +128,31 @@ it("stops a job with stop_job and refuses one over the limit", { timeout = 10 },
     assert.equal(5, #mock:turns(), "a stopped job wakes nobody")
 end)
 
-it("shows running jobs in the footer and stops one from /jobs", { size = { 60, 12 }, timeout = 10 }, function()
+it("shows running jobs in the theme's words and stops one from /jobs", { size = { 60, 12 }, timeout = 10 }, function()
     uji.jobs.configure({ wake = false })
+    uji.ui.configure({ theme = require("uji.themes.default")({ text = { job = "task %d" } }) })
     jobs.start({ command = "echo hi; sleep 5", cwd = sandbox.work, background = true })
     eventually(function()
         return uji.jobs.list()[1].tail == "hi"
     end)
-    assert.is_not_nil(screen.find("job 1  echo hi; sleep 5"))
+    assert.is_not_nil(screen.find("task 1  echo hi; sleep 5  hi"))
     local asked
     uji.ui.pick = function(opts)
         asked = opts
         return opts.items[1]
     end
     require("uji.core.command").run("jobs")
-    assert.is_true(has(asked.label(asked.items[1]), "job 1  running for"))
+    assert.is_true(has(asked.label(asked.items[1]), "task 1  running for"))
+    assert.equal("task 1", tool.detail(tool.get("stop_job"), { id = 1 }))
     assert.same({ "hi" }, asked.preview(asked.items[1]))
     eventually(ended)
     assert.equal("stopped", uji.jobs.list()[1].state)
+    eventually(function()
+        ui:take_notices()
+        return has(table.concat(ui.notices, "\n"), "task 1 (echo hi; sleep 5) stopped")
+    end)
     screen.rows(true)
-    assert.is_nil(screen.find("job 1  echo hi"))
+    assert.is_nil(screen.find("task 1  echo hi"))
 end)
 
 it("waits for your next message when waking is off", { timeout = 10 }, function()
