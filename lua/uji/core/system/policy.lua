@@ -5,6 +5,7 @@ local tables = require("uji.core.tables")
 local ACTIONS = { allow = true, ask = true, deny = true }
 local STRICTNESS = { allow = 0, ask = 1, deny = 2 }
 local PRECEDENCE = { "deny", "allow", "ask" }
+local NONE = { rules = {} }
 
 local function strictest(left, right)
     if STRICTNESS[right] > STRICTNESS[left] then
@@ -27,28 +28,39 @@ local function matcher(value)
     }
 end
 
+local function top_default(value, notices)
+    if ACTIONS[value] then
+        return value
+    end
+    if type(value) == "string" then
+        notices[#notices + 1] = "tool policy: default `" .. value .. "` is not allow, ask or deny; asking instead"
+    else
+        notices[#notices + 1] = "tool policy: default must be allow, ask or deny; asking instead"
+    end
+    return "ask"
+end
+
+local function matched(rules, subject)
+    for _, rule in ipairs(rules) do
+        if rule.matcher:test(subject) then
+            return rule.action
+        end
+    end
+end
+
 local Policy = class()
 
 function Policy:init()
     self.tools = {}
-    self.default = "ask"
 end
 
-function Policy.compile(rules, known)
+function Policy.compile(rules)
     local policy = Policy()
     local notices = {}
     for _, name in ipairs(tables.keys(rules)) do
         local value = rules[name]
         if name == "default" then
-            if type(value) ~= "string" then
-                notices[#notices + 1] = "tool policy: default must be allow, ask or deny; asking instead"
-            elseif ACTIONS[value] then
-                policy.default = value
-            else
-                notices[#notices + 1] = "tool policy: default `" .. value .. "` is not allow, ask or deny; asking instead"
-            end
-        elseif not known[name] then
-            notices[#notices + 1] = "tool policy: `" .. name .. "` is not a tool, so its rules do nothing"
+            policy.default = top_default(value, notices)
         else
             policy.tools[name] = Policy.tool_rules(name, value, notices)
         end
@@ -106,17 +118,8 @@ function Policy.tool_rules(name, value, notices)
 end
 
 function Policy:evaluate(tool, subject, declared)
-    local fallback = declared or self.default
-    local rules = self.tools[tool]
-    if not rules then
-        return fallback
-    end
-    for _, rule in ipairs(rules.rules) do
-        if rule.matcher:test(subject) then
-            return rule.action
-        end
-    end
-    return rules.default or fallback
+    local entry = self.tools[tool] or NONE
+    return matched(entry.rules, subject) or entry.default or self.default or declared or "ask"
 end
 
 return Policy

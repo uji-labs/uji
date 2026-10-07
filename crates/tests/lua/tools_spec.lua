@@ -1,4 +1,5 @@
 local agent = require("support.agent")
+local app = require("uji.core.app")
 local sandbox = require("support.sandbox")
 local server = require("support.server")
 local sys = require("uji.sys")
@@ -146,4 +147,23 @@ it("reports output, exit codes and timeouts from run_command", { timeout = 20 },
     assert.equal(sys.fs.realpath(sandbox.work), sys.fs.realpath(pwd))
     assert.equal("error: command timed out after 1s", slow)
     assert.equal("error: `command` is required and must be a non-empty string", empty)
+end)
+
+it("runs every tool under a default of allow except what a rule denies", function()
+    uji.tool.policy({ default = "allow", run_command = { deny = { "/^rm\\s+-rf/" } } })
+    local write = { path = "a.txt", content = "x" }
+    assert.same({ allow = true, arguments = write }, app.agent:approve("write_file", write))
+    assert.same({ allow = true, arguments = { command = "ls" } }, app.agent:approve("run_command", { command = "ls" }))
+    assert.same({ deny = "denied by policy" }, app.agent:approve("run_command", { command = "rm -rf build" }))
+end)
+
+it("puts a tool's own default before the top-level default", function()
+    uji.tool.policy({ default = "allow", write_file = { default = "deny" } })
+    assert.same({ deny = "denied by policy" }, app.agent:approve("write_file", { path = "a.txt", content = "x" }))
+end)
+
+it("uses the policy a tool declares when no default is set", function()
+    agent.answer({ "n" })
+    assert.same({ allow = true, arguments = { path = "a.txt" } }, app.agent:approve("read_file", { path = "a.txt" }))
+    assert.same({ deny = "user denied" }, app.agent:approve("write_file", { path = "a.txt", content = "x" }))
 end)

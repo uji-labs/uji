@@ -106,9 +106,22 @@ exact string, a glob when it contains `*`, `?` or `[`, or a regular expression
 between slashes.
 
 uji checks `deny` rules first, then `allow`, then `ask`, and uses the first
-match. With no match, it uses the tool's `default`, then the policy the tool
-declares, then the top-level `default`, then `ask`. `read_file` declares
-`allow` and the other built-in tools declare `ask`.
+match. With no match, it uses the tool's `default`, then the top-level
+`default`, then the policy the tool declares, then `ask`. `read_file` declares
+`allow` and the other built-in tools declare `ask`. A top-level
+`default = "allow"` runs every tool without asking, except the calls a rule
+matches.
+
+```lua
+uji.tool.policy({
+  default = "allow",
+  run_command = { deny = { "/^\\s*rm\\s+-rf/" } },
+})
+```
+
+Rules may name a tool uji does not register, such as a tool of a provider
+that runs [its own loop](provider.md#your-own-loop). They match the subject
+that loop passes to `agent:approve`.
 
 Each call replaces the tools it names and keeps the others. A
 [`before_tool`](events.md#before_tool) hook runs before the policy and

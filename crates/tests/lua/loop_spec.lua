@@ -161,3 +161,9 @@ it("switches to a provider with its own loop at login without asking for a url o
     assert.same({ "Provider" }, asked)
     assert.equal("fake", uji.model.current().provider)
 end)
+
+it("matches the rules of a tool uji does not know against the subject the loop gives", function()
+    uji.tool.policy({ default = "allow", Bash = { deny = { "/^rm\\s+-rf/" } } })
+    assert.same({ deny = "denied by policy" }, app.agent:approve("Bash", { command = "rm -rf x" }, "rm -rf x"))
+    assert.same({ allow = true, arguments = { command = "ls" } }, app.agent:approve("Bash", { command = "ls" }, "ls"))
+end)
