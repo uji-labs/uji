@@ -15,7 +15,7 @@ require("planmode").setup({ allow = { "npm test" } })
 | `keys` | `false` leaves Ctrl+B unbound. | `true` |
 | `priority` | The priority of its `before_tool` hook. | `10` |
 
-Commands are `/plan`, `/plan <task>` and `/approve`. Ctrl+B toggles plan mode.
+Commands are `/plan` and `/plan <task>`. Ctrl+B toggles plan mode.
 
 `planmode.Badge()` is a view that says `plan` while plan mode is on. planmode
 declares it as a [`bottom_bar` item](../ito/toolbars.md), and a
