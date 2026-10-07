@@ -89,6 +89,11 @@
         }
       );
 
+      # programs.uji for home-manager, and the helpers pack modules use
+      homeModules.default = import ./nix/home-manager.nix self;
+      homeManagerModules = self.homeModules;
+      lib = import ./nix/lib.nix { inherit (nixpkgs) lib; };
+
       # `nix flake check` builds the package
       checks = forAllSystems (pkgs: {
         default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
