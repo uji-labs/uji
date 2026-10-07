@@ -13,6 +13,7 @@ local Suggest = require("uji.core.ui.views.suggest")
 local sys = require("uji.sys")
 local text = require("ito").text
 local ui = require("uji.core.ui")
+local wait = require("support.wait")
 
 local GOLDEN = sandbox.fixtures .. "/look/"
 
@@ -72,6 +73,17 @@ local function differ(want, got)
     end
 end
 
+local function highlighted()
+    wait.eventually(function()
+        for _, run in ipairs(screen.runs()) do
+            if run.fg == "#DCDCAA" then
+                return true
+            end
+        end
+        return false
+    end)
+end
+
 local function look(name, draw)
     local path = GOLDEN .. name .. ".txt"
     local got = capture(draw)
@@ -107,6 +119,7 @@ describe("the default look", function()
 
     it("draws markdown and a reply as it streams", { size = { 80, 60 } }, function()
         fixture.markdown()
+        highlighted()
         look("markdown")
     end)
 
@@ -143,6 +156,7 @@ describe("the default look", function()
             tool_calls = { { id = "b", name = "read_file", arguments = '{"path":"greet.py"}' } },
         })
         app.session:append({ type = "tool", tool_call_id = "b", name = "read_file", content = after, summary = "Read 5 lines" })
+        highlighted()
         look("diff")
     end)
 

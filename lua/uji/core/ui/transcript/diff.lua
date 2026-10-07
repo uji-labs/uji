@@ -1,6 +1,7 @@
 local branch = require("uji.core.ui.transcript.branch")
-local highlight = require("uji.core.ui.markdown.highlight")
+local highlight = require("uji.core.ui.highlight")
 local ito = require("ito")
+local list = require("uji.utils.list")
 
 local text = ito.text
 
@@ -21,20 +22,16 @@ local function expanded(value)
 end
 
 local function source(line)
-    local out = {}
-    for index, part in ipairs(line.parts) do
-        out[index] = expanded(part.text)
-    end
-    return table.concat(out)
+    return table.concat(list.mapped(line.parts, function(part)
+        return expanded(part.text)
+    end))
 end
 
 local function marked(line)
-    local changed, kept = false, false
-    for _, part in ipairs(line.parts) do
-        changed = changed or part.changed
-        kept = kept or not part.changed
-    end
-    return changed and kept
+    local changed = #list.filtered(line.parts, function(part)
+        return part.changed
+    end)
+    return changed > 0 and changed < #line.parts
 end
 
 local function overlay(spans, line, word)
@@ -60,9 +57,15 @@ local function overlay(spans, line, word)
     return out
 end
 
-local function painted(line, look, highlighter, styles)
-    local raw = source(line)
-    local spans = (line.kind ~= "removed" and highlighter) and highlighter:line(raw) or { { raw, styles.text } }
+local function newer(diff)
+    local kept = list.filtered(list.flattened(diff.changes), function(line)
+        return line.kind ~= "removed"
+    end)
+    return list.mapped(kept, source)
+end
+
+local function painted(line, look, tokens, styles)
+    local spans = tokens and highlight.spans(tokens, styles) or { { source(line), styles.text } }
     if look.fill then
         for index, span in ipairs(spans) do
             spans[index] = { span[1], span[2]:merge(look.fill) }
@@ -76,10 +79,8 @@ end
 
 local function digits(diff)
     local most = 0
-    for _, change in ipairs(diff.changes) do
-        for _, line in ipairs(change) do
-            most = math.max(most, line.old or 0, line.new or 0)
-        end
+    for _, line in ipairs(list.flattened(diff.changes)) do
+        most = math.max(most, line.old or 0, line.new or 0)
     end
     return #tostring(most)
 end
@@ -92,24 +93,27 @@ local function measured(spans)
     return used
 end
 
-local function rows(ctx, diff, indent, width)
+local function rows(ctx, diff, indent, width, tokens)
     local styles = ctx.styles
     local look = looks(styles)
     local numbers = digits(diff)
     local gutter = string.rep(" ", numbers + 4)
     local room = math.max(width - text.width(indent) - #gutter, 1)
-    local extension = diff.path and (diff.path:match("%.([%w_+#-]+)$") or diff.path:match("[^/]+$"))
-    local out = {}
+    local out, seen = {}, 0
     for index, change in ipairs(diff.changes) do
         if index > 1 then
             out[#out + 1] = { { indent .. ctx.symbols.more, styles.dim } }
         end
-        local highlighter = highlight.new(extension, styles)
         for _, line in ipairs(change) do
             local style = look[line.kind]
+            local coloured = false
+            if line.kind ~= "removed" then
+                seen = seen + 1
+                coloured = tokens[seen]
+            end
             local number = tostring(line.kind == "removed" and line.old or line.new)
             local head = " " .. string.rep(" ", numbers - #number) .. number .. " " .. SIGNS[line.kind] .. " "
-            for at, piece in ipairs(ito.spans.wrap(painted(line, style, highlighter, styles), room)) do
+            for at, piece in ipairs(ito.spans.wrap(painted(line, style, coloured, styles), room)) do
                 local row = { { indent }, { at == 1 and head or gutter, style.fill and style.sign or styles.dim } }
                 for _, span in ipairs(piece) do
                     row[#row + 1] = span
@@ -126,7 +130,7 @@ end
 
 local function lines(width, value)
     local ctx, props = value.ctx, value.props
-    local out = rows(ctx, props.diff, props.indent, width)
+    local out = rows(ctx, props.diff, props.indent, width, value.tokens)
     local hidden = props.limit and math.max(#out - props.limit, 0) or 0
     for index = #out, #out - hidden + 1, -1 do
         out[index] = nil
@@ -141,5 +145,8 @@ local function lines(width, value)
 end
 
 return ito.view(function(props)
-    return ito.Lines(lines, { ctx = ito.theme(), props = props })
+    local path = props.diff.path
+    local language = path and (path:match("%.([%w_+#-]+)$") or path:match("[^/]+$"))
+    local tokens = highlight.tokens(language, newer(props.diff))
+    return ito.Lines(lines, { ctx = ito.theme(), props = props, tokens = tokens })
 end)

@@ -14,7 +14,7 @@ base64 = "0.22"
 futures-util = "0.3"
 globset = "0.4"
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
-ito = { git = "https://github.com/uji-labs/ito", tag = "v0.1.4" }
+ito = { git = "https://github.com/uji-labs/ito", tag = "v0.1.5" }
 keyring = "4"
 linkme = "0.3"
 mlua = { version = "0.12", features = ["luajit52", "vendored", "serde", "async"] }

@@ -21,22 +21,24 @@ Ranks the list of strings `items` against `query` the way the pickers do, as
 positions in `items` with the best match first. An empty query gives every
 position in order.
 
-## uji.highlight(language)
+## uji.highlight(language, text)
 
-Gives a highlighter for `language`, or `nil` when uji does not know it.
-`language` is a name such as `"python"`, a file extension such as `"rs"`, or a
-file name such as `"Makefile"`. `highlighter:line(text)` splits one line into
-tokens, each with `text` and `kind`, which is one of `"plain"`, `"keyword"`,
-`"string"`, `"number"`, `"comment"`, `"func"`, `"type"` and `"constant"`. Give
-it the lines in order, since a comment or a string can run across lines.
+Highlights `text` away from the screen's thread and gives the tokens of each
+line, or `nil` when uji does not know `language`. `language` is a name such as
+`"python"`, a file extension such as `"rs"`, or a file name such as
+`"Makefile"`. Each token has `text` and `kind`, which is one of `"plain"`,
+`"keyword"`, `"string"`, `"number"`, `"comment"`, `"func"`, `"type"` and
+`"constant"`. Call it from a task, since it waits for the result.
 
 ```lua
-local highlighter = uji.highlight("lua")
-local kinds = {}
-for _, token in ipairs(highlighter:line("local n = 42 -- answer")) do
-  kinds[#kinds + 1] = token.kind .. ": " .. token.text
-end
-uji.notify(table.concat(kinds, ", "))
+uji.task.spawn(function()
+  local lines = uji.highlight("lua", "local n = 42 -- answer")
+  local kinds = {}
+  for _, token in ipairs(lines[1]) do
+    kinds[#kinds + 1] = token.kind .. ": " .. token.text
+  end
+  uji.notify(table.concat(kinds, ", "))
+end)
 ```
 
 ## uji.markdown(source)

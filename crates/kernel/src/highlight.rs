@@ -1,9 +1,12 @@
+use std::convert::Infallible;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
 use syntect::highlighting::ScopeSelectors;
 use syntect::parsing::{ParseState, ScopeStack, SyntaxSet};
-use uji_macros::{function, methods, value};
+use uji_macros::{function, value};
+
+use crate::io::{self, Blocked};
 
 static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(two_face::syntax::extra_newlines);
 
@@ -42,11 +45,6 @@ struct Token {
     kind: Kind,
 }
 
-pub(crate) struct Highlighter {
-    parse: ParseState,
-    scopes: ScopeStack,
-}
-
 fn kind(scopes: &ScopeStack) -> Kind {
     KINDS
         .iter()
@@ -70,30 +68,44 @@ fn push(tokens: &mut Vec<Token>, text: &str, kind: Kind) {
     }
 }
 
-#[methods]
-impl Highlighter {
-    fn line(&mut self, text: &str) -> Vec<Token> {
-        let mut tokens = Vec::new();
-        let Ok(ops) = self.parse.parse_line(&format!("{text}\n"), &SYNTAXES) else {
-            push(&mut tokens, text, Kind::Plain);
-            return tokens;
-        };
-        let mut at = 0;
-        for (index, op) in ops {
-            let index = index.min(text.len());
-            if let Some(piece) = text.get(at..index) {
-                push(&mut tokens, piece, kind(&self.scopes));
-                at = index;
-            }
-            drop(self.scopes.apply(&op));
+fn line(parse: &mut ParseState, scopes: &mut ScopeStack, text: &str) -> Vec<Token> {
+    let mut tokens = Vec::new();
+    let Ok(ops) = parse.parse_line(&format!("{text}\n"), &SYNTAXES) else {
+        push(&mut tokens, text, Kind::Plain);
+        return tokens;
+    };
+    let mut at = 0;
+    for (index, op) in ops {
+        let index = index.min(text.len());
+        if let Some(piece) = text.get(at..index) {
+            push(&mut tokens, piece, kind(scopes));
+            at = index;
         }
-        push(
-            &mut tokens,
-            text.get(at..).unwrap_or_default(),
-            kind(&self.scopes),
-        );
-        tokens
+        drop(scopes.apply(&op));
     }
+    push(
+        &mut tokens,
+        text.get(at..).unwrap_or_default(),
+        kind(scopes),
+    );
+    tokens
+}
+
+fn highlighted(language: &str, text: &str) -> Option<Vec<Vec<Token>>> {
+    let syntax = SYNTAXES.find_syntax_by_token(language)?;
+    let mut parse = ParseState::new(syntax);
+    let mut scopes = ScopeStack::new();
+    Some(
+        text.split('\n')
+            .map(|piece| {
+                line(
+                    &mut parse,
+                    &mut scopes,
+                    piece.strip_suffix('\r').unwrap_or(piece),
+                )
+            })
+            .collect(),
+    )
 }
 
 pub(crate) fn warm() {
@@ -101,10 +113,9 @@ pub(crate) fn warm() {
 }
 
 #[function]
-fn highlight(language: &str) -> Option<Highlighter> {
-    let syntax = SYNTAXES.find_syntax_by_token(language)?;
-    Some(Highlighter {
-        parse: ParseState::new(syntax),
-        scopes: ScopeStack::new(),
-    })
+async fn highlight(
+    language: String,
+    text: String,
+) -> Result<Option<Vec<Vec<Token>>>, Blocked<Infallible>> {
+    io::blocking(move || Ok(highlighted(&language, &text))).await
 }

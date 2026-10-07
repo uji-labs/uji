@@ -1,20 +1,17 @@
 local branch = require("uji.core.ui.transcript.branch")
 local Diff = require("uji.core.ui.transcript.diff")
 local ito = require("ito")
+local list = require("uji.utils.list")
 
-local function counts(diff)
-    local added, removed = 0, 0
-    for _, change in ipairs(diff.changes) do
-        for _, line in ipairs(change) do
-            added = added + (line.kind == "added" and 1 or 0)
-            removed = removed + (line.kind == "removed" and 1 or 0)
-        end
-    end
-    return added, removed
+local function counted(lines, kind)
+    return #list.filtered(lines, function(line)
+        return line.kind == kind
+    end)
 end
 
 local function changed(words, diff)
-    local added, removed = counts(diff)
+    local lines = list.flattened(diff.changes)
+    local added, removed = counted(lines, "added"), counted(lines, "removed")
     local parts = {}
     if added > 0 then
         parts[#parts + 1] = string.format(words.added, added, added == 1 and words.line or words.lines)
