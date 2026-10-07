@@ -44,7 +44,14 @@ local BODY = {
     tool = function(_, message, expanded, toggle)
         local content = message.content or ""
         return {
-            ToolOutput({ content = content, failed = failed(content), expanded = expanded, toggle = toggle }),
+            ToolOutput({
+                content = content,
+                summary = message.summary,
+                diff = message.diff,
+                failed = failed(content),
+                expanded = expanded,
+                toggle = toggle,
+            }),
         }
     end,
     shell = function(_, message, expanded, toggle)

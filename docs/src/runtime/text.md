@@ -21,6 +21,26 @@ Ranks the list of strings `items` against `query` the way the pickers do, as
 positions in `items` with the best match first. An empty query gives every
 position in order.
 
+## uji.highlight(language, text)
+
+Highlights `text` away from the screen's thread and gives the tokens of each
+line, or `nil` when uji does not know `language`. `language` is a name such as
+`"python"`, a file extension such as `"rs"`, or a file name such as
+`"Makefile"`. Each token has `text` and `kind`, which is one of `"plain"`,
+`"keyword"`, `"string"`, `"number"`, `"comment"`, `"func"`, `"type"` and
+`"constant"`. Call it from a task, since it waits for the result.
+
+```lua
+uji.task.spawn(function()
+  local lines = uji.highlight("lua", "local n = 42 -- answer")
+  local kinds = {}
+  for _, token in ipairs(lines[1]) do
+    kinds[#kinds + 1] = token.kind .. ": " .. token.text
+  end
+  uji.notify(table.concat(kinds, ", "))
+end)
+```
+
 ## uji.markdown(source)
 
 Parses Markdown into a list of events. Each event is itself a list that starts

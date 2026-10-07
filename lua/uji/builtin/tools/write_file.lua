@@ -1,4 +1,5 @@
 local field = require("uji.builtin.tools.field")
+local words = require("uji.utils.text")
 
 local function line_count(text)
     local _, newlines = text:gsub("\n", "")
@@ -32,6 +33,10 @@ uji.tool.add("write_file", {
     display = {
         verb = "Wrote",
         question = "Would you like to write the following file?",
+        preview = function(args)
+            local path = field.text(args, "path")
+            return uji.diff(uji.fs.read(path) or "", field.text(args, "content"), path)
+        end,
     },
     run = function(args)
         local missing = field.missing(args, "path")
@@ -40,11 +45,17 @@ uji.tool.add("write_file", {
         end
         local path = field.text(args, "path")
         local content = field.text(args, "content")
+        local before = uji.fs.read(path)
         local written, err = uji.fs.write(path, content)
         if not written then
             return "error: " .. err
         end
         local verb = written.created and "created" or "overwrote"
-        return string.format("%s %s (%d lines)", verb, path, line_count(content))
+        local lines = line_count(content)
+        return {
+            text = string.format("%s %s (%d lines)", verb, path, lines),
+            diff = before and uji.diff(before, content, path),
+            summary = "Wrote " .. words.count(lines, "line"),
+        }
     end,
 })

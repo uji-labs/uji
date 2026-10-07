@@ -272,19 +272,38 @@ function Agent:tool_running(call)
     end
 end
 
-function Agent:answer(call, content, attached)
+local function outcome(value)
+    if type(value) == "string" then
+        return { text = value }
+    end
+    if type(value) ~= "table" or type(value.text) ~= "string" then
+        return nil
+    end
+    local attached, problem = images.checked(value.images)
+    return {
+        text = problem and value.text .. "\n[" .. problem .. "]" or value.text,
+        images = attached,
+        diff = value.diff,
+        summary = value.summary,
+    }
+end
+
+function Agent:answer(call, value)
+    local result = outcome(value) or { text = tostring(value) }
     self:append({
         type = "tool",
         tool_call_id = call.id,
         name = call.name,
-        content = sys.lossy(content),
-        images = attached,
+        content = sys.lossy(result.text),
+        images = result.images,
+        diff = result.diff,
+        summary = result.summary,
     })
 end
 
-function Agent:tool_result(call, content, attached)
+function Agent:tool_result(call, value)
     event.emit("tool_progress", {})
-    self:answer(call, content, attached)
+    self:answer(call, value)
     if self.turn then
         self.turn.answered[call.id] = true
         self.turn.running = nil
@@ -332,14 +351,19 @@ function Agent:question(name, entry, args)
     if not ok or detail == nil then
         detail = listing(args)
     end
-    return question, detail
+    local preview = entry and entry.display.preview
+    if not preview then
+        return question, detail
+    end
+    local shown, diff = pcall(preview, args)
+    return question, detail, shown and diff or nil
 end
 
 function Agent:approve(name, args, subject)
     if tool.disabled[name] then
         return { deny = name .. " is disabled" }
     end
-    local entry = tool.get(name)
+    local entry = tool.described(name)
     local verdict = self:verdict(name, entry, args, subject)
     local decision = decision_of(event.ask("before_tool", { name = name, arguments = args })) or verdict
     if decision.allow then
@@ -348,8 +372,13 @@ function Agent:approve(name, args, subject)
     if decision.deny then
         return { deny = decision.deny }
     end
-    local question, detail = self:question(name, entry, args)
-    local answer = self.confirm({ title = decision.title or question, body = detail, timeout = APPROVAL_TIMEOUT })
+    local question, detail, preview = self:question(name, entry, args)
+    local answer = self.confirm({
+        title = decision.title or question,
+        body = detail,
+        preview = preview,
+        timeout = APPROVAL_TIMEOUT,
+    })
     if answer == nil then
         return { deny = "timed out waiting for confirmation" }
     end
@@ -357,20 +386,6 @@ function Agent:approve(name, args, subject)
         return { allow = true, arguments = args }
     end
     return { deny = "user denied" }
-end
-
-local function outcome(value)
-    if type(value) == "string" then
-        return value
-    end
-    if type(value) ~= "table" or type(value.text) ~= "string" then
-        return nil
-    end
-    local attached, problem = images.checked(value.images)
-    if problem then
-        return value.text .. "\n[" .. problem .. "]", attached
-    end
-    return value.text, attached
 end
 
 function Agent:run_tool(call, args)
@@ -387,26 +402,27 @@ function Agent:run_tool(call, args)
     }
     local ok, result = pcall(entry.run, args, ctx)
     if not ok then
-        return "error: " .. sys.message(result)
+        return { text = "error: " .. sys.message(result) }
     end
-    local text, attached = outcome(result)
-    if text then
-        return text, attached
+    local finished = outcome(result)
+    if finished then
+        return finished
     end
     if type(result) == "function" then
         if self.turn then
             self.turn.cancel_tool = result
         end
     elseif result ~= nil then
-        return "error: "
-            .. call.name
-            .. " returned a "
-            .. type(result)
-            .. "; run returns its result, a function that cancels it, or nothing"
+        return {
+            text = "error: "
+                .. call.name
+                .. " returned a "
+                .. type(result)
+                .. "; run returns its result, a function that cancels it, or nothing",
+        }
     end
     local value = promise:await()
-    local finished, returned = outcome(value)
-    return finished or tostring(value), returned
+    return outcome(value) or { text = tostring(value) }
 end
 
 function Agent:budget()

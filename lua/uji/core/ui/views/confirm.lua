@@ -19,6 +19,7 @@ function Confirm:init(opts)
     Modal.init(self)
     self.title = opts.title or ""
     self.body = opts.body or ""
+    self.preview = opts.preview
     self.allow = true
     self.scroll = ito.ScrollState()
 end
@@ -61,6 +62,7 @@ function Confirm:view(_, _, room)
     return Approval({
         title = self.title,
         body = self.body,
+        preview = self.preview,
         allow = self.allow,
         keys = KEYS,
         scroll = self.scroll,

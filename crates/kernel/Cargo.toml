@@ -14,7 +14,7 @@ base64 = "0.22"
 futures-util = "0.3"
 globset = "0.4"
 image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
-ito = { git = "https://github.com/uji-labs/ito", tag = "v0.1.3" }
+ito = { git = "https://github.com/uji-labs/ito", tag = "v0.1.5" }
 keyring = "4"
 linkme = "0.3"
 mlua = { version = "0.12", features = ["luajit52", "vendored", "serde", "async"] }
@@ -27,9 +27,12 @@ rusqlite = "0.40"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+similar = { version = "3.2.0", features = ["inline", "unicode"] }
+syntect = { version = "5.3.0", default-features = false, features = ["parsing", "regex-onig"] }
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "net", "io-util", "sync", "fs", "macros", "signal"] }
 toml = "1"
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-onig"] }
 unicode-width = "0.2"
 uji-macros = { path = "../macros" }
 

@@ -10,7 +10,7 @@ use tokio::sync::Notify;
 use tokio::task::LocalSet;
 
 use crate::vm::{self, Sources};
-use crate::{net, signals, task};
+use crate::{highlight, net, signals, task};
 
 pub struct Options {
     pub sources: Vec<Sources>,
@@ -124,6 +124,7 @@ fn drive(options: Options) -> Result<Outcome, Error> {
         .enable_all()
         .build()?;
     runtime.spawn_blocking(net::warm);
+    runtime.spawn_blocking(highlight::warm);
     signals::force(&runtime)?;
     let Options {
         sources,

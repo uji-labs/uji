@@ -42,9 +42,9 @@
 25|   python
   |1+8 fg=#808080 dim
 26|   def f(x):
-  |3+3 fg=Cyan; 6+6 fg=#D4D4D4
+  |3+3 fg=Cyan; 6+1 fg=#D4D4D4; 7+1 fg=#DCDCAA; 8+4 fg=#D4D4D4
 27|       return "a"  # note
-  |3+4 fg=#D4D4D4; 7+6 fg=Cyan; 13+1 fg=#D4D4D4; 14+3 fg=#E0AF68; 17+2 fg=#D4D4D4; 19+6 fg=#808080 dim italic
+  |3+4 fg=#D4D4D4; 7+6 fg=Cyan; 13+1 fg=#D4D4D4; 14+3 fg=#E0AF68; 17+2 fg=#D4D4D4; 19+6 fg=#808080 italic
 28|
 29|   name │ value
   |3+4 fg=#D4D4D4 bold; 7+3 fg=#808080; 10+5 fg=#D4D4D4 bold

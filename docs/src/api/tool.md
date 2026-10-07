@@ -18,6 +18,7 @@ Registers a tool the model can call, or replaces the tool with the same name.
 | `policy` | string | no | `"allow"`, `"ask"` or `"deny"`. Used when no policy rule matches. |
 | `display.verb` | string | no | The transcript line, such as `"Read"`, which uji follows with the subject. |
 | `display.question` | string | no | The title of the approval question. |
+| `display.preview` | function | no | Receives the arguments and returns the change the call would make, as [`uji.diff`](#ujidiffold-new-path) gives it. The approval question shows it. |
 
 `run(args, ctx)` receives the decoded arguments and a context table. It returns
 the result in one of three ways:
@@ -26,12 +27,19 @@ the result in one of three ways:
 - It returns a function and calls `ctx.done(text)` later. uji calls that
   function to stop the work if you interrupt the turn.
 
-A result may also be a table with `text` and `images`, in any of the three
-ways. `images` is a list in the format the
-[provider API request](apis.md#the-request) describes. The model gets
-the images with the text, and `after_tool` handlers see only the text. An
-image with no supported `media_type`, no `data` or more than 5 MB is left out,
-and a note at the end of the text says so.
+A result may also be a table, in any of the three ways. Only `text` is
+required.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `text` | string | The result the model reads. |
+| `images` | list | Images in the format the [provider API request](apis.md#the-request) describes. The model gets them with the text. |
+| `diff` | table | A change to a file, as [`uji.diff`](#ujidiffold-new-path) gives it. The transcript draws it in place of the text. |
+| `summary` | string | A short line, such as `"Read 40 lines"`, that the transcript shows in place of the text until you click it. |
+
+The model never sees `diff` or `summary`, and `after_tool` handlers see only
+the text. An image with no supported `media_type`, no `data` or more than 5 MB
+is left out, and a note at the end of the text says so.
 
 `ctx.progress(line)` shows a line under the running tool while it works.
 
@@ -46,6 +54,23 @@ uji.tool.add("branch", {
   display = { verb = "Checked the branch", question = "Read the current branch?" },
   run = function()
     return io.popen("git branch --show-current"):read("*l")
+  end,
+})
+```
+
+## uji.tool.display(name, opts)
+
+Describes a tool that uji does not run itself, such as one that a provider's
+[own loop](provider.md) runs, so the transcript and the approval question can
+name its calls. The model is never offered it. `opts` takes `verb`, `subject`,
+`question` and `preview`, which mean the same as `display.verb`, `subject`,
+`display.question` and `display.preview` in `uji.tool.add`.
+
+```lua
+uji.tool.display("Edit", {
+  verb = "Edited",
+  subject = function(args)
+    return args.file_path
   end,
 })
 ```
@@ -151,4 +176,34 @@ argument returns the list without changing it.
 ```lua
 uji.tool.roots({ "~/reference/other-project" })
 local roots = uji.tool.roots()
+```
+
+## uji.diff(old, new, path)
+
+Compares two texts line by line and returns the change as a table, for a
+result's `diff` or a `display.preview`. `path` names the file, and its
+extension, or its name when it has none, picks the colours for the code. The
+table has `path` and `changes`.
+Each change is a list of lines: the lines that changed and, around them, up to
+the theme's `limits.diff_context` lines that did not. A line has:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `"context"`, `"removed"` or `"added"`. |
+| `old`, `new` | The line's number before and after the change. A removed line has no `new`, and an added line has no `old`. |
+| `parts` | The line's text in pieces, each `{ text, changed }`, where `changed` marks the words that differ. |
+
+Raises an error when `old` or `new` is not a string.
+
+```lua
+uji.tool.add("upcase", {
+  description = "Uppercase a file.",
+  parameters = { type = "object", properties = { path = { type = "string" } } },
+  run = function(args)
+    local before = uji.fs.read(args.path)
+    local after = before:upper()
+    uji.fs.write(args.path, after)
+    return { text = "uppercased " .. args.path, diff = uji.diff(before, after, args.path) }
+  end,
+})
 ```

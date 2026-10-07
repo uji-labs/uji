@@ -84,6 +84,16 @@ Marks the controls drawn inside the view with `value`. A
 
 Fix the view's size in cells, whatever its content needs.
 
+## :max_height(rows)
+
+Caps the view's height at `rows`, and leaves a view that needs fewer rows at
+its own height. An `ito.ScrollView` capped this way scrolls what does not fit.
+`math.huge` sets no cap.
+
+```lua
+ito.ScrollView(ito.Lines(log)):max_height(10)
+```
+
 ## :share(fraction)
 
 Gives the view `fraction` of the room in its stack, from `0` to `1`.

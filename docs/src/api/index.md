@@ -7,6 +7,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | Name | Does |
 |---|---|
 | [`uji.tool.add(name, spec)`](tool.md#ujitooladdname-spec) | Registers a tool the model can call, or replaces the tool with the same name. |
+| [`uji.tool.display(name, opts)`](tool.md#ujitooldisplayname-opts) | Describes a tool that uji does not run itself, so the transcript and the approval question can name its calls. |
 | [`uji.tool.remove(name)`](tool.md#ujitoolremovename) | Removes a tool and returns `true` if it existed. |
 | [`uji.tool.list()`](tool.md#ujitoollist) | Returns the names of every registered tool. |
 | [`uji.tool.disable(names)`](tool.md#ujitooldisablenames) | Turns tools off. The model still sees them, and uji denies any call to them. |
@@ -14,6 +15,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.tool.policy(rules)`](tool.md#ujitoolpolicyrules) | Sets which tool calls run without asking, which ask first, and which uji refuses. |
 | [`uji.tool.confine(enabled)`](tool.md#ujitoolconfineenabled) | With `true`, limits `read_file`, `edit_file` and `write_file` to the working directory and the roots from `uji.tool.roots`. |
 | [`uji.tool.roots(paths)`](tool.md#ujitoolrootspaths) | Replaces the directories the file tools may reach besides the working directory, and returns the list. |
+| [`uji.diff(old, new, path)`](tool.md#ujidiffold-new-path) | Compares two texts line by line and returns the change, for a tool result or an approval preview. |
 
 ## Commands
 

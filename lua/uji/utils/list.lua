@@ -37,4 +37,32 @@ function M.extended(list, more)
     return out
 end
 
+function M.mapped(list, change)
+    local out = {}
+    for index, value in ipairs(list) do
+        out[index] = change(value, index)
+    end
+    return out
+end
+
+function M.filtered(list, keep)
+    local out = {}
+    for _, value in ipairs(list) do
+        if keep(value) then
+            out[#out + 1] = value
+        end
+    end
+    return out
+end
+
+function M.flattened(lists)
+    local out = {}
+    for _, inner in ipairs(lists) do
+        for _, value in ipairs(inner) do
+            out[#out + 1] = value
+        end
+    end
+    return out
+end
+
 return M

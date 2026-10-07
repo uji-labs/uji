@@ -1,4 +1,3 @@
-local highlight = require("uji.core.ui.markdown.highlight")
 local latex = require("uji.core.ui.markdown.latex")
 local sys = require("uji.sys")
 
@@ -32,20 +31,30 @@ it("turns TeX into readable text", function()
     assert.equal("a = b\nc ≤ ∞", latex.render("\\begin{aligned} a &= b \\\\ c &\\leq \\infty \\end{aligned}"))
 end)
 
-it("highlights a known language and skips an unknown one", function()
-    local styles = { plain = "text", keyword = "keyword", string = "literal", number = "literal", comment = "comment" }
-    local python = highlight.new("python title=x", styles)
+it("highlights a known language line by line and skips an unknown one", function()
+    local function shape(tokens)
+        local out = {}
+        for index, token in ipairs(tokens) do
+            out[index] = { token.text, token.kind }
+        end
+        return out
+    end
+    local lines = uji.highlight("python", 'def f(x): return "a" # b\nclass Box:\n    value = True\n"""doc\nstring""" 1')
     assert.same({
         { "def", "keyword" },
-        { " f(x): ", "text" },
+        { " ", "plain" },
+        { "f", "func" },
+        { "(x): ", "plain" },
         { "return", "keyword" },
-        { " ", "text" },
-        { '"a"', "literal" },
-        { " ", "text" },
+        { " ", "plain" },
+        { '"a"', "string" },
+        { " ", "plain" },
         { "# b", "comment" },
-    }, python:line('def f(x): return "a" # b'))
-    assert.same({ { '"""doc', "literal" } }, python:line('"""doc'))
-    assert.same({ { 'string"""', "literal" }, { " ", "text" }, { "1", "literal" } }, python:line('string""" 1'))
-    assert.is_nil(highlight.new("brainfuck", styles))
-    assert.is_nil(highlight.new(nil, styles))
+    }, shape(lines[1]))
+    assert.same({ { "class", "keyword" }, { " ", "plain" }, { "Box", "type" }, { ":", "plain" } }, shape(lines[2]))
+    assert.same({ { "    value = ", "plain" }, { "True", "constant" } }, shape(lines[3]))
+    assert.same({ { '"""doc', "comment" } }, shape(lines[4]))
+    assert.same({ { 'string"""', "comment" }, { " ", "plain" }, { "1", "number" } }, shape(lines[5]))
+    assert.equal(1, #uji.highlight("ts", "let value = 1"))
+    assert.is_nil(uji.highlight("brainfuck", "+"))
 end)

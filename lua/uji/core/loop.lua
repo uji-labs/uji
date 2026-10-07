@@ -155,15 +155,15 @@ end
 
 function Loop:execute(call)
     if not self.known[call.name] then
-        return string.format("error: unknown tool `%s`. Available tools: %s.", call.name, table.concat(self.names, ", "))
+        return { text = string.format("error: unknown tool `%s`. Available tools: %s.", call.name, table.concat(self.names, ", ")) }
     end
     local args, problem = arguments(call.arguments)
     if not args then
-        return problem
+        return { text = problem }
     end
     local decision = self.agent:approve(call.name, args)
     if decision.deny then
-        return "denied: " .. decision.deny
+        return { text = "denied: " .. decision.deny }
     end
     return self.agent:run_tool(call, decision.arguments)
 end
@@ -171,15 +171,15 @@ end
 function Loop:run_tools(calls)
     for _, call in ipairs(calls) do
         self.agent:tool_running(call)
-        local result, images = self:execute(call)
-        local content = self.agent:after_tool(call.name, result)
-        self.agent:tool_result(call, content, images)
+        local result = self:execute(call)
+        result.text = self.agent:after_tool(call.name, result.text)
+        self.agent:tool_result(call, result)
         self.messages[#self.messages + 1] = {
             type = "tool",
             tool_call_id = call.id,
             name = call.name,
-            content = content,
-            images = images,
+            content = result.text,
+            images = result.images,
         }
     end
 end

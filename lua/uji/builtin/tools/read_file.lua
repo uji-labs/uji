@@ -1,4 +1,5 @@
 local field = require("uji.builtin.tools.field")
+local words = require("uji.utils.text")
 
 local IMAGES = { png = true, jpg = true, jpeg = true, gif = true, webp = true }
 local EDGE = 1568
@@ -29,7 +30,7 @@ local function page(path, offset, read)
     if last < read.total then
         text = text .. string.format("\n[showed lines %d-%d of %d; continue with offset %d]", offset, last, read.total, last + 1)
     end
-    return text
+    return { text = text, summary = "Read " .. words.count(#rows, "line") }
 end
 
 local function image_file(path)

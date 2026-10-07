@@ -1,8 +1,10 @@
 mod clipboard;
 mod codec;
 mod db;
+mod diff;
 mod fs;
 mod fuzzy;
+mod highlight;
 mod images;
 mod io;
 mod json;

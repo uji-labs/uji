@@ -123,6 +123,30 @@ local Note = ito.view(function(props)
 end)
 ```
 
+## ito.spans.wrap(line, width)
+
+Breaks one line of spans into lines no wider than `width`, and keeps each
+piece in its span's style. It breaks at the last space that fits and drops
+that space, keeps leading spaces with the text after them, and cuts a word
+that is wider than `width`. A line's `on_click` and a span's other fields go
+to every piece. It suits an `ito.Lines` function, which gets the width.
+
+```lua
+local function code(width, value)
+  local out = {}
+  for _, line in ipairs(value.lines) do
+    for _, row in ipairs(ito.spans.wrap(line, width)) do
+      out[#out + 1] = row
+    end
+  end
+  return out
+end
+
+local Code = ito.view(function(props)
+  return ito.Lines(code, { lines = props.lines })
+end)
+```
+
 ## ito.Group(children)
 
 Draws `children` one under another, like `ito.VStack`. Inside an

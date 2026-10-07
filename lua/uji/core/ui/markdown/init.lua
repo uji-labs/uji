@@ -1,7 +1,6 @@
 local class = require("uji.core.class")
 local CodeBlock = require("uji.core.ui.markdown.code_block")
 local Heading = require("uji.core.ui.markdown.heading")
-local highlight = require("uji.core.ui.markdown.highlight")
 local ito = require("ito")
 local latex = require("uji.core.ui.markdown.latex")
 local MathBlock = require("uji.core.ui.markdown.math_block")
@@ -69,7 +68,6 @@ function Renderer:init(ctx)
     self.list = {}
     self.quote = 0
     self.in_code = false
-    self.highlighter = nil
     self.marker = nil
     self.row = nil
 end
@@ -152,7 +150,7 @@ end
 
 function Renderer:code(raw)
     local lines = self.code_block.lines
-    lines[#lines + 1] = self.highlighter and self.highlighter:line(raw) or { { raw, self.ctx.styles.code } }
+    lines[#lines + 1] = raw
 end
 
 function Renderer:close_heading()
@@ -230,14 +228,6 @@ end
 function START.code_block(self, language)
     self:break_block()
     self.in_code = true
-    local styles = self.ctx.styles
-    self.highlighter = highlight.new(language, {
-        plain = styles.text,
-        keyword = styles.code_keyword,
-        string = styles.code_string,
-        number = styles.code_number,
-        comment = styles.code_comment,
-    })
     self.code_block = { language = language ~= "" and language or nil, lines = {} }
 end
 
@@ -280,7 +270,6 @@ end
 
 function STOP.code_block(self)
     self.in_code = false
-    self.highlighter = nil
     self:close_code()
 end
 
