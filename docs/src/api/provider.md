@@ -96,7 +96,7 @@ The loop reports back through `agent`:
 | `agent:delta(kind, text)` | Streams a piece of `"text"` or `"reasoning"` to the screen. |
 | `agent:assistant_step(message)` | Stores an `assistant` message with `text`, `tool_calls` and `reasoning`, when the turn goes on after it. |
 | `agent:tool_running(call)` | Names the call that runs now, so an interrupt can say so. |
-| `agent:approve(name, arguments)` | Runs uji's approval: the tool policy, `before_tool` handlers and the question on screen. Returns `{ allow = true, arguments = ... }` or `{ deny = "reason" }`. |
+| `agent:approve(name, arguments, subject)` | Runs uji's approval: the tool policy, `before_tool` handlers and the question on screen. `subject` is what [policy rules](tool.md#ujitoolpolicyrules) match, such as a command line or a path, and defaults to the tool's own subject or its name. Returns `{ allow = true, arguments = ... }` or `{ deny = "reason" }`. |
 | `agent:after_tool(name, content)` | Runs the `after_tool` handlers over a result. |
 | `agent:tool_result(call, content, images)` | Stores a `tool` message for a call. |
 | `agent:usage(spent)` | Adds `input`, `output`, `cache_read` and `cache_write` tokens to the session. |

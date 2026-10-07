@@ -296,8 +296,11 @@ function Agent:after_tool(name, content)
     return folded
 end
 
-function Agent:verdict(name, entry, args)
-    local ok, subject = pcall(tool.subject, entry, name, args)
+function Agent:verdict(name, entry, args, subject)
+    local ok = true
+    if subject == nil then
+        ok, subject = pcall(tool.subject, entry, name, args)
+    end
     if not ok then
         notices.push(name .. " subject: " .. sys.message(subject))
         return { ask = true }
@@ -320,12 +323,12 @@ function Agent:question(name, entry, args)
     return question, detail
 end
 
-function Agent:approve(name, args)
+function Agent:approve(name, args, subject)
     if tool.disabled[name] then
         return { deny = name .. " is disabled" }
     end
     local entry = tool.get(name)
-    local verdict = self:verdict(name, entry, args)
+    local verdict = self:verdict(name, entry, args, subject)
     local decision = decision_of(event.ask("before_tool", { name = name, arguments = args })) or verdict
     if decision.allow then
         return { allow = true, arguments = args }

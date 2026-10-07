@@ -14,7 +14,6 @@ local M = {
     registry = plugin.track(Registry(plugin.current)),
     disabled = {},
     rules = {},
-    changed = true,
     confined = true,
     extra = {},
 }
@@ -37,7 +36,6 @@ function M.add(name, spec)
     if spec.display ~= nil and type(spec.display) ~= "table" then
         error("display must be a table", 2)
     end
-    M.changed = true
     return M.registry:add(name, {
         name = name,
         description = spec.description or "",
@@ -50,7 +48,6 @@ function M.add(name, spec)
 end
 
 function M.remove(name)
-    M.changed = true
     return M.registry:remove(name)
 end
 
@@ -81,7 +78,7 @@ function M.policy(rules)
     for name, value in pairs(rules) do
         M.rules[name] = value
     end
-    M.changed = true
+    M.cached = nil
 end
 
 function M.confine(enabled)
@@ -114,17 +111,12 @@ function M.workspace()
 end
 
 function M.compiled()
-    if M.changed or not M.cached then
-        local known = {}
-        for _, name in ipairs(M.registry:names()) do
-            known[name] = true
-        end
-        local compiled, problems = Policy.compile(M.rules, known)
+    if not M.cached then
+        local compiled, problems = Policy.compile(M.rules)
         for _, problem in ipairs(problems) do
             notices.push(problem)
         end
         M.cached = compiled
-        M.changed = false
     end
     return M.cached
 end

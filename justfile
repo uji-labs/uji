@@ -1,3 +1,5 @@
+lua_paths := "lua/uji crates/kernel/src crates/tests/lua bench"
+
 default:
     @just --list
 
@@ -5,13 +7,15 @@ default:
 setup:
     git config core.hooksPath .githooks
 
-# Format check (no writes).
+# Format check for Rust and Lua (no writes).
 fmt:
     cargo fmt --all --check
+    stylua --check {{lua_paths}}
 
-# Apply formatting.
+# Apply Rust and Lua formatting.
 fmt-apply:
     cargo fmt --all
+    stylua {{lua_paths}}
 
 # Clippy with warnings denied, plus structural ast-grep rules.
 # `main.rs` is excluded from the print rules — printing is its job.
@@ -22,10 +26,9 @@ lint: scan
 scan:
     ast-grep scan crates/kernel/src crates/uji/src lua/uji
 
-# Lua formatting and lint (needs stylua and luacheck).
+# Lua lint (needs luacheck).
 lua:
-    stylua --check lua/uji crates/kernel/src crates/tests/lua bench
-    luacheck lua/uji crates/kernel/src crates/tests/lua bench
+    luacheck {{lua_paths}}
 
 # The Lua specs; filters pick tests by name, like `just test screen::`.
 test *filters:

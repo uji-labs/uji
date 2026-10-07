@@ -17,14 +17,7 @@ function M.provider(url, context)
 end
 
 function M.allow_all()
-    local allow = { default = "allow" }
-    uji.tool.policy({
-        default = "allow",
-        read_file = allow,
-        edit_file = allow,
-        write_file = allow,
-        run_command = allow,
-    })
+    uji.tool.policy({ default = "allow" })
 end
 
 function M.serve(script)
