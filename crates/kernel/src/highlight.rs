@@ -81,7 +81,9 @@ fn line(parse: &mut ParseState, scopes: &mut ScopeStack, text: &str) -> Vec<Toke
             push(&mut tokens, piece, kind(scopes));
             at = index;
         }
-        drop(scopes.apply(&op));
+        if scopes.apply(&op).is_err() {
+            break;
+        }
     }
     push(
         &mut tokens,
