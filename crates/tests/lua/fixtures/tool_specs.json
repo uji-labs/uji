@@ -35,6 +35,27 @@
   },
   {
     "function": {
+      "description": "Read what a background job printed since the last time you read it, with its status and exit code. uji tells you when a job ends, so call this then rather than in a loop.",
+      "name": "job_output",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The job id run_command gave.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
       "description": "Read a text file and return its contents with 1-based line numbers prefixed as `NNN| `. Read a file before editing it so `edit_file` snippets match exactly. Long files come back in pages; when there is more, the output ends with the offset to continue from. The line numbers are display only - never include them in `edit_file` arguments. PNG, JPEG, GIF and WebP files come back as images you can see.",
       "name": "read_file",
       "parameters": {
@@ -65,7 +86,7 @@
   },
   {
     "function": {
-      "description": "Run a shell command and return its combined stdout and stderr, plus the exit code when it is non-zero. Every command starts in the working directory, so there is no need to `cd` into it first. Use it to build, test, run linters, search with `rg`, `grep` or `find`, and explore with `ls`. Read and change files with `read_file`, `edit_file` and `write_file`. The command is non-interactive: it cannot prompt, and it is killed at the timeout. Output is truncated to the last 2000 lines or 50.0KB, whichever is hit first, and then the full output is saved to a temp file.",
+      "description": "Run a shell command and return its combined stdout and stderr, plus the exit code when it is non-zero. Every command starts in the working directory, so there is no need to `cd` into it first. Use it to build, test, run linters, search with `rg`, `grep` or `find`, and explore with `ls`. Read and change files with `read_file`, `edit_file` and `write_file`. The command is non-interactive: it cannot prompt. Output is truncated to the last 2000 lines or 50.0KB, whichever is hit first, and then the full output is saved to a temp file. Set `run_in_background` for a dev server, a watch build or anything else you do not need to wait for: it returns at once with a job id. A command still running at its timeout moves to the background instead of being stopped. uji tells you when a background job ends, so do not poll `job_output` for it; read its output then, and stop it with `stop_job`.",
       "name": "run_command",
       "parameters": {
         "additionalProperties": false,
@@ -74,14 +95,39 @@
             "description": "Shell command, for example `cargo test -p uji`.",
             "type": "string"
           },
+          "run_in_background": {
+            "description": "Start the command as a background job and return at once.",
+            "type": "boolean"
+          },
           "timeout": {
-            "description": "Seconds before the command is killed. Defaults to 120.",
+            "description": "Seconds before the command moves to the background. Defaults to 120. With run_in_background, the seconds before it is stopped, 30 minutes by default.",
             "minimum": 1,
             "type": "integer"
           }
         },
         "required": [
           "command"
+        ],
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
+      "description": "Stop a background job that is still running.",
+      "name": "stop_job",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The job id run_command gave.",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
         ],
         "type": "object"
       }

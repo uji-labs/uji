@@ -87,13 +87,14 @@ end
 | Ctrl+G | `modal_cancel` | select, suggest, confirm |
 | Shift+Enter, Alt+Enter, Ctrl+J | `insert_newline` | normal |
 | Ctrl+V | `paste_image` | normal |
+| Ctrl+Z | `background` | normal |
 
 Enter, Esc, Tab, the arrow keys, and `y` and `n` in the approval question work
 without a binding. A binding on one of these keys overrides it.
 
 ## Actions
 
-`nothing`, `quit`, `interrupt`, `toggle_thinking`, `submit`, `clear_input`,
+`nothing`, `quit`, `interrupt`, `background`, `toggle_thinking`, `submit`, `clear_input`,
 `backspace`, `delete_forward`, `delete_word_back`, `delete_word_forward`,
 `delete_to_start`, `delete_to_end`, `yank`, `paste_image`, `transpose`, `insert_newline`,
 `cursor_left`, `cursor_right`, `cursor_start`, `cursor_end`, `word_left`,

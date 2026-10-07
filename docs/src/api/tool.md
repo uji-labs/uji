@@ -1,8 +1,9 @@
 # uji.tool
 
-uji ships four tools, `read_file`, `edit_file`, `write_file` and
-`run_command`. The functions below add your own, switch tools off and on, and
-decide which calls need your approval.
+uji ships six tools: `read_file`, `edit_file`, `write_file`, `run_command`,
+and `job_output` and `stop_job` for [background jobs](jobs.md). The functions
+below add your own, switch tools off and on, and decide which calls need your
+approval.
 
 ## uji.tool.add(name, spec)
 
@@ -101,16 +102,17 @@ uji.tool.policy({
 ```
 
 Each rule matches the tool's subject: the path for the file tools, the command
-line for `run_command`, and the `subject` of a tool you add. A rule is an
-exact string, a glob when it contains `*`, `?` or `[`, or a regular expression
-between slashes.
+line for `run_command`, the job's name for `job_output` and `stop_job`, and the
+`subject` of a tool you add. A job's name follows the theme's `text.job`, such
+as `job 3`. A rule is an exact string, a glob when it contains `*`, `?` or `[`,
+or a regular expression between slashes.
 
 uji checks `deny` rules first, then `allow`, then `ask`, and uses the first
 match. With no match, it uses the tool's `default`, then the top-level
-`default`, then the policy the tool declares, then `ask`. `read_file` declares
-`allow` and the other built-in tools declare `ask`. A top-level
-`default = "allow"` runs every tool without asking, except the calls a rule
-matches.
+`default`, then the policy the tool declares, then `ask`. `read_file`,
+`job_output` and `stop_job` declare `allow` and the other built-in tools
+declare `ask`. A top-level `default = "allow"` runs every tool without asking,
+except the calls a rule matches.
 
 ```lua
 uji.tool.policy({

@@ -19,7 +19,7 @@ The job table has three functions:
 - `job.send(text)` writes a line to the process's standard input, adding a
   newline if `text` lacks one.
 - `job.close()` closes standard input.
-- `job.stop()` kills the process.
+- `job.stop()` kills the process and every process it started.
 
 Raises an error when `cmd` is missing or empty.
 

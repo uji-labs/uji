@@ -68,8 +68,9 @@ you cancel. Without `on_done`, the call waits and returns the chosen item.
 | Option | Type | Meaning |
 |---|---|---|
 | `title` | string | The title. |
-| `items` | list of strings | The items to choose from. |
-| `current` | string | The item in use. The list opens on it and labels it with the theme's `text.current`. |
+| `items` | list | The items to choose from: strings, or any values when `label` is given. |
+| `label` | function | Receives an item and returns the text to show for it. `on_done` still receives the item itself. |
+| `current` | any | The item in use. The list opens on it and labels it with the theme's `text.current`. |
 
 ```lua
 uji.ui.select({ title = "Branch", items = { "main", "dev" }, current = "main" }, function(choice)
@@ -88,8 +89,9 @@ chosen item.
 | Option | Type | Meaning |
 |---|---|---|
 | `title` | string | The title. |
-| `items` | list of strings | The items to filter. |
-| `current` | string | The item in use. The list opens on it and labels it with the theme's `text.current`. |
+| `items` | list | The items to filter: strings, or any values when `label` is given. |
+| `label` | function | Receives an item and returns the text to show and filter on. `preview` and `on_done` still receive the item itself. |
+| `current` | any | The item in use. The list opens on it and labels it with the theme's `text.current`. |
 | `preview` | function | Receives the highlighted item and returns lines to show. Without it, an item like `path:line:` shows that part of the file. |
 | `on_query` | function | Makes the list live. Receives the query each time typing pauses, and a `show(items)` function that replaces the list. |
 

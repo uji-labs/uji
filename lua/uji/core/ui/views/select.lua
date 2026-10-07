@@ -13,11 +13,9 @@ Select.mode = "select"
 function Select:init(opts)
     Modal.init(self)
     self.title = opts.title or ""
-    self.current = opts.current
-    self.items = {}
-    for index, item in ipairs(opts.items or {}) do
-        self.items[index] = tostring(item)
-    end
+    self.label = opts.label or tostring
+    self.current = opts.current ~= nil and self.label(opts.current) or nil
+    self:fill(opts.items)
     self.query = Line()
     self:rerank()
     for at, index in ipairs(self.matches) do
@@ -25,6 +23,14 @@ function Select:init(opts)
             self.cursor = at
             break
         end
+    end
+end
+
+function Select:fill(items)
+    self.values, self.items = {}, {}
+    for index, item in ipairs(items or {}) do
+        self.values[index] = item
+        self.items[index] = self.label(item)
     end
 end
 
@@ -47,7 +53,7 @@ end
 
 function Select:chosen()
     local index = self.matches[self.cursor]
-    return index and self.items[index]
+    return index and self.values[index]
 end
 
 function Select:accept()

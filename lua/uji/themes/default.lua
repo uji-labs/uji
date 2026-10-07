@@ -1,4 +1,5 @@
 local ito = require("ito")
+local tables = require("uji.core.tables")
 
 local COLORS = {
     text = ito.rgb(0xd4d4d4),
@@ -129,6 +130,7 @@ local TEXT = {
     resume = "resume",
     quit = "quit",
     working = "Working (%ds)",
+    job = "job %d",
     copied = "copied %d line(s)",
     copied_terminal = "copied %d line(s) via the terminal",
     pasted_lines = "[paste #%d +%d lines]",
@@ -161,30 +163,19 @@ local LIMITS = {
     paste_chars = 80,
 }
 
-local function merged(base, changes)
-    local out = {}
-    for key, value in pairs(base) do
-        out[key] = value
-    end
-    for key, value in pairs(changes or {}) do
-        out[key] = value
-    end
-    return out
-end
-
 return function(changes)
     changes = changes or {}
-    local colors = merged(COLORS, changes.colors)
+    local colors = tables.merged(COLORS, changes.colors)
     local extra = type(changes.styles) == "function" and changes.styles(colors) or changes.styles
     return {
         name = changes.name or "default",
         colors = colors,
-        styles = merged(styles(colors), extra),
-        symbols = merged(SYMBOLS, changes.symbols),
-        borders = merged(BORDERS, changes.borders),
-        text = merged(TEXT, changes.text),
-        limits = merged(LIMITS, changes.limits),
-        options = merged({}, changes.options),
-        views = merged({}, changes.views),
+        styles = tables.merged(styles(colors), extra),
+        symbols = tables.merged(SYMBOLS, changes.symbols),
+        borders = tables.merged(BORDERS, changes.borders),
+        text = tables.merged(TEXT, changes.text),
+        limits = tables.merged(LIMITS, changes.limits),
+        options = tables.merged({}, changes.options),
+        views = tables.merged({}, changes.views),
     }
 end

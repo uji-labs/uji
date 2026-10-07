@@ -48,6 +48,7 @@
   - [uji.auth](api/auth.md)
   - [Provider APIs](api/apis.md)
   - [uji.job](api/job.md)
+  - [uji.jobs](api/jobs.md)
   - [uji.http](api/http.md)
   - [uji.fs](api/fs.md)
   - [uji.json](api/json.md)

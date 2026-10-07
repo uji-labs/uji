@@ -27,7 +27,7 @@ screen.
 | `core/event.lua`, `core/task.lua`, `core/plugin.lua`, `core/registry.lua`, `core/class.lua` | Events, tasks, plugin ownership and the building blocks the rest is made of. |
 | `builtin/providers/` | The providers `/login` lists, each with the API it speaks and its own changes to it. |
 | `builtin/apis/` | The Chat Completions, Responses, Anthropic and Gemini API classes, and the streaming they share. |
-| `builtin/tools/` | `read_file`, `edit_file`, `write_file` and `run_command`. |
+| `builtin/tools/` | `read_file`, `edit_file`, `write_file`, `run_command`, `job_output` and `stop_job`. |
 | `builtin/commands/` | The built-in slash commands, one file each. |
 | `builtin/defaults.lua` | The default tool policy and bindings that `require("uji.builtin.defaults")` loads. |
 | `themes/default.lua` | The default theme, and the function other themes build on. |

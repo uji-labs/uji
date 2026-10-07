@@ -59,8 +59,8 @@ it("lists the newest first and shows a whole entry in the preview", function()
     end
     require("uji.core.command").run("diagnostics")
     assert.equal(2, #asked.items)
-    assert.is_true(has(asked.items[1], "modal  newer"))
-    assert.is_true(has(asked.items[2], "render  older"))
+    assert.is_true(has(asked.label(asked.items[1]), "modal  newer"))
+    assert.is_true(has(asked.label(asked.items[2]), "render  older"))
     assert.same({ "older", "stack traceback:", "\tsomewhere" }, asked.preview(asked.items[2]))
 end)
 

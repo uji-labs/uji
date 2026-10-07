@@ -186,11 +186,23 @@ function Agent:submit(text, attached)
     local sent = said(text, attached)
     self:append(sent)
     self:maybe_title(text)
+    self:open(text, { text = text, images = sent.images })
+end
+
+function Agent:open(text, prompt)
     local system, turn = self:prompt(text)
-    for _, message in ipairs(turn) do
+    local gathered = {}
+    for index, message in ipairs(turn) do
         self:append(message)
+        gathered[index] = message.text
     end
-    self:start(system, { text = text, images = sent.images })
+    self:start(system, prompt or { text = table.concat(gathered, "\n\n") })
+end
+
+function Agent:wake()
+    if not self:working() then
+        self:open("")
+    end
 end
 
 function Agent:start(system, prompt)

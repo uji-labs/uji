@@ -115,15 +115,54 @@ async fn pipe(reader: impl AsyncRead + Unpin, stream: Stream, lines: mpsc::Unbou
     }
 }
 
+impl Drop for Proc {
+    fn drop(&mut self) {
+        if self.status.borrow().is_none() {
+            stop_group(self.pid);
+        }
+    }
+}
+
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn own_session(command: &mut Command) {
+    unsafe {
+        command.pre_exec(|| {
+            nix::unistd::setsid()
+                .map(drop)
+                .map_err(std::io::Error::from)
+        });
+    }
+}
+
+#[cfg(not(unix))]
+fn own_session(_: &mut Command) {}
+
+#[cfg(unix)]
+fn stop_group(pid: Option<u32>) -> bool {
+    use nix::sys::signal::{Signal, killpg};
+    use nix::unistd::Pid;
+    pid.and_then(|id| i32::try_from(id).ok())
+        .is_some_and(|id| killpg(Pid::from_raw(id), Signal::SIGKILL).is_ok())
+}
+
+#[cfg(not(unix))]
+fn stop_group(_: Option<u32>) -> bool {
+    false
+}
+
 async fn supervise(
     mut child: Child,
     mut killed: mpsc::UnboundedReceiver<()>,
     report: watch::Sender<Option<Exit>>,
 ) {
+    let pid = child.id();
     let status = tokio::select! {
         status = child.wait() => status,
         _ = killed.recv() => {
-            drop(child.start_kill());
+            if !stop_group(pid) {
+                drop(child.start_kill());
+            }
             child.wait().await
         }
     };
@@ -195,7 +234,7 @@ fn command(line: &[String], opts: SpawnOptions) -> std::io::Result<Command> {
         .stderr(Stdio::piped())
         .kill_on_drop(true);
     match opts.stdio.as_deref() {
-        None | Some("pipe") => {}
+        None | Some("pipe") => own_session(&mut command),
         Some("inherit") => {
             command
                 .stdin(Stdio::inherit())

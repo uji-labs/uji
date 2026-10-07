@@ -36,6 +36,18 @@ local function strings(list, what)
     return list
 end
 
+local function choices(opts)
+    if opts.label == nil then
+        return strings(opts.items, "items")
+    end
+    if not check.callable(opts.label) then
+        error("label must be a function", 3)
+    end
+    if type(opts.items) ~= "table" then
+        error("items must be a list", 3)
+    end
+end
+
 local M = {}
 
 M.ui = {
@@ -62,12 +74,12 @@ M.ui = {
     end,
     select = task.callback(function(opts)
         check.options(opts, "uji.ui.select")
-        strings(opts.items, "items")
+        choices(opts)
         return ui:ask(Select(opts))
     end),
     pick = task.callback(function(opts)
         check.options(opts, "uji.ui.pick")
-        strings(opts.items, "items")
+        choices(opts)
         return ui:ask(Pick(opts))
     end),
     prompt = task.callback(function(opts)
@@ -128,6 +140,7 @@ M.ui.Thinking = require("uji.core.ui.transcript.thinking")
 M.ui.Queued = require("uji.core.ui.transcript.queued")
 M.ui.Compaction = require("uji.core.ui.transcript.compaction")
 M.ui.Running = require("uji.core.ui.transcript.running")
+M.ui.Job = require("uji.core.ui.transcript.job")
 M.ui.Partial = require("uji.core.ui.transcript.partial")
 M.ui.Jump = require("uji.core.ui.transcript.jump")
 M.ui.Paragraph = require("uji.core.ui.markdown.paragraph")
