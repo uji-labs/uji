@@ -397,7 +397,7 @@ return require("uji.themes.default")({
 | `uji.ui.UserMessage` | `message` | One of your messages. |
 | `uji.ui.ToolCall` | `call`, with `name` and `arguments` | A tool call, described the way its tool asks. |
 | `uji.ui.ToolOutput` | `content`, `summary`, `diff`, `failed`, `expanded`, `toggle` | A tool's result. It shows the `diff` when the result has one with changes, otherwise the `summary` until it is opened, otherwise the content. `toggle` opens or folds it, and the default view calls it when you click a line. |
-| `uji.ui.Diff` | `diff`, `indent`, `limit`, `toggle` | The lines of a diff, with their numbers and colours, in a tool's result and in the approval question. `diff` is what [`uji.diff`](../api/tool.md#ujidiffold-new-path) gives, `indent` goes before each line, `limit`, when given, folds it after that many rows, and `toggle` opens or folds it. |
+| `uji.ui.Diff` | `diff`, `limit`, `toggle` | The lines of a diff, with their numbers and colours, in a tool's result and in the approval question. `diff` is what [`uji.diff`](../api/tool.md#ujidiffold-new-path) gives, `limit`, when given, folds it after that many rows, and `toggle` opens or folds it. |
 | `uji.ui.Shell` | `command`, `code`, `output`, `failed`, `expanded`, `toggle` | A command you ran with `!`. |
 | `uji.ui.SystemMessage`, `uji.ui.ErrorMessage`, `uji.ui.Notice`, `uji.ui.Queued`, `uji.ui.Thinking` | `text` | A message or line of that kind. |
 | `uji.ui.Partial` | `text` | The last line of a reply that is still arriving. |
@@ -407,7 +407,8 @@ return require("uji.themes.default")({
 | `uji.ui.Jump` | `follow` | The label that takes you back to the bottom, centred in the bottom row of the transcript. `follow` goes back. |
 | `uji.ui.Paragraph` | `tokens`, `indent`, `hanging` | A markdown paragraph or list item. Each token has `text`, `style` and `spaced`, and `indent` and `hanging` start the first and the following lines. |
 | `uji.ui.Heading` | `level`, `content` | A markdown heading. `content` is the heading's text as a view. |
-| `uji.ui.CodeBlock` | `language`, `lines` | A fenced code block. `lines` holds lists of highlighted spans, and `language` can be `nil`. |
+| `uji.ui.CodeBlock` | `language`, `lines` | A fenced code block: its language, then its code. `lines` holds the lines of code, and `language` can be `nil`. |
+| `uji.ui.Code` | `language`, `lines` | The lines of a code block, highlighted for `language`, without the language above them. |
 | `uji.ui.MathBlock` | `lines` | Display maths, already turned into text. |
 | `uji.ui.TableRow` | `cells`, `head` | One row of a table. `cells` holds one list of spans per cell, and `head` is true for the header row. |
 | `uji.ui.Rule` | none | A markdown rule. |

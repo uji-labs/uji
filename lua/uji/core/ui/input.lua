@@ -18,5 +18,5 @@ return ito.view(function()
     return ito.HStack({
         ito.Text(ctx.symbols.input):style(styles.accent):repeating(),
         ito.Text(shown):style(styles.input):wrap():grow():max_height(ctx.limits.input_rows),
-    })
+    }):spacing(1)
 end)
