@@ -52,7 +52,7 @@ function Ui:init()
     self.keymap = Keymap()
     self.theme = Theme()
     self.composer = Composer(self.theme)
-    self.sends = task.sequence()
+    self.sends, self.sending = task.sequence()
     self.stream = Stream()
     self.reasoning = ""
     self.notices = {}

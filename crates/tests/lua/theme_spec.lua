@@ -1,3 +1,4 @@
+local agent = require("support.agent")
 local app = require("uji.core.app")
 local default = require("uji.themes.default")
 local Confirm = require("uji.core.ui.views.confirm")
@@ -10,9 +11,12 @@ local screen = require("support.ui")
 local Pick = require("uji.core.ui.views.pick")
 local Prompt = require("uji.core.ui.views.prompt")
 local Select = require("uji.core.ui.views.select")
+local server = require("support.server")
 local sessions = require("uji.core.ui.sessions")
 local Suggest = require("uji.core.ui.views.suggest")
+local sys = require("uji.sys")
 local ui = require("uji.core.ui")
+local wait = require("support.wait")
 
 local DEFAULT_COLOURS = { "#D4D4D4", "#808080", "#E0AF68", "Cyan", "#343541", "#3A3A4A", "White", "Red" }
 
@@ -244,6 +248,62 @@ describe("themes", function()
         assert.equal("| C", rows[2]:sub(1, 3))
         assert.is_true(has(rows[5], "hello"))
         assert.is_false(has(rows[10], "─"))
+    end)
+
+    local function greet()
+        uji.ui.configure({
+            theme = default({
+                views = {
+                    [uji.ui.Greeting] = function()
+                        return ito.Text("welcome")
+                    end,
+                },
+            }),
+        })
+    end
+
+    local function greeted()
+        return has(table.concat(screen.rows(true), "\n"), "welcome")
+    end
+
+    it("shows the theme's greeting until you type or the session has a message", { size = { 40, 8 } }, function()
+        greet()
+        assert.is_true(greeted())
+        ui:set_input("h")
+        assert.is_false(greeted())
+        ui:set_input("")
+        assert.is_true(greeted())
+        app.session:append({ type = "user", text = "hello" })
+        assert.is_false(greeted())
+    end)
+
+    it("keeps the greeting away while your first message is on its way", { size = { 40, 8 } }, function()
+        local mock = agent.serve(function()
+            return server.text("hi")
+        end)
+        agent.provider(mock.url)
+        uji.model.use({ provider = "test", model = "m" })
+        greet()
+        local finished = sys.promise()
+        uji.on("turn_finished", function()
+            finished:resolve()
+        end)
+        ui:set_input("hello")
+        screen.press("enter")
+        assert.is_false(greeted())
+        finished:await()
+        assert.is_false(greeted())
+    end)
+
+    it("keeps the greeting away while a shell command runs", { size = { 40, 8 } }, function()
+        greet()
+        ui:set_input("!sleep 0.3")
+        screen.press("enter")
+        assert.is_false(greeted())
+        wait.eventually(function()
+            return #app.session:entries() > 0
+        end)
+        assert.is_false(greeted())
     end)
 
     it("sizes rows and columns by cells, shares and content", { size = { 40, 10 } }, function()

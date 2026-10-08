@@ -1511,7 +1511,7 @@ dependencies = [
 [[package]]
 name = "ito"
 version = "0.1.5"
-source = "git+https://github.com/uji-labs/ito?branch=main#ba7d22aa7479461445be4bc0e941f0657fb3a23c"
+source = "git+https://github.com/uji-labs/ito?branch=main#7fa8b0aac12578e850d7b0ecad4fc41e53207b4e"
 dependencies = [
  "crossterm",
  "mlua",

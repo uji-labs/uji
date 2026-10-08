@@ -106,6 +106,39 @@ describe("the screen", function()
         assert.is_true(wrapped > 1, "a long message should take more than one row")
     end)
 
+    it("lines up the columns of a table and wraps its last column", { size = { 34, 14 } }, function()
+        app.session:append({
+            type = "assistant",
+            text = "| name | value |\n|---|---|\n| a | 1 |\n| longer | some words that wrap past the edge |",
+        })
+        local rows = screen.rows(true)
+        local columns, wrapped = {}, false
+        for _, row in ipairs(rows) do
+            local at = row:find("│", 1, true)
+            if at and (has(row, "name") or has(row, " a ") or has(row, "longer")) then
+                columns[#columns + 1] = at
+            elseif at and has(row, "past") then
+                wrapped = true
+            end
+        end
+        assert.equal(3, #columns)
+        assert.equal(columns[1], columns[2])
+        assert.equal(columns[1], columns[3])
+        assert.is_true(wrapped, "the last column wraps under itself")
+    end)
+
+    it("keeps every column of a table wider than the screen", { size = { 40, 14 } }, function()
+        app.session:append({
+            type = "assistant",
+            text = "| opt | description | example |\n|---|---|---|\n| a | this description is far too long to fit on one row of a forty column screen | yes |\n| b | short | no |",
+        })
+        local shown = table.concat(screen.rows(true), "\n")
+        assert.is_true(has(shown, "example"))
+        assert.is_true(has(shown, "yes"))
+        assert.is_true(has(shown, "no"))
+        assert.is_true(has(shown, "column screen"))
+    end)
+
     it("keeps the choices of a tall confirm on screen and scrolls its body", { size = { 60, 20 } }, function()
         local body = {}
         for n = 1, 200 do

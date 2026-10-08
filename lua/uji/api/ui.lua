@@ -132,6 +132,7 @@ M.ui = {
 M.ui.Markdown = markdown.Markdown
 
 M.ui.Screen = require("uji.core.ui.screen").Screen
+M.ui.Greeting = require("uji.core.ui.greeting")
 M.ui.Activity = require("uji.core.ui.activity")
 M.ui.Input = require("uji.core.ui.input")
 M.ui.Flash = require("uji.core.ui.flash")
@@ -155,7 +156,7 @@ M.ui.Heading = require("uji.core.ui.markdown.heading")
 M.ui.CodeBlock = require("uji.core.ui.markdown.code_block")
 M.ui.Code = require("uji.core.ui.markdown.code")
 M.ui.MathBlock = require("uji.core.ui.markdown.math_block")
-M.ui.TableRow = require("uji.core.ui.markdown.table_row")
+M.ui.Table = require("uji.core.ui.markdown.table")
 M.ui.Rule = require("uji.core.ui.markdown.rule")
 M.ui.SelectList = require("uji.core.ui.pickers.select_list")
 M.ui.PromptField = require("uji.core.ui.pickers.prompt_field")
