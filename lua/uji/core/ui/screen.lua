@@ -1,11 +1,25 @@
 local Activity = require("uji.core.ui.activity")
+local app = require("uji.core.app")
+local Greeting = require("uji.core.ui.greeting")
+local host = require("uji.core.ui.host")
 local ito = require("ito")
 local presentations = require("uji.core.ui.presentations")
 local Transcript = require("uji.core.ui.transcript")
 
 local M = {}
 
+local Greeted = ito.view(function()
+    local ui, session = host.Host.current, app.session
+    if ui.sending() or ui.running or not ui.composer.line:empty() or (session ~= nil and #session:entries() > 0) then
+        return nil
+    end
+    return Greeting()
+end)
+
 M.slots = {
+    greeting = function()
+        return Greeted()
+    end,
     transcript = function()
         return Transcript()
     end,
@@ -28,6 +42,7 @@ M.Screen = ito.view(function(screen)
             ito.Spacer(),
             ito.ToolbarItems(placement.top_bar_trailing, ito.HStack),
         }),
+        screen.greeting(),
         screen.transcript():grow(),
         screen.activity():padding({ vertical = 1 }),
         screen.modals(),

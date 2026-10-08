@@ -70,7 +70,10 @@ Stacks `rows` like `ito.VStack` and lines up the cells of each
 `ito.GridRow` in columns. A column is as wide as its widest cell, and a column
 with a cell that has `grow` takes a part of the columns the others leave. A
 cell with [`:align`](modifiers.md#alignalignment) keeps its own size inside its
-column. A row that is not an `ito.GridRow` takes the whole width.
+column. When the columns are wider than the grid, the columns with a cell that
+has [`:shrink`](modifiers.md#shrink) narrow, the widest first, until they fit,
+and the narrower ones keep their width. A row that is not an `ito.GridRow`
+takes the whole width.
 
 ```lua
 ito.Grid({

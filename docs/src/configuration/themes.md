@@ -318,6 +318,7 @@ gives a fresh view of that part:
 | `screen.composer()` | The input line, or the approval question, which takes the input line's place while it is open. |
 | `screen.modals()` | The lists to choose from, the prompts, the command suggestions and overlays opened with `float = false`. They take no room while none is open, and on a screen without this part they float in a box instead. |
 | `screen.activity()` | The line shown while the model works, with no room while the model is idle. |
+| `screen.greeting()` | The theme's [`uji.ui.Greeting`](#views). |
 
 Plugins put their views in [toolbar sections](../ito/toolbars.md), and the
 screen decides where each section sits with
@@ -359,6 +360,7 @@ function(screen)
       ito.Spacer(),
       ito.ToolbarItems(placement.top_bar_trailing, ito.HStack),
     }),
+    screen.greeting(),
     screen.transcript():grow(),
     screen.activity():padding({ vertical = 1 }),
     screen.modals(),
@@ -394,6 +396,7 @@ return require("uji.themes.default")({
 | View | Props | What it draws |
 |---|---|---|
 | `uji.ui.Screen` | the parts | The whole screen. See [The screen](#the-screen). |
+| `uji.ui.Greeting` | none | What the screen shows before you start, such as a logo. It draws nothing until a theme replaces it. |
 | `uji.ui.UserMessage` | `message` | One of your messages. |
 | `uji.ui.ToolCall` | `call`, with `name` and `arguments` | A tool call, described the way its tool asks. |
 | `uji.ui.ToolOutput` | `content`, `summary`, `diff`, `failed`, `expanded`, `toggle` | A tool's result. It shows the `diff` when the result has one with changes, otherwise the `summary` until it is opened, otherwise the content. `toggle` opens or folds it, and the default view calls it when you click a line. |
@@ -410,7 +413,7 @@ return require("uji.themes.default")({
 | `uji.ui.CodeBlock` | `language`, `lines` | A fenced code block: its language, then its code. `lines` holds the lines of code, and `language` can be `nil`. |
 | `uji.ui.Code` | `language`, `lines` | The lines of a code block, highlighted for `language`, without the language above them. |
 | `uji.ui.MathBlock` | `lines` | Display maths, already turned into text. |
-| `uji.ui.TableRow` | `cells`, `head` | One row of a table. `cells` holds one list of spans per cell, and `head` is true for the header row. |
+| `uji.ui.Table` | `rows` | A table, its columns lined up. Each row has `cells`, one list of spans per cell, and `head`, which is true for the header row. |
 | `uji.ui.Rule` | none | A markdown rule. |
 | `uji.ui.Activity` | none | The line shown while the model works. |
 | `uji.ui.Flash` | none | The copy message in the top right corner. |

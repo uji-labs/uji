@@ -106,21 +106,26 @@ function M.timeout(seconds, fn)
 end
 
 function M.sequence()
-    local last
-    return function(fn)
+    local last, queued = nil, 0
+    local function busy()
+        return queued > 0
+    end
+    local function run(fn)
         local before, done = last, sys.promise()
-        last = done
+        last, queued = done, queued + 1
         sys.task.spawn(inherit(function()
             if before then
                 before:await()
             end
             local ok, err = pcall(fn)
+            queued = queued - 1
             done:resolve()
             if not ok then
                 error(err, 0)
             end
         end))
     end
+    return run, busy
 end
 
 function M.callback(run)

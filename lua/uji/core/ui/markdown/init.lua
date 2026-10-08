@@ -7,7 +7,7 @@ local MathBlock = require("uji.core.ui.markdown.math_block")
 local Paragraph = require("uji.core.ui.markdown.paragraph")
 local Rule = require("uji.core.ui.markdown.rule")
 local sys = require("uji.sys")
-local TableRow = require("uji.core.ui.markdown.table_row")
+local Table = require("uji.core.ui.markdown.table")
 
 local text = ito.text
 
@@ -68,6 +68,7 @@ function Renderer:init(ctx)
     self.in_code = false
     self.marker = nil
     self.row = nil
+    self.table = nil
 end
 
 function Renderer:add(view)
@@ -128,9 +129,16 @@ function Renderer:cell(value, style)
 end
 
 function Renderer:finish_row()
-    local row = self.row
+    local rows = self.table.rows
+    rows[#rows + 1] = self.row
     self.row = nil
-    self:add(TableRow(row))
+end
+
+function Renderer:close_table()
+    if self.table then
+        self:add(Table(self.table))
+        self.table = nil
+    end
 end
 
 function Renderer:inline(value, style)
@@ -227,6 +235,7 @@ end
 
 function START.table(self)
     self:break_block()
+    self.table = { rows = {} }
 end
 
 function START.table_head(self)
@@ -272,6 +281,10 @@ function STOP.table_head(self)
 end
 
 STOP.table_row = STOP.table_head
+
+function STOP.table(self)
+    self:close_table()
+end
 
 local EVENTS = {
     start = function(self, tag, detail)
@@ -327,6 +340,7 @@ function Renderer:finish()
     self:flush()
     self:close_heading()
     self:close_code()
+    self:close_table()
     return self.blocks
 end
 

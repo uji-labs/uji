@@ -47,9 +47,9 @@
   |3+4 fg=#D4D4D4; 7+6 fg=Cyan; 13+1 fg=#D4D4D4; 14+3 fg=#E0AF68; 17+2 fg=#D4D4D4; 19+6 fg=#808080 italic
 28|
 29|   name │ value
-  |3+4 fg=#D4D4D4 bold; 7+3 fg=#808080; 10+5 fg=#D4D4D4 bold
-30|   a │ 1
-  |3+1 fg=#D4D4D4; 4+3 fg=#808080; 7+1 fg=#D4D4D4
+  |3+4 fg=#D4D4D4 bold; 8+1 fg=#808080; 10+5 fg=#D4D4D4 bold
+30|   a    │ 1
+  |3+1 fg=#D4D4D4; 8+1 fg=#808080; 10+1 fg=#D4D4D4
 31|
 32| Inline x² and display:
   |1+6 fg=#D4D4D4; 8+2 fg=#E0AF68; 11+3 fg=#D4D4D4; 15+8 fg=#D4D4D4

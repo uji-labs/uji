@@ -627,9 +627,9 @@ function Agent:run_shell(command)
             output = output .. "… interrupted"
         end
         self.shell = nil
+        self:append({ type = "shell", command = command, output = output, code = code })
         event.emit("tool_progress", { owner = name })
         event.emit("shell_finished", { command = command, code = code })
-        self:append({ type = "shell", command = command, output = output, code = code })
     end)
 end
 
