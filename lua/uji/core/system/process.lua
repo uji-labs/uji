@@ -9,6 +9,7 @@ local MAX_LINES = 2000
 local KILOBYTE = 1024
 local MEGABYTE = 1024 * KILOBYTE
 local MAX_BYTES = 50 * KILOBYTE
+local LAUNCHERS = { macos = "open", windows = "explorer", linux = "xdg-open", other = "xdg-open" }
 
 local M = {}
 
@@ -165,6 +166,17 @@ function M.launch(command, opts)
     return sys.proc.spawn(command.argv, opts)
 end
 
+function M.open(target, cwd)
+    local launcher = LAUNCHERS[sys.os.platform] or "xdg-open"
+    local argv = sys.os.platform == "windows" and { launcher, target } or { "sh", "-c", '"$0" "$1" >/dev/null 2>&1 &', launcher, target }
+    local proc = sys.proc.spawn(argv, { cwd = cwd })
+    if proc then
+        task.spawn(function()
+            proc:wait()
+        end)
+    end
+end
+
 function M.spawn(spec)
     local proc, err = M.launch(spec, { cwd = spec.cwd, env = spec.env })
     if not proc then
@@ -216,7 +228,11 @@ function M.start(spec)
     end
     task.spawn(function()
         local result = M.watch(proc, spec.timeout, function(stream, line)
-            call(stream == "stderr" and spec.on_stderr or spec.on_stdout, line)
+            if stream == "stderr" then
+                call(spec.on_stderr, line)
+            else
+                call(spec.on_stdout, line)
+            end
         end)
         if result.timed_out then
             return call(spec.on_exit, -1, "timeout")

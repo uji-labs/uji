@@ -54,6 +54,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.ui.Markdown(text)`](ui.md#ujiuimarkdowntext) | A view that draws markdown. |
 | [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |
+| [`uji.ui.open(target)`](ui.md#ujiuiopentarget) | Opens a file or link in the app the system uses for it. |
 | [`uji.ui.configure(opts)`](ui.md#ujiuiconfigureopts) | Sets colours and screen behaviour. |
 | [`uji.ui.theme()`](ui.md#ujiuitheme) | Returns the theme in use. |
 | [`uji.ui.save_theme(name)`](ui.md#ujiuisave_themename) | Keeps a theme for the next time uji starts. |
@@ -155,6 +156,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.fs.write(path, content, on_done)`](fs.md#ujifswritepath-content-on_done) | Writes a file, creating missing directories. |
 | [`uji.fs.list(path, on_done)`](fs.md#ujifslistpath-on_done) | Lists a directory. |
 | [`uji.fs.glob(pattern, on_done)`](fs.md#ujifsglobpattern-on_done) | Lists the paths that match a pattern. |
+| [`uji.fs.join(base, ...)`](fs.md#ujifsjoinbase-) | Joins parts into one path. |
 | [`uji.data.read(name, on_done)`](data.md#ujidatareadname-on_done) | Reads a plugin's file in the data directory. |
 | [`uji.data.write(name, text, on_done)`](data.md#ujidatawritename-text-on_done) | Writes a plugin's file in the data directory. |
 | [`uji.config.files(folder, opts, on_done)`](config.md#ujiconfigfilesfolder-opts-on_done) | Reads the files in a folder of your config, your packs and, if asked, the project. |

@@ -3,6 +3,7 @@ local check = require("uji.core.check")
 local notices = require("uji.core.notices")
 local oauth = require("uji.core.auth.oauth")
 local paths = require("uji.core.paths")
+local process = require("uji.core.system.process")
 
 local M = { options = { keychain = false } }
 
@@ -78,7 +79,7 @@ function M.login(provider)
         return nil, tostring(flow)
     end
     local url = flow:url()
-    oauth.open_browser(url)
+    process.open(url)
     notices.push("opened your browser to sign in - " .. url)
     local signed, grant = pcall(oauth.login, provider.oauth, flow, server)
     if not signed then

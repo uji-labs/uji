@@ -7,7 +7,6 @@ local CALLBACK_TIMEOUT = 300
 local READ_TIMEOUT = 5
 local EXPIRY_SKEW = 300
 local MAX_ERROR_BODY = 500
-local LAUNCHERS = { macos = "open", windows = "explorer", linux = "xdg-open", other = "xdg-open" }
 
 local M = {}
 
@@ -85,17 +84,6 @@ end
 
 function M.expired(credential)
     return (credential.expires_at or 0) ~= 0 and M.now() >= credential.expires_at
-end
-
-function M.open_browser(url)
-    local launcher = LAUNCHERS[sys.os.platform] or "xdg-open"
-    local argv = sys.os.platform == "windows" and { launcher, url } or { "sh", "-c", '"$0" "$1" >/dev/null 2>&1 &', launcher, url }
-    local proc = sys.proc.spawn(argv)
-    if proc then
-        task.spawn(function()
-            proc:wait()
-        end)
-    end
 end
 
 local Flow = class()

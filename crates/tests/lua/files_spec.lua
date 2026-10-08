@@ -82,6 +82,13 @@ it("joins, splits and compares paths in the kernel", function()
     assert.equal("/elsewhere/x", sys.os.shorten("/elsewhere/x"))
 end)
 
+it("gives plugins the kernel's join and refuses to open nothing", function()
+    assert.equal("~/.claude/projects", uji.fs.join("~", ".claude", "projects"))
+    assert.has_error(function()
+        uji.ui.open("")
+    end, "uji.ui.open needs a file or link to open")
+end)
+
 it("keeps a plugin's own file in the data directory", function()
     assert.is_true(uji.data.write("notes.json", "{}"))
     assert.equal("{}", uji.data.read("notes.json"))

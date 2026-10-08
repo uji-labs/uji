@@ -1,7 +1,7 @@
 # uji.fs
 
-Every function here goes through the same checks as the file tools.
-Relative paths start at the working directory.
+Reading, writing, listing and globbing go through the same checks as the file
+tools, and their relative paths start at the working directory.
 
 ## uji.fs.read(path, on_done)
 
@@ -82,4 +82,13 @@ uji.fs.glob("src/**/*.rs", function(found, err)
     uji.notify(#found .. " Rust files")
   end
 end)
+```
+
+## uji.fs.join(base, ...)
+
+Joins `base` and the parts after it into one path, with the separator the
+system uses.
+
+```lua
+local projects = uji.fs.join("~", ".claude", "projects")
 ```

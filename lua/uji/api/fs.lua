@@ -1,5 +1,6 @@
 local app = require("uji.core.app")
 local Files = require("uji.core.system.files")
+local sys = require("uji.sys")
 local task = require("uji.core.task")
 
 local function files()
@@ -27,4 +28,5 @@ uji.fs = {
     glob = task.callback(function(pattern)
         return files():glob(pattern)
     end),
+    join = sys.fs.join,
 }

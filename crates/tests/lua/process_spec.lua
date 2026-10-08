@@ -1,5 +1,6 @@
 local process = require("uji.core.system.process")
 local sandbox = require("support.sandbox")
+local sys = require("uji.sys")
 
 local function ignore() end
 
@@ -22,6 +23,22 @@ it("gives back both streams and the exit code", function()
     assert.same({ "code", 7 }, outcome(result))
     assert.same({ "one" }, out)
     assert.same({ "two" }, err)
+end)
+
+it("gives a job's standard output alone to on_stdout when nothing takes its errors", function()
+    local out, exited = {}, sys.promise()
+    local job = process.start({
+        shell = "echo one; echo two 1>&2",
+        on_stdout = function(line)
+            out[#out + 1] = line
+        end,
+        on_exit = function(code)
+            exited:resolve(code)
+        end,
+    })
+    job.close()
+    assert.equal(0, exited:await())
+    assert.same({ "one" }, out)
 end)
 
 it("runs a string through the shell with its quotes intact and a list as it is", function()
