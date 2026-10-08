@@ -1,0 +1,8 @@
+id: lua-no-comments
+language: lua
+severity: error
+message: uji code has no comments. Say it with names, or in the docs.
+files:
+  - "lua/uji/**"
+rule:
+  kind: comment

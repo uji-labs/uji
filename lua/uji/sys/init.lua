@@ -12,7 +12,7 @@ local function found(module)
 end
 
 local sys = setmetatable({}, {
-    __index = function(sys, name)
+    __index = function(loaded, name)
         if type(name) ~= "string" then
             return nil
         end
@@ -22,7 +22,7 @@ local sys = setmetatable({}, {
             return nil
         end
         local value = require(module)
-        rawset(sys, name, value)
+        rawset(loaded, name, value)
         return value
     end,
 })

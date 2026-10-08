@@ -74,7 +74,7 @@ function Select:key(chord, ui)
     end
 end
 
-function Select:view(_, _, room)
+function Select:view()
     if #self.items == 0 then
         return nil
     end
@@ -85,7 +85,6 @@ function Select:view(_, _, room)
         matches = self.matches,
         selection = self:selection(),
         current = self.current,
-        height = room.height,
     })
 end
 

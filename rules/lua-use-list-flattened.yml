@@ -1,0 +1,29 @@
+id: lua-use-list-flattened
+language: lua
+severity: error
+message: Join the lists with list.flattened from uji.utils.list instead of nested loops that fill a new table.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/utils/**"
+rule:
+  pattern: |
+    for $_, $INNER in ipairs($XS) do
+      for $_, $X in ipairs($INNER) do
+        $OUT[#$OUT + 1] = $X
+      end
+    end
+  has:
+    field: body
+    not:
+      has:
+        nthChild: 2
+    has:
+      kind: for_statement
+      has:
+        field: body
+        not:
+          has:
+            nthChild: 2
+  follows:
+    pattern: local $OUT = {}

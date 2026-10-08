@@ -1,28 +1,22 @@
 local host = require("uji.core.ui.host")
-local Input = require("uji.core.ui.views.input")
 local ito = require("ito")
-local list = require("uji.utils.list")
 
 return ito.view(function()
     local ui = host.Host.current
     local ctx = ito.theme()
-    local input = ito.remember(function()
-        return Input()
-    end)
-    local line = ui.composer.line
-    local draft = { text = line.text, cursor = line.cursor, revision = line.revision, focused = ui:composing() }
     local styles = ctx.styles
+    local line = ui.composer.line
+    local composing = ui:composing()
+    local around = ctx.limits.input_rows + 1
+    local anchor = composing and line.cursor or 0
+    local from = ito.text.line_start(line.text, anchor, around)
+    local near = line.text:sub(from + 1, ito.text.line_end(line.text, anchor, around))
+    local shown = { { near } }
+    if composing then
+        shown = ctx:typed({ text = near, cursor = line.cursor - from }, { text = styles.input, cursor = styles.cursor })
+    end
     return ito.HStack({
         ito.Text(ctx.symbols.input):style(styles.accent):repeating(),
-        ito.Lines(function(width)
-            return list.mapped(input:shown(ui, draft, math.max(width, 1)), function(row)
-                local spans = { { row.before, styles.input } }
-                if row.after then
-                    spans[2] = { ctx.symbols.cursor, styles.cursor }
-                    spans[3] = { row.after, styles.input }
-                end
-                return spans
-            end)
-        end):grow(),
+        ito.Text(shown):style(styles.input):wrap():grow():max_height(ctx.limits.input_rows),
     })
 end)

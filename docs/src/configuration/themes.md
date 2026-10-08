@@ -275,7 +275,7 @@ The default theme has these styles.
 | `limits.block_gap` | Blank rows between markdown blocks. | `1` |
 | `limits.reply_margin` | Columns to the left of a reply. | `1` |
 | `limits.input_rows` | The most rows the input line grows to. | `10` |
-| `limits.select_rows` | The most items a list shows at once. | `12` |
+| `limits.select_rows` | The most rows a list takes, with the line under it that counts its items. | `13` |
 | `limits.suggest_name` | The width of a command's name in the suggestions. | `12` |
 | `limits.preview_min` | The width a picker needs on each side before it shows a preview. | `24` |
 | `limits.sessions_updated`, `limits.sessions_id` | The widths of the UPDATED and ID columns of `uji list`. | `14`, `36` |
@@ -414,12 +414,12 @@ return require("uji.themes.default")({
 | `uji.ui.Activity` | none | The line shown while the model works. |
 | `uji.ui.Flash` | none | The copy message in the top right corner. |
 | `uji.ui.Input` | none | The input line. |
-| `uji.ui.SelectList` | `title`, `query`, `items`, `matches`, `selection`, `current`, `height` | A list to choose from. `matches` are the indexes into `items` that fit the query, `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row), and `height` is the room there is. |
+| `uji.ui.SelectList` | `title`, `query`, `items`, `matches`, `selection`, `current` | A list to choose from. `matches` are the indexes into `items` that fit the query, and `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row). |
 | `uji.ui.PromptField` | `title`, `value` | A question with a text answer. |
-| `uji.ui.Suggestions` | `items`, `selection`, `height` | The command suggestions. Its items have `name` and `desc`. |
-| `uji.ui.Approval` | `title`, `body`, `allow`, `keys`, `scroll`, `width`, `height` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
-| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `current`, `preview`, `query`, `total`, `width`, `height` | The picker with a preview. |
-| `uji.ui.Sessions` | `directory`, `sessions`, `cursor`, `now`, `height` | The screen `uji list` shows. |
+| `uji.ui.Suggestions` | `items`, `selection` | The command suggestions. Its items have `name` and `desc`. |
+| `uji.ui.Approval` | `title`, `body`, `preview`, `allow`, `keys`, `scroll` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
+| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `current`, `preview`, `query`, `total` | The picker with a preview. |
+| `uji.ui.Sessions` | `directory`, `sessions`, `selection`, `now` | The screen `uji list` shows. `selection` holds the chosen session's index, ready for [`ito.List`](../ito/controls.md#itolistitems-row). |
 
 `ito.theme()` gives the theme's `colors`, `styles`, `symbols`, `borders`,
 `text`, `limits` and `options`. Asking its `styles` for a name the theme does

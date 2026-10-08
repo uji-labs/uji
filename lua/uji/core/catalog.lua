@@ -1,4 +1,5 @@
 local check = require("uji.core.check")
+local list = require("uji.utils.list")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 
@@ -27,19 +28,19 @@ local STATE = { IDLE = "idle", LOADING = "loading", LOADED = "loaded", FAILED = 
 
 local M = { providers = {}, EFFORTS = EFFORTS, DEFAULT_EFFORTS = DEFAULT_EFFORTS, STATE = STATE }
 
-local function efforts(list, id)
-    if list == nil then
+local function efforts(names, id)
+    if names == nil then
         return nil
     end
-    if type(list) ~= "table" then
+    if type(names) ~= "table" then
         error("efforts of model " .. id .. " must be a list", 0)
     end
-    for _, name in ipairs(list) do
+    for _, name in ipairs(names) do
         if not KNOWN[name] then
             error("model " .. id .. " lists an unknown effort `" .. tostring(name) .. "`", 0)
         end
     end
-    return { unpack(list) }
+    return { unpack(names) }
 end
 
 local function model(spec)
@@ -77,15 +78,11 @@ local function loop(value, id)
     return value
 end
 
-local function models(list)
-    if list ~= nil and type(list) ~= "table" then
+local function models(specs)
+    if specs ~= nil and type(specs) ~= "table" then
         error("models must be a list or a function that returns one", 0)
     end
-    local out = {}
-    for index, spec in ipairs(list or {}) do
-        out[index] = model(spec)
-    end
-    return out
+    return list.mapped(specs or {}, model)
 end
 
 local Provider = {}
@@ -155,8 +152,8 @@ function Provider:budget(id)
     return { window = window, reserve = reserve }
 end
 
-function Provider:merge(list)
-    for _, entry in ipairs(models(list)) do
+function Provider:merge(specs)
+    for _, entry in ipairs(models(specs)) do
         local replaced = false
         for index, existing in ipairs(self.models) do
             if existing.id == entry.id then
@@ -282,13 +279,9 @@ function M.remove(id)
 end
 
 function M.drop_owner(_, owner)
-    local kept = {}
-    for _, provider in ipairs(M.providers) do
-        if provider.owner ~= owner then
-            kept[#kept + 1] = provider
-        end
-    end
-    M.providers = kept
+    M.providers = list.filtered(M.providers, function(provider)
+        return provider.owner ~= owner
+    end)
 end
 
 plugin.track(M)

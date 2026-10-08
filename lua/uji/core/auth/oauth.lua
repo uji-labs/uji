@@ -1,4 +1,5 @@
 local class = require("uji.core.class")
+local list = require("uji.utils.list")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
 
@@ -23,11 +24,12 @@ local function decode(value)
 end
 
 local function pairs_text(pairs_list)
-    local out = {}
-    for index, pair in ipairs(pairs_list) do
-        out[index] = encode(pair[1]) .. "=" .. encode(pair[2])
-    end
-    return table.concat(out, "&")
+    return table.concat(
+        list.mapped(pairs_list, function(pair)
+            return encode(pair[1]) .. "=" .. encode(pair[2])
+        end),
+        "&"
+    )
 end
 
 local function query(text)

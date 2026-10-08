@@ -55,7 +55,7 @@ for the chosen row. The list scrolls to keep the chosen row in view.
 | `:on_choose(handler)` | Calls `handler(item, index)` when you press Enter. |
 | `:focused()` | Asks for the keys when the list first shows. |
 | `:passive()` | Leaves the keys to the views around the list, which move it through `:selection`. |
-| `:footer(builder)` | Draws `builder(first, last, total)` under the rows, where `first` and `last` are the rows in view. |
+| `:footer(builder)` | Draws `builder(first, last, total)` under the rows while some items do not fit, where `first` and `last` are the rows in view. |
 | `:item_id(fn)` | Gives each item the id `fn(item, index)`. A row's state, the chosen row and the first row in view then follow their items when items are added, removed or moved. Without it they stay at their positions. |
 
 Up and Down move the choice by one row, Page Up and Page Down by a page, and

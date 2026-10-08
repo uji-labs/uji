@@ -2,6 +2,7 @@ local Compaction = require("uji.core.ui.transcript.compaction")
 local Custom = require("uji.core.ui.transcript.custom")
 local ErrorMessage = require("uji.core.ui.transcript.error")
 local ito = require("ito")
+local list = require("uji.utils.list")
 local markdown = require("uji.core.ui.markdown")
 local Shell = require("uji.core.ui.transcript.shell")
 local SystemMessage = require("uji.core.ui.transcript.system")
@@ -48,11 +49,9 @@ end
 
 function M.reply(ctx, blocks)
     local margin = ctx.limits.reply_margin
-    local out = {}
-    for index, block in ipairs(blocks) do
-        out[index] = margin > 0 and block:padding({ leading = margin }) or block
-    end
-    return out
+    return list.mapped(blocks, function(block)
+        return margin > 0 and block:padding({ leading = margin }) or block
+    end)
 end
 
 local BODY = {

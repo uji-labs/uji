@@ -124,7 +124,7 @@ local PROBE = default({
         block_gap = 0,
         reply_margin = 2,
         input_rows = 3,
-        select_rows = 4,
+        select_rows = 5,
         suggest_name = 8,
         preview_min = 10,
         sessions_updated = 10,
@@ -538,6 +538,7 @@ describe("themes", function()
         assert.is_true(has(select, "item-4"))
         assert.is_false(has(select, "item-5"))
         assert.is_true(has(select, "1 to 4 / 6"))
+        assert.equal(#select:match("([^\n]*)item%-2"), #select:match("([^\n]*)1 to 4 / 6"), "the range lines up with the items")
         ui.modal:close()
         ui:present(Prompt({ title = "Key", value = "secret", hidden = true }))
         assert.is_true(has(look(), "  ? ******C"))

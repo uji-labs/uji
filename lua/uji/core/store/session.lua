@@ -71,11 +71,9 @@ function Session:entries()
 end
 
 function Session:messages()
-    local out = {}
-    for index, entry in ipairs(self:entries()) do
-        out[index] = entry.message
-    end
-    return out
+    return list.mapped(self:entries(), function(entry)
+        return entry.message
+    end)
 end
 
 function Session:last_seq()
@@ -128,13 +126,9 @@ function Session:unanswered_calls()
         if message.type == "tool" then
             answered[message.tool_call_id] = true
         elseif message.type == "assistant" then
-            local out = {}
-            for _, call in ipairs(message.tool_calls or {}) do
-                if not answered[call.id] then
-                    out[#out + 1] = call
-                end
-            end
-            return out
+            return list.filtered(message.tool_calls or {}, function(call)
+                return not answered[call.id]
+            end)
         else
             break
         end

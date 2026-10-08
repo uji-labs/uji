@@ -1,6 +1,7 @@
 local app = require("uji.core.app")
 local check = require("uji.core.check")
 local cli = require("uji.core.cli")
+local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local sys = require("uji.sys")
 local tokens = require("uji.core.agent.tokens")
@@ -62,11 +63,9 @@ function M.context()
 end
 
 function M.queue()
-    local out = {}
-    for index, queued in ipairs(app.agent and app.agent.queue or {}) do
-        out[index] = queued.text
-    end
-    return out
+    return list.mapped(app.agent and app.agent.queue or {}, function(queued)
+        return queued.text
+    end)
 end
 
 function M.state()
@@ -106,16 +105,14 @@ function M.list(opts)
     if opts.directory ~= nil and type(opts.directory) ~= "string" then
         error("uji.session.list needs directory to be a string", 2)
     end
-    local rows = {}
-    for index, session in ipairs(app.store:sessions(opts.directory)) do
-        rows[index] = {
+    return list.mapped(app.store:sessions(opts.directory), function(session)
+        return {
             id = session.id,
             title = session.title,
             directory = session.directory,
             updated = session.updated,
         }
-    end
-    return rows
+    end)
 end
 
 function M.delete(key)

@@ -1,4 +1,5 @@
 local class = require("uji.core.class")
+local list = require("uji.utils.list")
 local sys = require("uji.sys")
 
 local SNIFF_BYTES = 8192
@@ -92,11 +93,9 @@ function Files:around(target, line, count)
     if not read then
         return nil, err
     end
-    local out = {}
-    for index, text in ipairs(read.lines) do
-        out[index] = string.format("%5d| %s", start + index, (text:gsub("\r$", "")))
-    end
-    return out
+    return list.mapped(read.lines, function(text, index)
+        return string.format("%5d| %s", start + index, (text:gsub("\r$", "")))
+    end)
 end
 
 return Files

@@ -127,7 +127,7 @@ function Pick:settle(value)
     Modal.settle(self, value)
 end
 
-function Pick:view(ui, _, room)
+function Pick:view(ui)
     self:refresh(ui)
     return Picker({
         title = self.title,
@@ -138,8 +138,6 @@ function Pick:view(ui, _, room)
         preview = self.preview,
         query = self.query,
         total = #self.items,
-        height = room.height,
-        width = room.width,
     })
 end
 

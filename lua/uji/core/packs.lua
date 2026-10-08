@@ -1,3 +1,4 @@
+local list = require("uji.utils.list")
 local notices = require("uji.core.notices")
 local paths = require("uji.core.paths")
 local sys = require("uji.sys")
@@ -236,11 +237,7 @@ function M.add(specs)
 end
 
 function M.list()
-    local out = {}
-    for index, root in ipairs(M.roots) do
-        out[index] = root
-    end
-    return out
+    return tables.copy(M.roots)
 end
 
 function M.update()
@@ -313,13 +310,9 @@ function M.searcher(module)
 end
 
 function M.overriding(roots)
-    local out = {}
-    for _, root in ipairs(roots) do
-        if is_dir(sys.fs.join(root, paths.MODULE_DIR, "uji")) or is_dir(sys.fs.join(root, paths.NATIVE_DIR, "uji")) then
-            out[#out + 1] = root
-        end
-    end
-    return out
+    return list.filtered(roots, function(root)
+        return is_dir(sys.fs.join(root, paths.MODULE_DIR, "uji")) or is_dir(sys.fs.join(root, paths.NATIVE_DIR, "uji"))
+    end)
 end
 
 local function cache_path()

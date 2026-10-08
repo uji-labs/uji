@@ -1,0 +1,17 @@
+---
+base: uji
+globals:
+  describe:
+    any: true
+  it:
+    any: true
+  before_each:
+    any: true
+  after_each:
+    any: true
+  assert:
+    any: true
+  spy:
+    any: true
+  match:
+    any: true

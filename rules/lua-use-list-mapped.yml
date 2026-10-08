@@ -1,0 +1,28 @@
+id: lua-use-list-mapped
+language: lua
+severity: error
+message: >-
+  Build the list with list.mapped from uji.utils.list instead of a loop that
+  fills a new table. To only copy the list, use tables.copy, or list.appended
+  when an item goes on the end.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/utils/**"
+rule:
+  any:
+    - pattern: |
+        for $_, $X in ipairs($XS) do
+          $OUT[#$OUT + 1] = $V
+        end
+    - pattern: |
+        for $I, $X in ipairs($XS) do
+          $OUT[$I] = $V
+        end
+  has:
+    field: body
+    not:
+      has:
+        nthChild: 2
+  follows:
+    pattern: local $OUT = {}

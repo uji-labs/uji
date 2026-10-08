@@ -65,11 +65,11 @@ function Suggest:key(chord, ui)
     end
 end
 
-function Suggest:view(_, _, room)
-    if #self.items == 0 or room.height <= 0 then
+function Suggest:view()
+    if #self.items == 0 then
         return nil
     end
-    return Suggestions({ items = self.items, selection = self:selection(), height = room.height })
+    return Suggestions({ items = self.items, selection = self:selection() })
 end
 
 return Suggest

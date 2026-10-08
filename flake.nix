@@ -114,6 +114,7 @@
             pkgs.ast-grep
             pkgs.stylua
             pkgs.lua54Packages.luacheck
+            pkgs.selene
             pkgs.mdbook
           ];
         };

@@ -1,4 +1,5 @@
 local catalog = require("uji.core.catalog")
+local list = require("uji.utils.list")
 local task = require("uji.core.task")
 
 local function model_row(entry)
@@ -14,11 +15,7 @@ local function model_row(entry)
 end
 
 local function model_rows(provider)
-    local rows = {}
-    for index, entry in ipairs(provider.models) do
-        rows[index] = model_row(entry)
-    end
-    return rows
+    return list.mapped(provider.models, model_row)
 end
 
 local function provider_row(provider)
@@ -50,11 +47,7 @@ uji.provider = {
     add = catalog.add,
     remove = catalog.remove,
     list = function()
-        local rows = {}
-        for index, provider in ipairs(catalog.all()) do
-            rows[index] = provider_row(provider)
-        end
-        return rows
+        return list.mapped(catalog.all(), provider_row)
     end,
     get = function(id)
         local provider = catalog.get(id)

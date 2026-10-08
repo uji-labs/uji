@@ -20,6 +20,7 @@ env:
   MDBOOK: https://github.com/rust-lang/mdBook/releases/download/v0.5.4/mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz
   STYLUA: https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip
   LUACHECK: 1.2.0
+  SELENE: https://github.com/Kampfkarren/selene/releases/download/0.32.0/selene-0.32.0-linux.zip
 
 jobs:
   fmt:
@@ -47,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: npm install --global @ast-grep/cli@0.45.3
-      - run: ast-grep scan crates/kernel/src crates/uji/src
+      - run: ast-grep scan crates/kernel/src crates/uji/src lua/uji
 
   stylua:
     name: stylua
@@ -70,6 +71,19 @@ jobs:
           sudo apt-get update && sudo apt-get install -y luarocks
           sudo luarocks install luacheck "$LUACHECK"
       - run: luacheck lua/uji crates/kernel/src crates/tests/lua bench
+
+  selene:
+    name: selene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install selene
+        run: |
+          curl -sSLo "$RUNNER_TEMP/selene.zip" "$SELENE"
+          sudo unzip -q "$RUNNER_TEMP/selene.zip" -d /usr/local/bin
+          sudo chmod +x /usr/local/bin/selene
+      - run: selene lua/uji crates/kernel/src bench
+      - run: selene --config .config/selene/tests.toml crates/tests/lua
 
   test:
     name: test
@@ -105,7 +119,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [fmt, clippy, ast-grep, stylua, luacheck, test, torture, docs]
+    needs: [fmt, clippy, ast-grep, stylua, luacheck, selene, test, torture, docs]
     runs-on: ubuntu-latest
     steps:
       - name: Every check passed

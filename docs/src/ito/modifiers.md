@@ -48,8 +48,8 @@ ito.Text("ready"):border(ito.theme().borders.plain, { edges = ito.Edges.horizont
 
 ## :title(title)
 
-Puts `title` in the top border. It is a string, or a line of spans as
-[`ito.Lines`](views.md#itolineslines-value) takes.
+Puts `title` in the top border, with a space on each side. It is a string, or
+a line of spans as [`ito.Lines`](views.md#itolineslines-value) takes.
 
 ## :background(colour)
 
@@ -73,6 +73,15 @@ shows it again.
 
 ```lua
 Editor():hidden(not open.value)
+```
+
+## :invisible(hide)
+
+Keeps the view's room and state but draws nothing there, so the views beside
+it stay where they are. `false` draws it again.
+
+```lua
+ito.HStack({ ito.Text("›"):invisible(not active), ito.Text(name) }):spacing(1)
 ```
 
 ## :focus_scope(value)

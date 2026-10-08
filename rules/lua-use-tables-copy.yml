@@ -1,0 +1,20 @@
+id: lua-use-tables-copy
+language: lua
+severity: error
+message: Copy the table with tables.copy from uji.core.tables instead of a loop over pairs.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/core/tables.lua"
+rule:
+  pattern: |
+    for $K, $V in pairs($M) do
+      $OUT[$K] = $V
+    end
+  has:
+    field: body
+    not:
+      has:
+        nthChild: 2
+  follows:
+    pattern: local $OUT = {}

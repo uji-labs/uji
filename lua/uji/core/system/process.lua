@@ -1,5 +1,6 @@
 local class = require("uji.core.class")
 local event = require("uji.core.event")
+local list = require("uji.utils.list")
 local notices = require("uji.core.notices")
 local sys = require("uji.sys")
 local task = require("uji.core.task")
@@ -143,11 +144,7 @@ function M.command(cmd)
     if #cmd == 0 then
         error("cmd must not be empty", 3)
     end
-    local out = {}
-    for index, part in ipairs(cmd) do
-        out[index] = tostring(part)
-    end
-    return { argv = out }
+    return { argv = list.mapped(cmd, tostring) }
 end
 
 function M.interactive(text)

@@ -49,14 +49,34 @@ ito.VStack({
 })
 ```
 
+`:spacing(cells)` leaves `cells` blank rows between each child and the next,
+skipping the hidden ones.
+
 ## ito.HStack(children)
 
 Places `children` side by side from the left. A child is as wide as its
 `width`, its `share`, or its text, and one that has `grow` or no natural width
-takes a part of the columns the others leave.
+takes a part of the columns the others leave. `:spacing(cells)` leaves `cells`
+blank columns between each child and the next.
 
 ```lua
 ito.HStack({ ito.Text("main"), ito.Spacer(), ito.Text("3 files changed") })
+ito.HStack({ ito.Text("enter"):bold(), ito.Text("open") }):spacing(1)
+```
+
+## ito.Grid(rows) and ito.GridRow(cells)
+
+Stacks `rows` like `ito.VStack` and lines up the cells of each
+`ito.GridRow` in columns. A column is as wide as its widest cell, and a column
+with a cell that has `grow` takes a part of the columns the others leave. A
+cell with [`:align`](modifiers.md#alignalignment) keeps its own size inside its
+column. A row that is not an `ito.GridRow` takes the whole width.
+
+```lua
+ito.Grid({
+  ito.GridRow({ ito.Text("9"):align(ito.Alignment.top_trailing), ito.Text("main.lua"):grow() }),
+  ito.GridRow({ ito.Text("120"):align(ito.Alignment.top_trailing), ito.Text("README.md"):grow() }),
+})
 ```
 
 ## ito.Spacer()
@@ -67,9 +87,12 @@ far edge.
 ## ito.Text(text)
 
 Draws `text`, one row for each line in it. `text` is a string, or a list of
-spans, each `{ text, style }`, for text in more than one style. A line too
-long for the view is cut at its edge unless the text wraps. These modifiers
-style the whole text, and a span's own style goes on top.
+spans, each `{ text, style }`, for text in more than one style. A tab takes
+four columns. A line too long for the view is cut at its edge unless the text
+wraps. Text with more rows than its room shows the first ones, and text from
+[`ctx:typed`](../configuration/themes.md#views) shows the rows up to its
+cursor. These modifiers style the whole text, and a span's own style goes on
+top.
 
 | Modifier | Effect |
 |---|---|
@@ -139,16 +162,6 @@ end)
 ```
 
 [Styles](../configuration/themes.md#styles) lists the styles every theme has.
-
-```lua
-local function note(width, value)
-  return value.theme:wrap(value.text, { width = width, style = value.theme.styles.text })
-end
-
-local Note = ito.view(function(props)
-  return ito.Lines(note, { theme = ito.theme(), text = props.text })
-end)
-```
 
 ## ito.spans.wrap(line, width)
 

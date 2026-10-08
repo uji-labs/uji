@@ -68,11 +68,7 @@ return ito.view(function()
     end)
     local expanded = ito.state({})
     local entries = app.session and app.session:entries() or {}
-    local items = {}
-    for index, entry in ipairs(entries) do
-        items[index] = entry
-    end
-    items[#items + 1] = LIVE
+    local items = list.appended(entries, LIVE)
     local function row(item, index)
         if item == LIVE then
             return ito.Group(live:items(ui, ctx, before(entries, index) ~= nil))

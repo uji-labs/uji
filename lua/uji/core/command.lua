@@ -1,5 +1,6 @@
 local Registry = require("uji.core.registry")
 local check = require("uji.core.check")
+local list = require("uji.utils.list")
 local notices = require("uji.core.notices")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
@@ -45,11 +46,9 @@ function M.run(line)
 end
 
 function M.suggestions()
-    local items = {}
-    for index, name in ipairs(M.list()) do
-        items[index] = { name = name, desc = M.commands:get(name).desc }
-    end
-    return items
+    return list.mapped(M.list(), function(name)
+        return { name = name, desc = M.commands:get(name).desc }
+    end)
 end
 
 return M

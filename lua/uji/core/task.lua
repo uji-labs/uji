@@ -1,3 +1,4 @@
+local list = require("uji.utils.list")
 local sys = require("uji.sys")
 
 local M = {}
@@ -88,10 +89,7 @@ local function settle(outcome)
 end
 
 function M.race(...)
-    local racers = {}
-    for index, fn in ipairs({ ... }) do
-        racers[index] = guarded(fn)
-    end
+    local racers = list.mapped({ ... }, guarded)
     local index, outcome = sys.task.race(unpack(racers))
     return index, settle(outcome)
 end

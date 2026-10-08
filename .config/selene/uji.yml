@@ -1,0 +1,38 @@
+---
+base: lua51
+name: uji
+lua_versions:
+  - luajit
+globals:
+  uji:
+    any: true
+  table.unpack:
+    any: true
+  package.searchers:
+    any: true
+  io.stdout:
+    any: true
+  io.stderr:
+    any: true
+  error:
+    args:
+      - type: any
+      - type: number
+        required: false
+  load:
+    args:
+      - type: any
+      - type: string
+        required: false
+      - type: string
+        required: false
+      - type: table
+        required: false
+  loadfile:
+    args:
+      - type: string
+        required: false
+      - type: string
+        required: false
+      - type: table
+        required: false

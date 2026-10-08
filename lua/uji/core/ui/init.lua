@@ -135,13 +135,7 @@ function Ui:close_modal(modal)
 end
 
 function Ui:presentations(accept)
-    local found = {}
-    for _, modal in ipairs(self.presented) do
-        if accept(modal) then
-            found[#found + 1] = modal
-        end
-    end
-    return found
+    return list.filtered(self.presented, accept)
 end
 
 function Ui:takeovers()
@@ -213,13 +207,9 @@ end
 
 function Ui:suggestions()
     local query = self.composer:text():sub(2):lower()
-    local items = {}
-    for _, item in ipairs(command.suggestions()) do
-        if item.name:lower():sub(1, #query) == query then
-            items[#items + 1] = item
-        end
-    end
-    return items
+    return list.filtered(command.suggestions(), function(item)
+        return item.name:lower():sub(1, #query) == query
+    end)
 end
 
 function Ui:composing()

@@ -1,4 +1,5 @@
 local common = require("uji.builtin.apis.common")
+local list = require("uji.utils.list")
 local stream = require("uji.builtin.apis.stream")
 
 local VERSION = "2023-06-01"
@@ -339,10 +340,9 @@ function Anthropic:keep(parts, request)
         return
     end
     table.sort(indexes)
-    local content = {}
-    for _, index in ipairs(indexes) do
-        content[#content + 1] = parts.blocks[index]
-    end
+    local content = list.mapped(indexes, function(index)
+        return parts.blocks[index]
+    end)
     parts.replay = { api = "anthropic", model = request.model, content = content }
 end
 

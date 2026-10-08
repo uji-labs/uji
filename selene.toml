@@ -1,0 +1,5 @@
+std = ".config/selene/uji"
+
+[lints]
+mixed_table = "allow"
+high_cyclomatic_complexity = "deny"

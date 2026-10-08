@@ -3,7 +3,6 @@ local highlight = require("uji.core.ui.highlight")
 local ito = require("ito")
 local list = require("uji.utils.list")
 
-local TAB = "    "
 local SIGNS = { context = " ", removed = "-", added = "+" }
 
 local function looks(styles)
@@ -15,13 +14,9 @@ local function looks(styles)
     }
 end
 
-local function expanded(value)
-    return (value:gsub("\t", TAB))
-end
-
 local function source(line)
     return table.concat(list.mapped(line.parts, function(part)
-        return expanded(part.text)
+        return part.text
     end))
 end
 
@@ -35,7 +30,7 @@ end
 local function overlay(spans, line, word)
     local bounds, offset = {}, 0
     for _, part in ipairs(line.parts) do
-        offset = offset + #expanded(part.text)
+        offset = offset + #part.text
         bounds[#bounds + 1] = { offset, part.changed }
     end
     local out, position, at = {}, 0, 1
@@ -70,20 +65,12 @@ local function painted(line, look, tokens, styles)
     return spans
 end
 
-local function digits(diff)
-    local most = 0
-    for _, line in ipairs(list.flattened(diff.changes)) do
-        most = math.max(most, line.old or 0, line.new or 0)
-    end
-    return #tostring(most)
-end
-
-local function row(ctx, line, numbers, tokens)
+local function row(ctx, line, tokens)
     local look = looks(ctx.styles)[line.kind]
     local mark = look.fill and look.sign or ctx.styles.dim
     local number = tostring(line.kind == "removed" and line.old or line.new)
-    local shown = ito.HStack({
-        ito.HStack({ ito.Spacer(), ito.Text(number):style(mark) }):width(numbers + 1),
+    local shown = ito.GridRow({
+        ito.Text(number):style(mark):padding({ leading = 1 }):align(ito.Alignment.top_trailing),
         ito.Text(SIGNS[line.kind]):style(mark):padding({ horizontal = 1 }),
         ito.Text(painted(line, look, tokens, ctx.styles)):wrap():grow(),
     })
@@ -96,7 +83,6 @@ return ito.view(function(props)
     local path = diff.path
     local language = path and (path:match("%.([%w_+#-]+)$") or path:match("[^/\\]+$"))
     local tokens = highlight.tokens(language, newer(diff))
-    local numbers = digits(diff)
     local rows, seen = {}, 0
     for index, change in ipairs(diff.changes) do
         if index > 1 then
@@ -108,10 +94,10 @@ return ito.view(function(props)
                 seen = seen + 1
                 coloured = tokens[seen]
             end
-            rows[#rows + 1] = row(ctx, line, numbers, coloured)
+            rows[#rows + 1] = row(ctx, line, coloured)
         end
     end
-    local folded = ito.Fold(ito.VStack(rows), {
+    local folded = ito.Fold(ito.Grid(rows), {
         rows = props.limit,
         more = function(hidden)
             return branch.hidden(ctx, hidden)
