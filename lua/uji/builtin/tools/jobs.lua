@@ -31,7 +31,7 @@ uji.tool.add("job_output", {
     parameters = PARAMETERS,
     subject = subject,
     policy = "allow",
-    display = { verb = "Read output of", question = "Read the output of a background job?" },
+    display = { label = "Output", question = "Read the output of a background job?" },
     run = function(args)
         local job, err = lookup(args)
         return job and jobs.output(job) or err
@@ -43,7 +43,7 @@ uji.tool.add("stop_job", {
     parameters = PARAMETERS,
     subject = subject,
     policy = "allow",
-    display = { verb = "Stopped", question = "Stop a background job?" },
+    display = { label = "Stop", question = "Stop a background job?" },
     run = function(args)
         local job, err = lookup(args)
         if not job then

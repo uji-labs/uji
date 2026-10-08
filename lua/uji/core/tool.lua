@@ -1,10 +1,7 @@
 local Policy = require("uji.core.system.policy")
 local Registry = require("uji.core.registry")
-local Roots = require("uji.core.system.roots")
-local app = require("uji.core.app")
 local check = require("uji.core.check")
 local notices = require("uji.core.notices")
-local paths = require("uji.core.paths")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 
@@ -15,8 +12,6 @@ local M = {
     displays = plugin.track(Registry(plugin.current)),
     disabled = {},
     rules = {},
-    confined = true,
-    extra = {},
 }
 
 function M.add(name, spec)
@@ -37,11 +32,19 @@ function M.add(name, spec)
     if spec.display ~= nil and type(spec.display) ~= "table" then
         error("display must be a table", 2)
     end
+    if spec.resolve ~= nil and type(spec.resolve) ~= "function" then
+        error("resolve must be a function", 2)
+    end
+    if spec.path ~= nil and type(spec.path) ~= "boolean" then
+        error("path must be true or false", 2)
+    end
     return M.registry:add(name, {
         name = name,
         description = spec.description or "",
         parameters = spec.parameters,
+        resolve = spec.resolve,
         subject = subject,
+        path = spec.path,
         policy = spec.policy,
         display = spec.display or {},
         run = spec.run,
@@ -62,7 +65,7 @@ function M.display(name, opts)
     return M.displays:add(name, {
         name = name,
         subject = opts.subject,
-        display = { verb = opts.verb, question = opts.question, preview = opts.preview },
+        display = { label = opts.label, question = opts.question, preview = opts.preview },
     })
 end
 
@@ -86,43 +89,16 @@ function M.enable(names)
     end
 end
 
-function M.policy(rules)
+function M.policy(rules, opts)
     if type(rules) ~= "table" then
         error("uji.tool.policy needs a table", 2)
     end
+    local set = opts and opts.name or ""
+    M.rules[set] = M.rules[set] or {}
     for name, value in pairs(rules) do
-        M.rules[name] = value
+        M.rules[set][name] = value
     end
     M.cached = nil
-end
-
-function M.confine(enabled)
-    if enabled ~= nil then
-        M.confined = enabled == true
-    end
-    return M.confined
-end
-
-function M.roots(list)
-    if list ~= nil then
-        M.extra = {}
-        for index, root in ipairs(list) do
-            M.extra[index] = paths.expand(root)
-        end
-    end
-    local out = {}
-    for index, root in ipairs(M.extra) do
-        out[index] = root
-    end
-    return out
-end
-
-function M.files(cwd)
-    return Roots(cwd or sys.os.cwd(), M.extra, M.confined)
-end
-
-function M.workspace()
-    return M.files(app.directory())
 end
 
 function M.compiled()

@@ -38,7 +38,7 @@ local Store = class()
 Store.UNTITLED = UNTITLED
 
 function Store:init(path)
-    local parent = path:match("^(.*)/[^/]*$")
+    local parent = sys.fs.parent(path)
     if parent and parent ~= "" then
         sys.fs.mkdir(parent)
     end

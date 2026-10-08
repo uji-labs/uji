@@ -161,6 +161,10 @@ function Loop:execute(call)
     if not args then
         return { text = problem }
     end
+    args, problem = self.agent:resolve(call.name, args)
+    if not args then
+        return { text = problem }
+    end
     local decision = self.agent:approve(call.name, args)
     if decision.deny then
         return { text = "denied: " .. decision.deny }

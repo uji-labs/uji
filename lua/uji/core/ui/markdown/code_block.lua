@@ -1,13 +1,15 @@
 local highlight = require("uji.core.ui.highlight")
 local ito = require("ito")
 
-local function wrapped(width, value)
+local function spans(lines, tokens, styles)
     local out = {}
-    for index, line in ipairs(value.lines) do
-        local tokens = value.tokens[index]
-        local spans = tokens and highlight.spans(tokens, value.styles) or { { line, value.styles.code } }
-        for _, row in ipairs(ito.spans.wrap(spans, width)) do
-            out[#out + 1] = row
+    for index, line in ipairs(lines) do
+        if index > 1 then
+            out[#out + 1] = { "\n" }
+        end
+        local found = tokens[index]
+        for _, span in ipairs(found and highlight.spans(found, styles) or { { line, styles.code } }) do
+            out[#out + 1] = span
         end
     end
     return out
@@ -18,10 +20,10 @@ return ito.view(function(props)
     local tokens = highlight.tokens(props.language, props.lines)
     local rows = {}
     if props.language then
-        rows[1] = ito.Text("  " .. props.language):style(styles.dim)
+        rows[1] = ito.Text(props.language):style(styles.dim):padding({ leading = 2 })
     end
     if #props.lines > 0 then
-        rows[#rows + 1] = ito.Lines(wrapped, { lines = props.lines, tokens = tokens, styles = styles }):padding({ leading = 2 })
+        rows[#rows + 1] = ito.Text(spans(props.lines, tokens, styles)):wrap():padding({ leading = 2 })
     end
     return ito.VStack(rows)
 end)

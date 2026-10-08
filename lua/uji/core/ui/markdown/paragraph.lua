@@ -1,29 +1,25 @@
 local ito = require("ito")
 
-local text = ito.text
-
-local function wrapped(tokens, indent, hanging, width)
-    if #tokens == 0 then
-        return {}
-    end
-    local line = {}
+local function spans(tokens)
+    local out = {}
     for _, token in ipairs(tokens) do
-        if token.spaced and #line > 0 then
-            line[#line + 1] = { " " }
+        if token.spaced and #out > 0 then
+            out[#out + 1] = { " " }
         end
-        line[#line + 1] = { token.text, token.style }
+        out[#out + 1] = { token.text, token.style }
     end
-    local rows = ito.spans.wrap(line, math.max(width - text.width(indent), 1))
-    for index, row in ipairs(rows) do
-        table.insert(row, 1, { index == 1 and indent or hanging })
-    end
-    return rows
-end
-
-local function lines(width, props)
-    return wrapped(props.tokens, props.indent, props.hanging, width)
+    return out
 end
 
 return ito.view(function(props)
-    return ito.Lines(lines, props)
+    local ctx = ito.theme()
+    local row = { ito.Spacer():width(props.indent) }
+    if props.quote then
+        row[#row + 1] = ito.Text(ctx.symbols.quote):repeating():padding({ trailing = 1 })
+    end
+    if props.marker then
+        row[#row + 1] = ito.Text(props.marker):padding({ trailing = 1 })
+    end
+    row[#row + 1] = ito.Text(spans(props.tokens)):wrap():grow()
+    return ito.HStack(row)
 end)

@@ -24,6 +24,16 @@ it("gives back both streams and the exit code", function()
     assert.same({ "two" }, err)
 end)
 
+it("runs a string through the shell with its quotes intact and a list as it is", function()
+    local lines = {}
+    local function keep(_, line)
+        lines[#lines + 1] = line
+    end
+    process.run(process.command('printf "%s|" "a b" \'c\''), keep)
+    process.run(process.command({ "printf", "%s|", "a b", "c" }), keep)
+    assert.same({ "a b|c|", "a b|c|" }, lines)
+end)
+
 local function captured(opts, shell)
     local capture = process.Capture(opts)
     process.run({ shell = shell }, function(_, line)

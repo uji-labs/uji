@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use uji_macros::{constant, function, options};
@@ -27,6 +27,41 @@ fn cwd() -> mlua::Result<String> {
 #[function(os)]
 fn home() -> Option<String> {
     std::env::home_dir().map(|dir| dir.display().to_string())
+}
+
+pub(crate) fn home_relative(path: &str) -> Option<(PathBuf, &str)> {
+    let after = path.strip_prefix('~')?;
+    let rest = match after.strip_prefix(std::path::is_separator) {
+        Some(rest) => rest,
+        None if after.is_empty() => after,
+        None => return None,
+    };
+    Some((std::env::home_dir()?, rest))
+}
+
+pub(crate) fn expanded(path: &str) -> PathBuf {
+    match home_relative(path) {
+        Some((home, "")) => home,
+        Some((home, rest)) => home.join(rest),
+        None => PathBuf::from(path),
+    }
+}
+
+#[function(os)]
+fn expand(path: &str) -> String {
+    expanded(path).display().to_string()
+}
+
+#[function(os)]
+fn shorten(path: &str) -> String {
+    let Some(home) = std::env::home_dir() else {
+        return path.to_string();
+    };
+    match Path::new(path).strip_prefix(&home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
+        Ok(rest) => Path::new("~").join(rest).display().to_string(),
+        Err(_) => path.to_string(),
+    }
 }
 
 #[function(os)]

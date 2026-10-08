@@ -105,7 +105,7 @@ M.ui = {
         }
     end,
     exec = function(cmd)
-        ui:exec(process.argv(cmd))
+        ui:exec(process.command(cmd))
     end,
     toggle_thinking = function()
         ui:toggle_thinking()

@@ -222,13 +222,31 @@ struct SpawnOptions {
     stdio: Option<String>,
 }
 
-fn command(line: &[String], opts: SpawnOptions) -> std::io::Result<Command> {
+fn program(line: &[String]) -> std::io::Result<Command> {
     let Some((program, args)) = line.split_first() else {
         return Err(std::io::Error::other("proc.spawn needs a program"));
     };
     let mut command = Command::new(program);
+    command.args(args);
+    Ok(command)
+}
+
+#[cfg(not(windows))]
+fn shell_command(text: &str) -> Command {
+    let mut command = Command::new("sh");
+    command.arg("-c").arg(text);
     command
-        .args(args)
+}
+
+#[cfg(windows)]
+fn shell_command(text: &str) -> Command {
+    let mut command = Command::new(std::env::var_os("ComSpec").unwrap_or_else(|| "cmd.exe".into()));
+    command.raw_arg(format!("/d /s /c \"{text}\""));
+    command
+}
+
+fn configured(mut command: Command, opts: SpawnOptions) -> std::io::Result<Command> {
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -258,5 +276,10 @@ fn command(line: &[String], opts: SpawnOptions) -> std::io::Result<Command> {
 
 #[function(proc)]
 fn spawn(argv: &[String], opts: SpawnOptions) -> std::io::Result<Proc> {
-    Ok(Proc::start(command(argv, opts)?.spawn()?))
+    Ok(Proc::start(configured(program(argv)?, opts)?.spawn()?))
+}
+
+#[function(proc)]
+fn shell(text: &str, opts: SpawnOptions) -> std::io::Result<Proc> {
+    Ok(Proc::start(configured(shell_command(text), opts)?.spawn()?))
 }

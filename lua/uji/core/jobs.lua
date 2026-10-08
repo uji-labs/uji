@@ -191,7 +191,7 @@ function M.start(spec)
         job:line(text)
     end
     job.handle = process.start({
-        argv = process.argv(spec.command),
+        shell = spec.command,
         cwd = spec.cwd,
         on_stdout = line,
         on_stderr = line,

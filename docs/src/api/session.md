@@ -5,7 +5,8 @@ compact it or stop the running turn.
 
 ## uji.session.info()
 
-Returns a table with the session's `id`, `title` and `directory`.
+Returns a table with the session's `id`, `title` and `directory`, and
+`short_directory`, the directory with your home folder written as `~`.
 
 ```lua
 local here = uji.session.info().directory

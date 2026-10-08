@@ -1,12 +1,13 @@
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use mlua::BString;
+use mlua::{BString, Variadic};
 use tokio::io::AsyncWriteExt;
 use uji_macros::{function, options, value};
 
 use crate::io::{self, Blocked};
+use crate::os;
 
 #[value]
 #[derive(Clone, Copy)]
@@ -231,6 +232,91 @@ async fn remove(path: String, opts: RemoveOptions) -> std::io::Result<()> {
 #[function(fs)]
 async fn rename(from: String, to: String) -> std::io::Result<()> {
     tokio::fs::rename(from, to).await
+}
+
+fn normalized(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for part in path.components() {
+        match (part, out.components().next_back()) {
+            (Component::CurDir, _)
+            | (Component::ParentDir, Some(Component::RootDir | Component::Prefix(_))) => {}
+            (Component::ParentDir, Some(Component::Normal(_))) => {
+                out.pop();
+            }
+            _ => out.push(part),
+        }
+    }
+    out
+}
+
+#[function(fs)]
+fn resolve(directory: &str, path: &str) -> String {
+    normalized(&Path::new(directory).join(os::expanded(path)))
+        .display()
+        .to_string()
+}
+
+#[function(fs)]
+fn absolute(path: &str) -> bool {
+    Path::new(path).is_absolute()
+}
+
+#[function(fs)]
+fn join(base: &str, parts: Variadic<String>) -> String {
+    parts
+        .into_iter()
+        .fold(PathBuf::from(base), |joined, part| joined.join(part))
+        .display()
+        .to_string()
+}
+
+#[function(fs)]
+fn parent(path: &str) -> Option<String> {
+    Path::new(path)
+        .parent()
+        .map(|dir| dir.display().to_string())
+}
+
+#[function(fs)]
+fn name(path: &str) -> Option<String> {
+    Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+}
+
+#[function(fs)]
+fn inside(path: &str, root: &str) -> bool {
+    normalized(Path::new(path)).starts_with(normalized(Path::new(root)))
+}
+
+#[function(fs)]
+async fn glob(
+    directory: String,
+    pattern: String,
+) -> Result<Vec<String>, Blocked<glob::PatternError>> {
+    io::blocking(move || {
+        let (base, rest, relative) = match os::home_relative(&pattern) {
+            Some((home, rest)) => (home, rest, false),
+            None => (
+                PathBuf::from(&directory),
+                pattern.as_str(),
+                Path::new(&pattern).is_relative(),
+            ),
+        };
+        let full = Path::new(&glob::Pattern::escape(&base.to_string_lossy())).join(rest);
+        Ok(glob::glob(&full.to_string_lossy())?
+            .filter_map(Result::ok)
+            .map(|found| {
+                let found = normalized(&found);
+                let shown = match found.strip_prefix(&base) {
+                    Ok(inside) if relative => inside,
+                    _ => &found,
+                };
+                shown.display().to_string()
+            })
+            .collect())
+    })
+    .await
 }
 
 #[function(fs)]

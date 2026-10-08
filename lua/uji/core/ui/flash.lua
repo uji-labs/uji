@@ -6,5 +6,6 @@ return ito.view(function()
     if not flashed then
         return nil
     end
-    return ito.Text(" " .. flashed.text .. " "):style(ito.theme().styles.reverse)
+    local reverse = ito.theme().styles.reverse
+    return ito.Text(flashed.text):style(reverse):padding({ horizontal = 1 }):background(reverse)
 end)

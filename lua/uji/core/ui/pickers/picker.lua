@@ -1,4 +1,5 @@
 local ito = require("ito")
+local list = require("uji.utils.list")
 local Query = require("uji.core.ui.pickers.query")
 
 local PROMPT_ROWS = 3
@@ -11,29 +12,30 @@ return ito.view(function(props)
     end
     local styles, plain = ctx.styles, ctx.borders.plain
     local split = props.width < ctx.limits.preview_min * 2 and props.width or math.floor(props.width / 2)
+    local prompt = ctx.symbols.prompt
     local results = ito.List(props.matches, function(match, _, active)
         local item = props.items[match]
         local style = active and styles.chosen or styles.text
-        local line = { { (active and ctx.symbols.prompt .. " " or "  ") .. item, style } }
+        local spans = { { item, style } }
         if item == props.current then
-            line[#line + 1] = { " " .. ctx.text.current, active and style or styles.muted }
+            spans[2] = { " " .. ctx.text.current, active and style or styles.muted }
         end
-        return ito.Lines({ line })
+        return ito.HStack({
+            ito.Text(active and prompt or ""):style(style):width(ctx:measure(prompt) + 1):background(style),
+            ito.Text(spans):grow(),
+        })
     end)
         :selection(props.selection)
         :passive()
         :border(plain)
         :title({ { " " .. props.title .. " ", styles.accent } })
         :width(split)
-    local preview = {}
-    for index, line in ipairs(props.preview) do
-        preview[index] = { { tostring(line), styles.muted } }
-    end
+    local preview = table.concat(list.mapped(props.preview, tostring), "\n")
     return ito.VStack({
-        ito.HStack({ results, ito.Lines(preview):border(plain):grow() }):grow(),
+        ito.HStack({ results, ito.Text(preview):style(styles.muted):border(plain):grow() }):grow(),
         ito.HStack({
-            Query({ marker = "", field = props.query }),
-            ito.Text(string.format("   %d/%d", #props.matches, props.total)):style(styles.dim),
+            Query({ field = props.query }),
+            ito.Text(string.format("%d/%d", #props.matches, props.total)):style(styles.dim):padding({ leading = 3 }),
         })
             :border(plain)
             :height(PROMPT_ROWS),

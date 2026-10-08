@@ -110,7 +110,7 @@ it("folds a long diff and opens it on a click", { size = { 80, 40 } }, function(
         diff = uji.diff("", numbered(30), "list.txt"),
     })
     screen.rows(true)
-    assert.is_not_nil(screen.find("└ Added 30 lines"))
+    assert.is_not_nil(screen.find("⎿  Added 30 lines"))
     assert.is_not_nil(screen.find("… +10 lines"))
     assert.is_nil(screen.find("30 + line 30"))
     click("… +10 lines")
@@ -126,7 +126,7 @@ it("shows only a read's summary until it is clicked", { size = { 80, 20 } }, fun
         summary = "Read 2 lines",
     })
     screen.rows(true)
-    assert.is_not_nil(screen.find("└ Read 2 lines"))
+    assert.is_not_nil(screen.find("⎿  Read 2 lines"))
     assert.is_nil(screen.find("2| beta"))
     click("Read 2 lines")
     assert.is_not_nil(screen.find("2| beta"))
@@ -137,7 +137,7 @@ it("shows the summary of a result whose diff has no changes", { size = { 80, 20 
     assert.same({}, same.changes)
     app.session:append({ type = "tool", tool_call_id = "a", name = "write_file", content = "x", diff = same, summary = "Wrote 4 lines" })
     screen.rows(true)
-    assert.is_not_nil(screen.find("└ Wrote 4 lines"))
+    assert.is_not_nil(screen.find("⎿  Wrote 4 lines"))
 end)
 
 it("shows the edit it asks about in the approval prompt", { size = { 80, 24 } }, function()
@@ -153,7 +153,7 @@ end)
 it("names and previews a tool that another agent runs from its display", { size = { 80, 24 } }, function()
     sandbox.file("greet.py", GREET)
     uji.tool.display("Edit", {
-        verb = "Edited",
+        label = "Update",
         subject = function(args)
             return args.file_path
         end,
@@ -168,7 +168,7 @@ it("names and previews a tool that another agent runs from its display", { size 
         tool_calls = { { id = "a", name = "Edit", arguments = sys.json.encode(arguments) } },
     })
     screen.rows(true)
-    assert.is_not_nil(screen.find("• Edited greet.py"))
+    assert.is_not_nil(screen.find("⏺ Update(greet.py)"))
     local _, detail, preview = app.agent:question("Edit", tool.described("Edit"), arguments)
     assert.equal("greet.py", detail)
     assert.same(shape(uji.diff(GREET, HI, "greet.py")), shape(preview))

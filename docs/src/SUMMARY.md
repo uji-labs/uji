@@ -51,6 +51,7 @@
   - [uji.jobs](api/jobs.md)
   - [uji.http](api/http.md)
   - [uji.fs](api/fs.md)
+  - [uji.data](api/data.md)
   - [uji.json](api/json.md)
   - [uji.pack](api/pack.md)
   - [uji.config](api/config.md)

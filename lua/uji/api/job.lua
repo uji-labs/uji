@@ -6,8 +6,7 @@ local tables = require("uji.core.tables")
 uji.job = {
     start = function(opts)
         check.options(opts, "uji.job.start")
-        local spec = tables.copy(opts)
-        spec.argv = process.argv(opts.cmd)
+        local spec = tables.merged(opts, process.command(opts.cmd))
         spec.cwd = opts.cwd or app.directory()
         return process.start(spec)
     end,

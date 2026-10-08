@@ -1,24 +1,24 @@
  0|┌ Sessions in /work/project ───────────────────────────────────────────────────┐
   |0+80 fg=Cyan
  1|│TITLE                     UPDATED         ID                                  │
-  |0+1 fg=Cyan; 1+78 fg=#808080 bold; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+5 fg=#808080 bold; 6+21 fg=Cyan; 27+7 fg=#808080 bold; 34+9 fg=Cyan; 43+2 fg=#808080 bold; 45+35 fg=Cyan
  2|│session 1                 an hour ago     00000000-0000-0000-0000-000000000001│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  3|│session 2                 2 hours ago     00000000-0000-0000-0000-000000000002│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4 bg=#3A3A4A; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4 bg=#3A3A4A; 10+17 fg=Cyan bg=#3A3A4A; 27+11 fg=#D4D4D4 bg=#3A3A4A; 38+5 fg=Cyan bg=#3A3A4A; 43+36 fg=#D4D4D4 bg=#3A3A4A; 79+1 fg=Cyan
  4|│session 3                 3 hours ago     00000000-0000-0000-0000-000000000003│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  5|│session 4                 4 hours ago     00000000-0000-0000-0000-000000000004│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  6|│session 5                 5 hours ago     00000000-0000-0000-0000-000000000005│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  7|│session 6                 6 hours ago     00000000-0000-0000-0000-000000000006│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  8|│session 7                 7 hours ago     00000000-0000-0000-0000-000000000007│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
  9|│session 8                 8 hours ago     00000000-0000-0000-0000-000000000008│
-  |0+1 fg=Cyan; 1+78 fg=#D4D4D4; 79+1 fg=Cyan
+  |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 10+17 fg=Cyan; 27+11 fg=#D4D4D4; 38+5 fg=Cyan; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
 10|└──────────────────────────────────────────────────────────────────────────────┘
   |0+80 fg=Cyan
 11|↑/↓ navigate   enter resume   esc quit
-  |0+3 fg=Cyan; 3+12 fg=#808080; 15+5 fg=Cyan; 20+10 fg=#808080; 30+3 fg=Cyan; 33+5 fg=#808080
+  |0+3 fg=Cyan; 4+8 fg=#808080; 15+5 fg=Cyan; 21+6 fg=#808080; 30+3 fg=Cyan; 34+4 fg=#808080

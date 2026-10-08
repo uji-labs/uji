@@ -18,7 +18,7 @@ uji.tool.add("write_file", {
         properties = {
             path = {
                 type = "string",
-                description = "Path to write, absolute or relative to the working directory.",
+                description = "Path to write: absolute, relative to the working directory, or starting with `~/`.",
             },
             content = {
                 type = "string",
@@ -29,9 +29,10 @@ uji.tool.add("write_file", {
         additionalProperties = false,
     },
     subject = field.subject("path"),
+    path = true,
     policy = "ask",
     display = {
-        verb = "Wrote",
+        label = "Write",
         question = "Would you like to write the following file?",
         preview = function(args)
             local path = field.text(args, "path")

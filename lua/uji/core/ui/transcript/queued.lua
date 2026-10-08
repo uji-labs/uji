@@ -3,5 +3,5 @@ local Wrapped = require("uji.core.ui.transcript.wrapped")
 
 return ito.view(function(props)
     local ctx = ito.theme()
-    return Wrapped({ text = props.text, prefix = " " .. ctx.symbols.queued .. " ", style = ctx.styles.dim })
+    return Wrapped({ text = props.text, mark = ctx.symbols.queued, style = ctx.styles.dim })
 end)

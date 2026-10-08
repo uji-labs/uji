@@ -133,9 +133,9 @@ end
 
 M.Capture = Capture
 
-function M.argv(cmd)
+function M.command(cmd)
     if type(cmd) == "string" then
-        return { "sh", "-c", cmd }
+        return { shell = cmd }
     end
     if type(cmd) ~= "table" then
         error("cmd must be a string or a list of strings", 3)
@@ -147,15 +147,29 @@ function M.argv(cmd)
     for index, part in ipairs(cmd) do
         out[index] = tostring(part)
     end
-    return out
+    return { argv = out }
+end
+
+function M.interactive(text)
+    local program = sys.os.platform ~= "windows" and sys.os.env("SHELL")
+    if program then
+        return { argv = { program, "-c", text } }
+    end
+    return { shell = text }
+end
+
+function M.launch(command, opts)
+    if command.shell then
+        return sys.proc.shell(command.shell, opts)
+    end
+    if not command.argv or #command.argv == 0 then
+        return nil, "no program to run"
+    end
+    return sys.proc.spawn(command.argv, opts)
 end
 
 function M.spawn(spec)
-    local argv = spec.shell and { "sh", "-c", spec.shell } or spec.argv
-    if not argv or #argv == 0 then
-        return nil, "no program to run"
-    end
-    local proc, err = sys.proc.spawn(argv, { cwd = spec.cwd, env = spec.env })
+    local proc, err = M.launch(spec, { cwd = spec.cwd, env = spec.env })
     if not proc then
         return nil, err
     end
@@ -191,7 +205,7 @@ end
 
 function M.start(spec)
     local stopped = false
-    local proc, err = M.spawn({ argv = spec.argv, cwd = spec.cwd, stdin = true })
+    local proc, err = M.spawn({ argv = spec.argv, shell = spec.shell, cwd = spec.cwd, stdin = true })
     if not proc then
         task.spawn(function()
             call(spec.on_stderr, "spawn: " .. tostring(err))

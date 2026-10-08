@@ -22,40 +22,35 @@ local function changed(words, diff)
     return (table.concat(parts, ", "):gsub("^%l", string.upper))
 end
 
-local function lines(width, value)
-    local ctx, props = value.ctx, value.props
+local function tapped(view, toggle)
+    return toggle and view:on_tap(toggle) or view
+end
+
+local function body(ctx, props)
+    if props.diff and props.diff.changes[1] then
+        return ito.VStack({
+            tapped(ito.Text(changed(ctx.text, props.diff)):style(ctx.styles.muted), props.toggle),
+            Diff({
+                diff = props.diff,
+                limit = not props.expanded and ctx.limits.diff_preview or nil,
+                toggle = props.toggle,
+            }),
+        })
+    end
     local style = props.failed and ctx.styles.error or ctx.styles.muted
-    local head, indent = branch.prefix(ctx)
     if props.summary and not props.expanded then
-        return { { { head .. props.summary, style }, on_click = props.toggle } }
+        return tapped(ito.Text(props.summary):style(style), props.toggle)
     end
-    local limit = not props.expanded and ctx.limits.tool_preview or nil
-    local rows, hidden = ctx:fold(props.content, { width = math.max(width - ctx:measure(head), 1), limit = limit })
-    local toggle = (props.expanded or hidden > 0) and props.toggle or nil
-    local out = {}
-    for index, row in ipairs(rows) do
-        out[index] = { { (index == 1 and head or indent) .. row, style }, on_click = toggle }
-    end
-    if hidden > 0 then
-        out[#out + 1] = branch.hidden(ctx, indent, hidden, toggle)
-    end
-    return out
+    local folded = ito.Fold(ito.Text(props.content):style(style):wrap(), {
+        rows = not props.expanded and ctx.limits.tool_preview or nil,
+        more = function(hidden)
+            return branch.hidden(ctx, hidden)
+        end,
+    })
+    return tapped(folded, props.toggle)
 end
 
 return ito.view(function(props)
     local ctx = ito.theme()
-    if not props.diff or not props.diff.changes[1] then
-        return ito.Lines(lines, { ctx = ctx, props = props })
-    end
-    local head, indent = branch.prefix(ctx)
-    local line = ito.Text(head .. changed(ctx.text, props.diff)):style(ctx.styles.muted)
-    return ito.VStack({
-        props.toggle and line:on_tap(props.toggle) or line,
-        Diff({
-            diff = props.diff,
-            indent = indent,
-            limit = not props.expanded and ctx.limits.diff_preview or nil,
-            toggle = props.toggle,
-        }),
-    })
+    return ito.HStack({ branch.mark(ctx), body(ctx, props):grow() })
 end)

@@ -66,7 +66,8 @@ uji.tool.add("read_file", {
         properties = {
             path = {
                 type = "string",
-                description = "Path to the file, absolute or relative to the working directory.",
+                description = "Path to the file: absolute, relative to the working directory, or starting with `~/`. "
+                    .. "A `*` stands for any part of a name when exactly one file matches.",
             },
             offset = {
                 type = "integer",
@@ -82,10 +83,12 @@ uji.tool.add("read_file", {
         required = { "path" },
         additionalProperties = false,
     },
+    resolve = field.resolve,
     subject = field.subject("path"),
+    path = true,
     policy = "allow",
     display = {
-        verb = "Read",
+        label = "Read",
         question = "Would you like to allow uji to `read_file`?",
     },
     run = function(args)

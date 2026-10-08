@@ -31,7 +31,7 @@ function M.load()
     end
     require("uji.builtin.providers")
     require("uji.builtin.tools")
-    local init = config and config .. "/" .. paths.INIT_FILE
+    local init = config and sys.fs.join(config, paths.INIT_FILE)
     package.loaded[DEFAULTS] = nil
     if init and sys.fs.stat(init) then
         source(init, "init")

@@ -3,8 +3,6 @@ local highlight = require("uji.core.ui.highlight")
 local ito = require("ito")
 local list = require("uji.utils.list")
 
-local text = ito.text
-
 local TAB = "    "
 local SIGNS = { context = " ", removed = "-", added = "+" }
 
@@ -66,11 +64,6 @@ end
 
 local function painted(line, look, tokens, styles)
     local spans = tokens and highlight.spans(tokens, styles) or { { source(line), styles.text } }
-    if look.fill then
-        for index, span in ipairs(spans) do
-            spans[index] = { span[1], span[2]:merge(look.fill) }
-        end
-    end
     if look.word and marked(line) then
         return overlay(spans, line, look.word)
     end
@@ -85,68 +78,44 @@ local function digits(diff)
     return #tostring(most)
 end
 
-local function measured(spans)
-    local used = 0
-    for _, span in ipairs(spans) do
-        used = used + text.width(span[1])
-    end
-    return used
+local function row(ctx, line, numbers, tokens)
+    local look = looks(ctx.styles)[line.kind]
+    local mark = look.fill and look.sign or ctx.styles.dim
+    local number = tostring(line.kind == "removed" and line.old or line.new)
+    local shown = ito.HStack({
+        ito.HStack({ ito.Spacer(), ito.Text(number):style(mark) }):width(numbers + 1),
+        ito.Text(SIGNS[line.kind]):style(mark):padding({ horizontal = 1 }),
+        ito.Text(painted(line, look, tokens, ctx.styles)):wrap():grow(),
+    })
+    return look.fill and shown:background(look.fill) or shown
 end
 
-local function rows(ctx, diff, indent, width, tokens)
-    local styles = ctx.styles
-    local look = looks(styles)
+return ito.view(function(props)
+    local ctx = ito.theme()
+    local diff = props.diff
+    local path = diff.path
+    local language = path and (path:match("%.([%w_+#-]+)$") or path:match("[^/\\]+$"))
+    local tokens = highlight.tokens(language, newer(diff))
     local numbers = digits(diff)
-    local gutter = string.rep(" ", numbers + 4)
-    local room = math.max(width - text.width(indent) - #gutter, 1)
-    local out, seen = {}, 0
+    local rows, seen = {}, 0
     for index, change in ipairs(diff.changes) do
         if index > 1 then
-            out[#out + 1] = { { indent .. ctx.symbols.more, styles.dim } }
+            rows[#rows + 1] = ito.Text(ctx.symbols.more):style(ctx.styles.dim)
         end
         for _, line in ipairs(change) do
-            local style = look[line.kind]
             local coloured = false
             if line.kind ~= "removed" then
                 seen = seen + 1
                 coloured = tokens[seen]
             end
-            local number = tostring(line.kind == "removed" and line.old or line.new)
-            local head = " " .. string.rep(" ", numbers - #number) .. number .. " " .. SIGNS[line.kind] .. " "
-            for at, piece in ipairs(ito.spans.wrap(painted(line, style, coloured, styles), room)) do
-                local row = { { indent }, { at == 1 and head or gutter, style.fill and style.sign or styles.dim } }
-                for _, span in ipairs(piece) do
-                    row[#row + 1] = span
-                end
-                if style.fill then
-                    row[#row + 1] = { string.rep(" ", room - measured(piece)), style.fill }
-                end
-                out[#out + 1] = row
-            end
+            rows[#rows + 1] = row(ctx, line, numbers, coloured)
         end
     end
-    return out
-end
-
-local function lines(width, value)
-    local ctx, props = value.ctx, value.props
-    local out = rows(ctx, props.diff, props.indent, width, value.tokens)
-    local hidden = props.limit and math.max(#out - props.limit, 0) or 0
-    for index = #out, #out - hidden + 1, -1 do
-        out[index] = nil
-    end
-    for _, row in ipairs(out) do
-        row.on_click = props.toggle
-    end
-    if hidden > 0 then
-        out[#out + 1] = branch.hidden(ctx, props.indent, hidden, props.toggle)
-    end
-    return out
-end
-
-return ito.view(function(props)
-    local path = props.diff.path
-    local language = path and (path:match("%.([%w_+#-]+)$") or path:match("[^/]+$"))
-    local tokens = highlight.tokens(language, newer(props.diff))
-    return ito.Lines(lines, { ctx = ito.theme(), props = props, tokens = tokens })
+    local folded = ito.Fold(ito.VStack(rows), {
+        rows = props.limit,
+        more = function(hidden)
+            return branch.hidden(ctx, hidden)
+        end,
+    })
+    return props.toggle and folded:on_tap(props.toggle) or folded
 end)

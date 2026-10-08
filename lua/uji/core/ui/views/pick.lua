@@ -1,11 +1,11 @@
 local app = require("uji.core.app")
 local class = require("uji.core.class")
+local Files = require("uji.core.system.files")
 local notices = require("uji.core.notices")
 local Modal = require("uji.core.ui.views.modal")
 local Picker = require("uji.core.ui.pickers.picker")
 local Select = require("uji.core.ui.views.select")
 local sys = require("uji.sys")
-local tool = require("uji.core.tool")
 
 local CONTEXT_LINES = 40
 local DEBOUNCE = 0.12
@@ -94,7 +94,7 @@ function Pick:fetch(item)
     if not path then
         return {}
     end
-    local lines, err = tool.files(app.directory()):around(path, line, CONTEXT_LINES)
+    local lines, err = Files(app.directory()):around(path, line, CONTEXT_LINES)
     return lines or { tostring(err) }
 end
 

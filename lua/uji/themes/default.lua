@@ -20,6 +20,9 @@ local COLORS = {
         type = ito.rgb(0x4ec9b0),
         constant = ito.rgb(0x569cd6),
     },
+    call = {
+        done = ito.rgb(0x87d787),
+    },
     diff = {
         added = ito.rgb(0x5fd75f),
         removed = ito.rgb(0xd75f5f),
@@ -80,6 +83,13 @@ local function styles(c)
             type = S({ foreground = c.syntax.type }),
             constant = S({ foreground = c.syntax.constant }),
         },
+        call = {
+            label = S({ foreground = c.text, bold = true }),
+            detail = S({ foreground = c.text }),
+            running = S({ foreground = c.muted }),
+            done = S({ foreground = c.call.done }),
+            failed = S({ foreground = c.error }),
+        },
         diff = {
             added = S({ background = c.diff.added_bg }),
             removed = S({ foreground = c.text, background = c.diff.removed_bg }),
@@ -93,8 +103,8 @@ end
 
 local SYMBOLS = {
     spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
-    tool = "•",
-    branch = "└",
+    tool = "⏺",
+    branch = "⎿",
     more = "…",
     shell = "!",
     rule = "─",
@@ -139,7 +149,6 @@ local TEXT = {
     confirm_no = "No",
     confirm_allow = "proceed",
     confirm_deny = "and tell uji what to do differently",
-    called = "Called",
     exit = "exit",
     compacted = "compacted",
     hidden = "+%d lines",

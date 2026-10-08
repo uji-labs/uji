@@ -17,6 +17,35 @@ local function failed(content)
     return content:sub(1, 6) == "error:" or content:sub(1, 7) == "denied:"
 end
 
+local function payload(message)
+    local listed = message.type == "assistant" and message.tool_calls or nil
+    return {
+        type = message.type,
+        text = tokens.text(message),
+        name = message.type == "tool" and message.name or nil,
+        tool_calls = listed and #listed > 0 and listed or nil,
+    }
+end
+
+local function shown(message, expanded, toggle)
+    local content = message.content or ""
+    return ToolOutput({
+        content = content,
+        summary = message.summary,
+        diff = message.diff,
+        failed = failed(content),
+        expanded = expanded,
+        toggle = toggle,
+    })
+end
+
+local function status(result)
+    if not result then
+        return "running"
+    end
+    return failed(result.message.content or "") and "failed" or "done"
+end
+
 function M.reply(ctx, blocks)
     local margin = ctx.limits.reply_margin
     local out = {}
@@ -30,29 +59,24 @@ local BODY = {
     user = function(_, message)
         return { UserMessage({ message = message }) }
     end,
-    assistant = function(ctx, message)
+    assistant = function(ctx, message, _, _, results, custom)
         local text = message.text or ""
         local out = text ~= "" and M.reply(ctx, markdown.blocks(ctx, markdown.parse(text))) or {}
-        for _, call in ipairs(message.tool_calls or {}) do
-            if text ~= "" then
+        for index, call in ipairs(message.tool_calls or {}) do
+            if text ~= "" or index > 1 then
                 out[#out + 1] = ito.Spacer():height(1)
             end
-            out[#out + 1] = ToolCall({ call = call })
+            local result = results[index]
+            out[#out + 1] = ToolCall({ call = call, status = status(result) })
+            if result then
+                local view = shown(result.message, result.expanded, result.toggle)
+                out[#out + 1] = custom and Custom({ payload = payload(result.message), fallback = view }) or view
+            end
         end
         return out
     end,
     tool = function(_, message, expanded, toggle)
-        local content = message.content or ""
-        return {
-            ToolOutput({
-                content = content,
-                summary = message.summary,
-                diff = message.diff,
-                failed = failed(content),
-                expanded = expanded,
-                toggle = toggle,
-            }),
-        }
+        return { shown(message, expanded, toggle) }
     end,
     shell = function(_, message, expanded, toggle)
         local output = message.output or ""
@@ -78,7 +102,7 @@ local BODY = {
     end,
 }
 
-function M.entry(ctx, message, gap, thinking, custom, expanded, toggle)
+function M.entry(ctx, message, gap, thinking, custom, expanded, toggle, results)
     local out = {}
     if gap > 0 then
         out[1] = ito.Spacer():height(gap)
@@ -90,18 +114,9 @@ function M.entry(ctx, message, gap, thinking, custom, expanded, toggle)
         })
     end
     local body = BODY[message.type]
-    local views = body and body(ctx, message, expanded, toggle) or {}
+    local views = body and body(ctx, message, expanded, toggle, results or {}, custom) or {}
     if custom then
-        local listed = message.type == "assistant" and message.tool_calls or nil
-        out[#out + 1] = Custom({
-            payload = {
-                type = message.type,
-                text = tokens.text(message),
-                name = message.type == "tool" and message.name or nil,
-                tool_calls = listed and #listed > 0 and listed or nil,
-            },
-            fallback = ito.VStack(views),
-        })
+        out[#out + 1] = Custom({ payload = payload(message), fallback = ito.VStack(views) })
         return out
     end
     for _, view in ipairs(views) do

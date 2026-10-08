@@ -24,7 +24,7 @@ model answers and `1` when the turn fails, with the reason on standard error.
 | `--parent <ID>` | Saves the session under another one. `uji list` leaves it out, and `uji resume --id` opens it. |
 
 Nobody can answer an approval question here, so a call your
-[policy](../api/tool.md#ujitoolpolicyrules) would ask about runs without
+[policy](../api/tool.md#ujitoolpolicyrules-opts) would ask about runs without
 asking. Calls your policy denies stay denied.
 
 The options `--config-dir`, `--data-dir` and `--db` work as they do for the

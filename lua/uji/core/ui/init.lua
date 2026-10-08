@@ -14,6 +14,7 @@ local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local notices = require("uji.core.notices")
 local Pastes = require("uji.core.ui.paste")
+local process = require("uji.core.system.process")
 local render = require("uji.core.ui.render")
 local Stream = require("uji.core.ui.stream")
 local Suggest = require("uji.core.ui.views.suggest")
@@ -613,19 +614,20 @@ function Ui:tick()
     end)
 end
 
-function Ui:exec(argv)
+function Ui:exec(spec)
     task.spawn(function()
         local screen = self:open()
         self.suspended = true
         screen:suspend()
-        local proc, err = sys.proc.spawn(argv, { stdio = "inherit" })
+        local name = spec.shell or spec.argv[1]
+        local proc, err = process.launch(spec, { stdio = "inherit" })
         local exit = proc and proc:wait()
         screen:resume()
         self.suspended = false
         if not proc then
-            notices.push("run " .. argv[1] .. ": " .. tostring(err))
+            notices.push("run " .. name .. ": " .. tostring(err))
         elseif not exit.success then
-            notices.push(argv[1] .. " exited with " .. exit_text(exit))
+            notices.push(name .. " exited with " .. exit_text(exit))
         end
         self:invalidate()
     end)

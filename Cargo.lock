@@ -1097,6 +1097,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
+
+[[package]]
 name = "globset"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1505,7 +1511,7 @@ dependencies = [
 [[package]]
 name = "ito"
 version = "0.1.5"
-source = "git+https://github.com/uji-labs/ito?tag=v0.1.5#4c30ea37e88036d564b378af3c34dfe0cfd02b50"
+source = "git+https://github.com/uji-labs/ito?branch=main#d72eebbfe29ebfc345d7a39bcc2d234a644af062"
 dependencies = [
  "crossterm",
  "mlua",
@@ -3601,6 +3607,7 @@ dependencies = [
  "arboard",
  "base64 0.22.1",
  "futures-util",
+ "glob",
  "globset",
  "image",
  "ito",

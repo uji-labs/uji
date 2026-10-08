@@ -66,21 +66,48 @@ far edge.
 
 ## ito.Text(text)
 
-Draws `text`, one row for each line in it. Nothing wraps. A line too long
-for the view is cut at its edge, and these modifiers style the whole text.
+Draws `text`, one row for each line in it. `text` is a string, or a list of
+spans, each `{ text, style }`, for text in more than one style. A line too
+long for the view is cut at its edge unless the text wraps. These modifiers
+style the whole text, and a span's own style goes on top.
 
 | Modifier | Effect |
 |---|---|
 | `:foreground(colour)` | The text colour, an [`ito.Color`](modifiers.md#colours). |
 | `:bold()`, `:dim()`, `:italic()`, `:underline()`, `:reverse()`, `:strikethrough()`, `:blink()` | Turns on that attribute. |
 | `:style(style)` | Merges an [`ito.TextStyle`](../configuration/themes.md#styles) on top of the text's style so far. |
+| `:wrap()` | Wraps each line to the width the view gets. |
+| `:repeating()` | Repeats the text across and down all the room the view gets, such as a bar beside a column or a rule across a row. |
 
 ```lua
 ito.Text("build failed"):foreground(ito.Color.red):bold()
 ito.Text("3 files"):style(ito.theme().styles.muted)
+ito.HStack({
+  ito.Text("│"):repeating():padding({ trailing = 1 }),
+  ito.Text({ { "Note", ito.theme().styles.bold }, { " the build is slow on a cold cache" } }):wrap():grow(),
+})
 ```
 
-`ito.Text` raises an error when `text` is not a string.
+`ito.Text` raises an error when `text` is neither a string nor a list.
+
+## ito.Fold(content, opts)
+
+Shows `content` up to `opts.rows` rows. When `content` is taller, it shows the
+first `opts.rows` rows and, under them, the view `opts.more(hidden)` gives,
+where `hidden` is the number of rows left out. Without `opts.rows` it shows all
+of `content`.
+
+```lua
+ito.Fold(ito.Text(log):wrap(), {
+  rows = 8,
+  more = function(hidden)
+    return ito.Text("… " .. hidden .. " more"):dim()
+  end,
+})
+```
+
+Raises an error when `opts.rows` is not a whole number or `opts.more` is not a
+function.
 
 ## ito.Lines(lines, value)
 

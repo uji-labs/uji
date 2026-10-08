@@ -111,6 +111,20 @@ ito.HStack({
 })
 ```
 
+## :shrink()
+
+Keeps the view at its own size until its stack runs out of room, then takes the
+missing rows or columns from it first, so the views around it keep theirs. An
+`ito.ScrollView` that shrinks scrolls what no longer fits.
+
+```lua
+ito.VStack({
+  ito.Text(question):wrap(),
+  ito.ScrollView(details):shrink(),
+  ito.Text("y to proceed"),
+})
+```
+
 ## :align(alignment)
 
 Places the view at one of `ito.Alignment`: `top_leading`, `top`,

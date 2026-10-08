@@ -2,6 +2,7 @@ local app = require("uji.core.app")
 local check = require("uji.core.check")
 local cli = require("uji.core.cli")
 local model = require("uji.core.model")
+local sys = require("uji.sys")
 local tokens = require("uji.core.agent.tokens")
 
 local M = {}
@@ -19,9 +20,14 @@ end
 function M.info()
     local session = app.session
     if not session then
-        return { id = "", title = "", directory = "" }
+        return { id = "", title = "", directory = "", short_directory = "" }
     end
-    return { id = session.id, title = session.title, directory = session.directory }
+    return {
+        id = session.id,
+        title = session.title,
+        directory = session.directory,
+        short_directory = sys.os.shorten(session.directory),
+    }
 end
 
 function M.messages()
