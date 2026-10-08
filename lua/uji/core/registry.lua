@@ -78,21 +78,15 @@ function Registry:drop_entry(entry)
 end
 
 function Registry:drop_owner(owner)
-    local kept = {}
-    for _, entry in ipairs(self.entries) do
-        if entry.owner ~= owner then
-            kept[#kept + 1] = entry
-        end
-    end
-    self.entries = kept
+    self.entries = list.filtered(self.entries, function(entry)
+        return entry.owner ~= owner
+    end)
 end
 
 function Registry:names()
-    local names = {}
-    for index, entry in ipairs(self.entries) do
-        names[index] = entry.name
-    end
-    return names
+    return list.mapped(self.entries, function(entry)
+        return entry.name
+    end)
 end
 
 function Registry:sorted()
@@ -102,11 +96,9 @@ function Registry:sorted()
 end
 
 function Registry:values()
-    local values = {}
-    for index, entry in ipairs(self.entries) do
-        values[index] = entry.value
-    end
-    return values
+    return list.mapped(self.entries, function(entry)
+        return entry.value
+    end)
 end
 
 function Registry:each()

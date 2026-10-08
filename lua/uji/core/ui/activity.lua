@@ -6,7 +6,9 @@ return ito.view(function()
     if not activity then
         return nil
     end
-    local styles = ito.theme().styles
-    local waiting = string.format(ito.theme().text.working, activity.elapsed)
-    return ito.Lines({ { { activity.frame .. " ", styles.accent }, { waiting, styles.muted } } })
+    local ctx = ito.theme()
+    return ito.HStack({
+        ito.Text(activity.frame):style(ctx.styles.accent):padding({ trailing = 1 }),
+        ito.Text(string.format(ctx.text.working, activity.elapsed)):style(ctx.styles.muted),
+    })
 end)

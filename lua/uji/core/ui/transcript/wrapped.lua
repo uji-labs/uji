@@ -1,10 +1,11 @@
 local ito = require("ito")
 
-local function lines(width, value)
-    local props = value.props
-    return value.ctx:wrap(props.text, { prefix = props.prefix, style = props.style, fill = props.fill, width = width })
-end
-
 return ito.view(function(props)
-    return ito.Lines(lines, { ctx = ito.theme(), props = props })
+    local text = ito.Text(props.text):style(props.style):wrap():grow()
+    return ito.HStack({
+        props.mark ~= nil and ito.Text(props.mark):style(props.style):repeating(),
+        props.fill and text:padding({ trailing = 1 }) or text,
+    })
+        :spacing(1)
+        :padding({ leading = 1 })
 end)

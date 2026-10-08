@@ -1,3 +1,5 @@
+local list = require("uji.utils.list")
+
 local SUBSCRIPTION = "Subscription (sign in with browser)"
 local API_KEY = "API key"
 
@@ -54,10 +56,9 @@ end
 uji.command.add("login", {
     desc = "configure provider and auth",
     handler = function()
-        local names = {}
-        for index, provider in ipairs(uji.provider.list()) do
-            names[index] = provider.name
-        end
+        local names = list.mapped(uji.provider.list(), function(provider)
+            return provider.name
+        end)
         local name = uji.ui.select({ title = "Provider", items = names })
         local provider = name and chosen(name)
         if not provider then

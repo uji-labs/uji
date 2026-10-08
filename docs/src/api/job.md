@@ -8,7 +8,7 @@ Starts a process and returns a job table.
 
 | Option | Type | Meaning |
 |---|---|---|
-| `cmd` | string or list | Required. A string runs through `sh -c`. A list is the program and its arguments. |
+| `cmd` | string or list | Required. A string is a shell command. A list is the program and its arguments. |
 | `cwd` | string | The directory to run in. The default is uji's working directory. |
 | `timeout` | number | Seconds before uji kills the process. |
 | `on_stdout` | function | Receives each line the process writes to standard output. |

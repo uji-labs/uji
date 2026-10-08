@@ -1,4 +1,5 @@
 local class = require("uji.core.class")
+local ito = require("ito")
 local keys = require("uji.core.ui.keys")
 local sys = require("uji.sys")
 
@@ -39,6 +40,7 @@ end
 
 function Modal:init()
     self.answer = sys.promise()
+    ito.observable(self)
 end
 
 function Modal:selection()

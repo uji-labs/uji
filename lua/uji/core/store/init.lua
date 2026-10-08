@@ -1,5 +1,6 @@
 local class = require("uji.core.class")
 local id = require("uji.core.id")
+local list = require("uji.utils.list")
 local sys = require("uji.sys")
 local Session = require("uji.core.store.session")
 
@@ -38,7 +39,7 @@ local Store = class()
 Store.UNTITLED = UNTITLED
 
 function Store:init(path)
-    local parent = path:match("^(.*)/[^/]*$")
+    local parent = sys.fs.parent(path)
     if parent and parent ~= "" then
         sys.fs.mkdir(parent)
     end
@@ -111,11 +112,9 @@ function Store:sessions(directory)
         params[1] = directory
     end
     local query = "SELECT " .. COLUMNS .. " FROM sessions WHERE " .. filter .. " ORDER BY time_updated DESC, id DESC"
-    local out = {}
-    for _, row in ipairs(self.db:query(query, params)) do
-        out[#out + 1] = Session(self, row)
-    end
-    return out
+    return list.mapped(self.db:query(query, params), function(row)
+        return Session(self, row)
+    end)
 end
 
 function Store:delete(key)

@@ -1,8 +1,7 @@
 # uji.fs
 
-Every function here goes through the same checks as the file tools.
-Relative paths start at the working directory, and
-[confinement](tool.md#ujitoolconfineenabled) applies.
+Reading, writing, listing and globbing go through the same checks as the file
+tools, and their relative paths start at the working directory.
 
 ## uji.fs.read(path, on_done)
 
@@ -66,4 +65,30 @@ uji.fs.list("src", function(entries, err)
     uji.notify(#entries .. " entries in src")
   end
 end)
+```
+
+## uji.fs.glob(pattern, on_done)
+
+Lists the paths that match `pattern`, in alphabetical order. `*` stands for any
+part of a name, `?` for one character, `[abc]` for one of the characters
+between the brackets, and `**` for any number of directories. A relative
+pattern gives paths relative to the working directory for matches inside it.
+`on_done` receives the list, or `nil` and an error message when the pattern is
+not valid.
+
+```lua
+uji.fs.glob("src/**/*.rs", function(found, err)
+  if found then
+    uji.notify(#found .. " Rust files")
+  end
+end)
+```
+
+## uji.fs.join(base, ...)
+
+Joins `base` and the parts after it into one path, with the separator the
+system uses.
+
+```lua
+local projects = uji.fs.join("~", ".claude", "projects")
 ```

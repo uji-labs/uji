@@ -27,7 +27,6 @@ end)
 
 function M.frame(ui)
     local window, ctx = ui.window, ui.theme:context()
-    ctx.width, ctx.height = ui.screen:size()
     local ok, root, frame = xpcall(window.place, diagnostics.capture, window, host.Host:provide(ui, Root({ ui = ui })), ctx)
     diagnostics.report("screen", not ok and root or nil)
     if not ok then
@@ -36,11 +35,10 @@ function M.frame(ui)
     return window:draw(root, frame)
 end
 
-function M.show(ui, element)
-    local screen = ui:open()
-    screen:clear()
+function M.show(ui, window, element)
+    ui:open():clear()
     local ctx = ui.theme:context()
-    ito.Window(screen, function() end):render(host.Host:provide(ui, presentations.backdrop(element, ctx)), ctx)
+    window:render(host.Host:provide(ui, presentations.backdrop(element, ctx)), ctx)
 end
 
 return M

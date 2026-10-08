@@ -1,3 +1,4 @@
+local list = require("uji.utils.list")
 local notices = require("uji.core.notices")
 local paths = require("uji.core.paths")
 local sys = require("uji.sys")
@@ -114,18 +115,21 @@ local function save_lock(lock)
         blocks[index] = "  " .. quote(name) .. ": {\n" .. table.concat(fields, ",\n") .. "\n  }"
     end
     local text = #blocks == 0 and "{}" or "{\n" .. table.concat(blocks, ",\n") .. "\n}"
-    sys.fs.mkdir(path:match("^(.*)/[^/]*$"))
+    sys.fs.mkdir(sys.fs.parent(path))
     return sys.fs.write(path, text)
 end
 
 local function repo_name(url)
     local trimmed = url:gsub("/+$", ""):gsub("%.git$", "")
+    if sys.fs.absolute(trimmed) then
+        return sys.fs.name(trimmed) or url
+    end
     return trimmed:match("([^/:]+)$") or url
 end
 
 local function expand_url(short)
     local first = short:sub(1, 1)
-    local looks_local = first == "/" or first == "." or first == "~"
+    local looks_local = sys.fs.absolute(short) or first == "." or first == "~"
     if short:find("://", 1, true) or short:sub(1, 4) == "git@" or looks_local then
         return paths.expand(short)
     end
@@ -175,7 +179,7 @@ local function install(found)
     if not site then
         return nil, "$HOME is not set"
     end
-    local dir = site .. "/" .. found.name
+    local dir = sys.fs.join(site, found.name)
     if is_dir(dir) then
         return dir
     end
@@ -206,7 +210,7 @@ function M.add_root(dir)
         end
     end
     M.roots[#M.roots + 1] = dir
-    local natives = dir .. "/" .. paths.NATIVE_DIR .. "/?." .. sys.os.library
+    local natives = sys.fs.join(dir, paths.NATIVE_DIR, "?." .. sys.os.library)
     package.cpath = package.cpath == "" and natives or package.cpath .. ";" .. natives
 end
 
@@ -233,11 +237,7 @@ function M.add(specs)
 end
 
 function M.list()
-    local out = {}
-    for index, root in ipairs(M.roots) do
-        out[index] = root
-    end
-    return out
+    return tables.copy(M.roots)
 end
 
 function M.update()
@@ -255,7 +255,7 @@ function M.update()
     local changed = false
     for _, name in ipairs(names) do
         local entry = lock[name]
-        local dir = site .. "/" .. name
+        local dir = sys.fs.join(site, name)
         if not is_dir(dir) then
             notices.push("pack: " .. name .. " is not installed")
         else
@@ -294,7 +294,7 @@ function M.searcher(module)
     local tried = {}
     for _, root in ipairs(M.roots) do
         for _, file in ipairs({ relative .. ".lua", relative .. "/init.lua" }) do
-            local path = root .. "/" .. paths.MODULE_DIR .. "/" .. file
+            local path = sys.fs.join(root, paths.MODULE_DIR, file)
             local source = read_file(path)
             if source then
                 local chunk, err = load(source, "@" .. path)
@@ -310,18 +310,14 @@ function M.searcher(module)
 end
 
 function M.overriding(roots)
-    local out = {}
-    for _, root in ipairs(roots) do
-        if is_dir(root .. "/" .. paths.MODULE_DIR .. "/uji") or is_dir(root .. "/" .. paths.NATIVE_DIR .. "/uji") then
-            out[#out + 1] = root
-        end
-    end
-    return out
+    return list.filtered(roots, function(root)
+        return is_dir(sys.fs.join(root, paths.MODULE_DIR, "uji")) or is_dir(sys.fs.join(root, paths.NATIVE_DIR, "uji"))
+    end)
 end
 
 local function cache_path()
     local data = paths.data()
-    return data and data .. "/" .. CACHE
+    return data and sys.fs.join(data, CACHE)
 end
 
 function M.remembered()
@@ -336,7 +332,7 @@ function M.remember(roots)
     if not path or tables.same(roots, M.remembered()) then
         return
     end
-    sys.fs.mkdir(path:match("^(.*)/[^/]*$"))
+    sys.fs.mkdir(sys.fs.parent(path))
     sys.fs.write(path, sys.json.encode(sys.json.array(tables.copy(roots))))
 end
 
@@ -355,11 +351,11 @@ function M.expected()
 end
 
 function M.plugin_files(root)
-    local entries = sys.fs.list(root .. "/" .. paths.PLUGIN_DIR)
+    local entries = sys.fs.list(sys.fs.join(root, paths.PLUGIN_DIR))
     local files = {}
     for _, entry in ipairs(entries or {}) do
         if entry.name:match("%.lua$") then
-            files[#files + 1] = root .. "/" .. paths.PLUGIN_DIR .. "/" .. entry.name
+            files[#files + 1] = sys.fs.join(root, paths.PLUGIN_DIR, entry.name)
         end
     end
     table.sort(files)

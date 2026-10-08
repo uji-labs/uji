@@ -1,5 +1,3 @@
-local path = require("uji.core.system.path")
-local paths = require("uji.core.paths")
 local sys = require("uji.sys")
 local tables = require("uji.core.tables")
 
@@ -73,12 +71,12 @@ function M.named(file)
 end
 
 function M.file(file, directory)
-    local full = path.join(directory or sys.os.cwd(), paths.expand(file))
+    local full = sys.fs.resolve(directory or sys.os.cwd(), file)
     local data, err = sys.fs.read(full)
     if not data then
         return nil, err
     end
-    return M.load(data, full:match("[^/]+$"))
+    return M.load(data, sys.fs.name(full))
 end
 
 function M.clipboard()

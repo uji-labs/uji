@@ -1,0 +1,27 @@
+id: lua-ui-no-size-math
+language: lua
+severity: error
+message: >-
+  A size works out room by hand. Give the view what it is, and let ito work
+  out the rest with :grow, :share, :shrink, :spacing or ito.Grid.
+files:
+  - "lua/uji/core/ui/**"
+  - "lua/uji/themes/**"
+  - "lua/uji/api/**"
+rule:
+  kind: function_call
+  all:
+    - has:
+        field: name
+        kind: method_index_expression
+        has:
+          field: method
+          regex: "^(width|height|max_height|padding|spacing)$"
+    - has:
+        field: arguments
+        has:
+          stopBy: end
+          any:
+            - kind: binary_expression
+              regex: "[-+*/%]"
+            - pattern: math.$F($$$)

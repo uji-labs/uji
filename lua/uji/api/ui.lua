@@ -105,7 +105,13 @@ M.ui = {
         }
     end,
     exec = function(cmd)
-        ui:exec(process.argv(cmd))
+        ui:exec(process.command(cmd))
+    end,
+    open = function(target)
+        if type(target) ~= "string" or target == "" then
+            error("uji.ui.open needs a file or link to open", 2)
+        end
+        process.open(target, app.directory())
     end,
     toggle_thinking = function()
         ui:toggle_thinking()

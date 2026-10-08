@@ -1,0 +1,35 @@
+id: lua-use-list-filtered
+language: lua
+severity: error
+message: Keep the items with list.filtered from uji.utils.list instead of a loop that fills a new table.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/utils/**"
+rule:
+  pattern: |
+    for $_, $X in ipairs($XS) do
+      if $C then
+        $OUT[#$OUT + 1] = $X
+      end
+    end
+  has:
+    field: body
+    not:
+      has:
+        nthChild: 2
+    has:
+      kind: if_statement
+      not:
+        has:
+          field: alternative
+          any:
+            - kind: elseif_statement
+            - kind: else_statement
+      has:
+        field: consequence
+        not:
+          has:
+            nthChild: 2
+  follows:
+    pattern: local $OUT = {}

@@ -26,9 +26,11 @@ lint: scan
 scan:
     ast-grep scan crates/kernel/src crates/uji/src lua/uji
 
-# Lua lint (needs luacheck).
+# Lua lint (needs luacheck and selene).
 lua:
     luacheck {{lua_paths}}
+    selene lua/uji crates/kernel/src bench
+    selene --config .config/selene/tests.toml crates/tests/lua
 
 # The Lua specs; filters pick tests by name, like `just test screen::`.
 test *filters:

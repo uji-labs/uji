@@ -1,6 +1,7 @@
 local ito = require("ito")
+local list = require("uji.utils.list")
 
-local GAP = "  "
+local GAP = 2
 local RECENT = 10
 local MILLIS = 1000
 local AGES = {
@@ -29,15 +30,19 @@ local function ago(now, millis)
     end
 end
 
-local function columns(ctx, values, width)
+local function columns(ctx, values, style)
     local limits = ctx.limits
-    local title = math.max(width - limits.sessions_updated - limits.sessions_id - #GAP * 2, 0)
-    local widths = { title, limits.sessions_updated, limits.sessions_id }
-    local cells = {}
-    for index, value in ipairs(values) do
-        cells[index] = ctx:pad(ctx:clip(value, widths[index]), widths[index])
-    end
-    return ctx:clip(table.concat(cells, GAP), width)
+    return ito.HStack({
+        ito.Text(values[1]):style(style):grow(),
+        ito.Text(values[2]):style(style):width(limits.sessions_updated),
+        ito.Text(values[3]):style(style):width(limits.sessions_id),
+    }):spacing(GAP)
+end
+
+local function hints(styles, entries)
+    return ito.HStack(list.mapped(entries, function(entry)
+        return ito.HStack({ ito.Text(entry[1]):style(styles.highlight), ito.Text(entry[2]):style(styles.muted) }):spacing(1)
+    end)):spacing(3)
 end
 
 return ito.view(function(props)
@@ -46,44 +51,31 @@ return ito.view(function(props)
     local sessions = props.sessions
     local hint
     if #sessions == 0 then
-        hint = { { words.key_quit, styles.highlight }, { " " .. words.quit, styles.muted } }
+        hint = hints(styles, { { words.key_quit, words.quit } })
     else
-        hint = {
-            { words.key_move, styles.highlight },
-            { " " .. words.navigate .. "   ", styles.muted },
-            { words.key_open, styles.highlight },
-            { " " .. words.resume .. "   ", styles.muted },
-            { words.key_quit, styles.highlight },
-            { " " .. words.quit, styles.muted },
-        }
+        hint = hints(styles, {
+            { words.key_move, words.navigate },
+            { words.key_open, words.resume },
+            { words.key_quit, words.quit },
+        })
     end
-    local listed = ito.Lines(function(width)
-        local header = { words.column_title, words.column_updated, words.column_id }
-        local lines = { { { columns(ctx, header, width), styles.muted:merge(styles.table_head) } } }
-        if #sessions == 0 then
-            lines[2] = { { words.sessions_empty, styles.muted } }
-            return lines
-        end
-        local available = math.max(props.height - 3 - 1, 1)
-        local start = 0
-        if props.cursor > available then
-            start = math.min(props.cursor - available, #sessions - available)
-        end
-        for at = start + 1, math.min(start + available, #sessions) do
-            local session = sessions[at]
-            local chosen = at == props.cursor
-            local row = columns(ctx, { session.title, ago(props.now, session.updated), session.id }, width)
-            local line = { { row, chosen and styles.chosen or styles.text } }
-            if chosen then
-                line[2] = { string.rep(" ", math.max(width - ctx:measure(row), 0)), styles.selected }
-            end
-            lines[#lines + 1] = line
-        end
-        return lines
-    end)
-    local title = " " .. string.format(words.sessions_title, props.directory) .. " "
+    local header = columns(ctx, { words.column_title, words.column_updated, words.column_id }, styles.muted:merge(styles.table_head))
+    local listed = ito.Text(words.sessions_empty):style(styles.muted)
+    if #sessions > 0 then
+        listed = ito.List(sessions, function(session, _, chosen)
+            local row =
+                columns(ctx, { session.title, ago(props.now, session.updated), session.id }, chosen and styles.chosen or styles.text)
+            return chosen and row:background(styles.selected) or row
+        end)
+            :selection(props.selection)
+            :passive()
+            :grow()
+    end
     return ito.VStack({
-        listed:border(ctx.borders.plain, { color = ctx.colors.accent }):title(title):grow(),
-        ito.Lines({ hint }):height(1),
+        ito.VStack({ header, listed })
+            :border(ctx.borders.plain, { color = ctx.colors.accent })
+            :title(string.format(words.sessions_title, props.directory))
+            :grow(),
+        hint,
     })
 end)

@@ -1,0 +1,16 @@
+id: lua-no-helper-copies
+language: lua
+severity: error
+message: >-
+  List and table helpers live once, in uji.utils.list and uji.core.tables.
+  Use the shared one, or add it there, instead of a local copy.
+files:
+  - "lua/uji/**"
+ignores:
+  - "lua/uji/utils/**"
+  - "lua/uji/core/tables.lua"
+rule:
+  kind: function_declaration
+  has:
+    field: name
+    regex: "^(map|mapped|filter|filtered|flatten|flattened|append|appended|insert|inserted|remove|removed|extend|extended|keys|copy|copied|merge|merged|same|contains|includes|reverse|reversed|unique)$"

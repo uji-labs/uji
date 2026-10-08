@@ -12,9 +12,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.tool.list()`](tool.md#ujitoollist) | Returns the names of every registered tool. |
 | [`uji.tool.disable(names)`](tool.md#ujitooldisablenames) | Turns tools off. The model still sees them, and uji denies any call to them. |
 | [`uji.tool.enable(names)`](tool.md#ujitoolenablenames) | Turns tools back on after `uji.tool.disable`. |
-| [`uji.tool.policy(rules)`](tool.md#ujitoolpolicyrules) | Sets which tool calls run without asking, which ask first, and which uji refuses. |
-| [`uji.tool.confine(enabled)`](tool.md#ujitoolconfineenabled) | With `true`, limits `read_file`, `edit_file` and `write_file` to the working directory and the roots from `uji.tool.roots`. |
-| [`uji.tool.roots(paths)`](tool.md#ujitoolrootspaths) | Replaces the directories the file tools may reach besides the working directory, and returns the list. |
+| [`uji.tool.policy(rules, opts)`](tool.md#ujitoolpolicyrules-opts) | Sets which tool calls run without asking, which ask first, and which uji refuses. |
 | [`uji.diff(old, new, path)`](tool.md#ujidiffold-new-path) | Compares two texts line by line and returns the change, for a tool result or an approval preview. |
 
 ## Commands
@@ -56,6 +54,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.ui.Markdown(text)`](ui.md#ujiuimarkdowntext) | A view that draws markdown. |
 | [`uji.ui.toggle_thinking()`](ui.md#ujiuitoggle_thinking) | Shows or hides the model's reasoning in the transcript. |
 | [`uji.ui.exec(cmd)`](ui.md#ujiuiexeccmd) | Hides uji, runs a program in the terminal, and comes back when it exits. |
+| [`uji.ui.open(target)`](ui.md#ujiuiopentarget) | Opens a file or link in the app the system uses for it. |
 | [`uji.ui.configure(opts)`](ui.md#ujiuiconfigureopts) | Sets colours and screen behaviour. |
 | [`uji.ui.theme()`](ui.md#ujiuitheme) | Returns the theme in use. |
 | [`uji.ui.save_theme(name)`](ui.md#ujiuisave_themename) | Keeps a theme for the next time uji starts. |
@@ -81,7 +80,7 @@ Every function lives under the global `uji` table. A function that finishes late
 
 | Name | Does |
 |---|---|
-| [`uji.session.info()`](session.md#ujisessioninfo) | Returns a table with the session's `id`, `title` and `directory`. |
+| [`uji.session.info()`](session.md#ujisessioninfo) | Returns a table with the session's `id`, `title`, `directory` and `short_directory`. |
 | [`uji.session.messages()`](session.md#ujisessionmessages) | Returns the transcript as a list of tables with `type` and `text`. |
 | [`uji.session.usage()`](session.md#ujisessionusage) | Returns the tokens spent in this session. |
 | [`uji.session.context()`](session.md#ujisessioncontext) | Returns a table with `used`, the estimated tokens in the conversation, and `window`, the model's context size when uji knows it. |
@@ -156,6 +155,10 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.fs.lines(path, opts, on_done)`](fs.md#ujifslinespath-opts-on_done) | Reads a range of lines from a text file. |
 | [`uji.fs.write(path, content, on_done)`](fs.md#ujifswritepath-content-on_done) | Writes a file, creating missing directories. |
 | [`uji.fs.list(path, on_done)`](fs.md#ujifslistpath-on_done) | Lists a directory. |
+| [`uji.fs.glob(pattern, on_done)`](fs.md#ujifsglobpattern-on_done) | Lists the paths that match a pattern. |
+| [`uji.fs.join(base, ...)`](fs.md#ujifsjoinbase-) | Joins parts into one path. |
+| [`uji.data.read(name, on_done)`](data.md#ujidatareadname-on_done) | Reads a plugin's file in the data directory. |
+| [`uji.data.write(name, text, on_done)`](data.md#ujidatawritename-text-on_done) | Writes a plugin's file in the data directory. |
 | [`uji.config.files(folder, opts, on_done)`](config.md#ujiconfigfilesfolder-opts-on_done) | Reads the files in a folder of your config, your packs and, if asked, the project. |
 
 ## JSON

@@ -12,17 +12,17 @@
 10|
   |0+80 fg=#808080
 11|  Allow tool call?
-  |0+18 fg=#D4D4D4 bold; 18+62 fg=#808080
+  |0+2 fg=#808080; 2+16 fg=#D4D4D4 bold; 18+62 fg=#808080
 12|
   |0+80 fg=#808080
 13|  run_command: ls -la
-  |0+21 fg=#D4D4D4; 21+59 fg=#808080
+  |0+2 fg=#808080; 2+19 fg=#D4D4D4; 21+59 fg=#808080
 14|  in the project directory
-  |0+26 fg=#D4D4D4; 26+54 fg=#808080
+  |0+2 fg=#808080; 2+24 fg=#D4D4D4; 26+54 fg=#808080
 15|
   |0+80 fg=#808080
 16|› 1. Yes, proceed (y)
-  |0+17 fg=Cyan bold; 17+4 fg=#808080 dim; 21+59 fg=#808080
+  |0+1 fg=Cyan bold; 1+1 fg=#808080; 2+15 fg=Cyan bold; 17+4 fg=#808080 dim; 21+59 fg=#808080
 17|  2. No, and tell uji what to do differently (esc)
   |0+44 fg=#808080; 44+6 fg=#808080 dim; 50+30 fg=#808080
 18|

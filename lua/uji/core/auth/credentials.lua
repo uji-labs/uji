@@ -30,7 +30,7 @@ local function parse(raw)
 end
 
 function Credentials:path()
-    return self.directory and self.directory .. "/" .. FILE
+    return self.directory and sys.fs.join(self.directory, FILE)
 end
 
 function Credentials:file()

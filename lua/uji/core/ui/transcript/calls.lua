@@ -14,7 +14,7 @@ function M.describe(call)
             notices.push(call.name .. " subject: " .. sys.message(detail))
             detail = nil
         end
-        found.verb = entry.display and entry.display.verb
+        found.label = entry.display and entry.display.label
         found.detail = detail
     end
     return found

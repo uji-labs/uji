@@ -2,6 +2,7 @@ local class = require("uji.core.class")
 local compactor = require("uji.core.agent.compactor")
 local context = require("uji.core.context")
 local event = require("uji.core.event")
+local Files = require("uji.core.system.files")
 local images = require("uji.core.images")
 local ito = require("ito")
 local list = require("uji.utils.list")
@@ -336,11 +337,15 @@ function Agent:verdict(name, entry, args, subject)
         notices.push(name .. " subject: " .. sys.message(subject))
         return { ask = true }
     end
-    local action = tool.compiled():evaluate(name, subject, entry and entry.policy)
+    local subjects = { subject }
+    if entry and entry.path then
+        subjects[2] = Files(self.session.directory):resolve(subject)
+    end
+    local action, message = tool.compiled():evaluate(name, subjects, entry and entry.policy)
     if action == "allow" then
         return { allow = true }
     elseif action == "deny" then
-        return { deny = "denied by policy" }
+        return { deny = message or "denied by policy" }
     end
     return { ask = true }
 end
@@ -386,6 +391,21 @@ function Agent:approve(name, args, subject)
         return { allow = true, arguments = args }
     end
     return { deny = "user denied" }
+end
+
+function Agent:resolve(name, args)
+    local entry = tool.get(name)
+    if not entry or not entry.resolve then
+        return args
+    end
+    local ok, resolved, problem = pcall(entry.resolve, args)
+    if not ok then
+        return nil, "error: " .. sys.message(resolved)
+    end
+    if not resolved then
+        return nil, problem or "error: " .. name .. " resolve returned no arguments"
+    end
+    return resolved
 end
 
 function Agent:run_tool(call, args)
@@ -578,8 +598,9 @@ function Agent:run_shell(command)
         notices.push("a command is already running")
         return
     end
-    local program = sys.os.env("SHELL") or "/bin/sh"
-    local proc, err = process.spawn({ argv = { program, "-c", command }, cwd = self.session.directory })
+    local spec = process.interactive(command)
+    spec.cwd = self.session.directory
+    local proc, err = process.spawn(spec)
     if not proc then
         self:append({ type = "shell", command = command, output = "spawn: " .. tostring(err), code = -1 })
         return

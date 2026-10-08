@@ -1,0 +1,23 @@
+id: lua-ui-no-hand-layout
+language: lua
+severity: error
+message: >-
+  ito lays out the screen. Use Text:wrap, :spacing, :invisible, :share or
+  ito.Grid instead of measuring, wrapping or padding text by hand, and add
+  what ito is missing to ito.
+files:
+  - "lua/uji/core/ui/**"
+  - "lua/uji/themes/**"
+  - "lua/uji/api/**"
+rule:
+  any:
+    - pattern: $C:measure($$$)
+    - pattern: ito.text.width($$$)
+    - pattern: ito.text.widest($$$)
+    - pattern: ito.text.wrap($$$)
+    - pattern: ito.text.ranges($$$)
+    - pattern: ito.text.clip($$$)
+    - pattern: ito.text.pad($$$)
+    - pattern: ito.spans.wrap($$$)
+    - pattern: string.rep($$$)
+    - pattern: ito.Lines(function($$$) $$$ end)

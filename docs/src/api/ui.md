@@ -233,11 +233,21 @@ end)
 ## uji.ui.exec(cmd)
 
 Hides uji, runs a program in the terminal, and comes back when it exits.
-`cmd` is a string, run through `sh -c`, or a list of the program and its
-arguments.
+`cmd` is a shell command, or a list of the program and its arguments.
 
 ```lua
 uji.ui.exec("git log --oneline | less")
+```
+
+## uji.ui.open(target)
+
+Opens `target`, a file or a link, in the app the system uses for it, such as
+the browser for a web address, and returns at once. A relative path starts at
+the working directory. Raises an error when `target` is not a string or is
+empty.
+
+```lua
+uji.ui.open("https://github.com/uji-labs/uji")
 ```
 
 ## uji.ui.configure(opts)

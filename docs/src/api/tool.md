@@ -14,9 +14,11 @@ Registers a tool the model can call, or replaces the tool with the same name.
 | `description` | string | no | What the tool does. The model reads this to decide when to call it. |
 | `parameters` | table | no | A JSON Schema for the arguments, written as a Lua table. |
 | `run` | function | yes | Runs the call. See below. |
+| `resolve` | function | no | Receives the arguments before the policy is checked and returns the ones to use from then on, or `nil` and an error message, which becomes the result. |
 | `subject` | string or function | no | What policy rules match against, and what the transcript and approval question show. A function receives the arguments and returns a string. The default is the tool's name. |
 | `policy` | string | no | `"allow"`, `"ask"` or `"deny"`. Used when no policy rule matches. |
-| `display.verb` | string | no | The transcript line, such as `"Read"`, which uji follows with the subject. |
+| `path` | boolean | no | `true` when the subject is a file path, so policy rules match it the way they match the file tools. |
+| `display.label` | string | no | The name the transcript shows for a call, such as `"Read"`, followed by the subject in brackets. The default is the tool's name. |
 | `display.question` | string | no | The title of the approval question. |
 | `display.preview` | function | no | Receives the arguments and returns the change the call would make, as [`uji.diff`](#ujidiffold-new-path) gives it. The approval question shows it. |
 
@@ -51,7 +53,7 @@ uji.tool.add("branch", {
   description = "Name of the current git branch.",
   parameters = { type = "object", properties = {} },
   policy = "allow",
-  display = { verb = "Checked the branch", question = "Read the current branch?" },
+  display = { label = "Branch", question = "Read the current branch?" },
   run = function()
     return io.popen("git branch --show-current"):read("*l")
   end,
@@ -62,13 +64,13 @@ uji.tool.add("branch", {
 
 Describes a tool that uji does not run itself, such as one that a provider's
 [own loop](provider.md) runs, so the transcript and the approval question can
-name its calls. The model is never offered it. `opts` takes `verb`, `subject`,
-`question` and `preview`, which mean the same as `display.verb`, `subject`,
+name its calls. The model is never offered it. `opts` takes `label`, `subject`,
+`question` and `preview`, which mean the same as `display.label`, `subject`,
 `display.question` and `display.preview` in `uji.tool.add`.
 
 ```lua
 uji.tool.display("Edit", {
-  verb = "Edited",
+  label = "Update",
   subject = function(args)
     return args.file_path
   end,
@@ -110,7 +112,7 @@ Turns tools back on after `uji.tool.disable`.
 uji.tool.enable({ "edit_file", "write_file" })
 ```
 
-## uji.tool.policy(rules)
+## uji.tool.policy(rules, opts)
 
 Sets which tool calls run without asking, which ask first, and which uji
 refuses. `rules` maps a tool name to a table with `allow`, `ask` and `deny`
@@ -130,7 +132,10 @@ Each rule matches the tool's subject: the path for the file tools, the command
 line for `run_command`, the job's name for `job_output` and `stop_job`, and the
 `subject` of a tool you add. A job's name follows the theme's `text.job`, such
 as `job 3`. A rule is an exact string, a glob when it contains `*`, `?` or `[`,
-or a regular expression between slashes.
+or a regular expression between slashes. For the file tools, a rule also
+matches the file's full path, and a rule that starts with `~/` starts at your
+home folder. A rule can also be a table with `pattern` and `message`, and the
+model reads `message` when that rule refuses a call.
 
 uji checks `deny` rules first, then `allow`, then `ask`, and uses the first
 match. With no match, it uses the tool's `default`, then the top-level
@@ -150,33 +155,21 @@ Rules may name a tool uji does not register, such as a tool of a provider
 that runs [its own loop](provider.md#your-own-loop). They match the subject
 that loop passes to `agent:approve`.
 
-Each call replaces the tools it names and keeps the others. A
-[`before_tool`](events.md#before_tool) hook runs before the policy and
+Each call replaces the tools it names and keeps the others. With
+`opts.name`, the rules go in a separate set under that name, which calls
+without it, or with another name, leave alone. uji checks the `deny` rules of
+every set first, and when sets give different defaults, the strictest wins.
+
+```lua
+uji.tool.policy({
+  edit_file = {
+    deny = { { pattern = "~/reference/**", message = "~/reference is read-only" } },
+  },
+}, { name = "reference" })
+```
+
+A [`before_tool`](events.md#before_tool) hook runs before the policy and
 overrides it.
-
-## uji.tool.confine(enabled)
-
-With `true`, limits `read_file`, `edit_file` and `write_file` to the working
-directory and the roots from `uji.tool.roots`. A `../` path or a symbolic link
-cannot reach outside them. `run_command` is not limited. With `false`, lifts
-the limit. Returns whether the limit is on, so calling it with no argument
-reads the setting.
-
-```lua
-uji.tool.confine(true)
-local confined = uji.tool.confine()
-```
-
-## uji.tool.roots(paths)
-
-Replaces the directories the file tools may reach besides the working
-directory, and returns the list. A path may start with `~/`. Calling it with no
-argument returns the list without changing it.
-
-```lua
-uji.tool.roots({ "~/reference/other-project" })
-local roots = uji.tool.roots()
-```
 
 ## uji.diff(old, new, path)
 

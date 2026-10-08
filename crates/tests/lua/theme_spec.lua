@@ -89,7 +89,6 @@ local PROBE = default({
     text = {
         confirm_yes = "Ja",
         confirm_no = "Nein",
-        called = "Invoked",
         exit = "status",
         compacted = "squashed",
         hidden = "%d more",
@@ -125,7 +124,7 @@ local PROBE = default({
         block_gap = 0,
         reply_margin = 2,
         input_rows = 3,
-        select_rows = 4,
+        select_rows = 5,
         suggest_name = 8,
         preview_min = 10,
         sessions_updated = 10,
@@ -354,7 +353,7 @@ describe("themes", function()
                 function()
                     return ito.VStack({ ito.Text(5) })
                 end,
-                "Text takes a string, not a number",
+                "Text takes a string or a list of spans, not a number",
             },
             {
                 function(slots)
@@ -446,13 +445,13 @@ describe("themes", function()
         app.session:append({ type = "assistant", text = "Done.", reasoning = "a thought" })
         local rows = transcript_rows()
         local all = table.concat(rows, "\n")
-        for _, gone in ipairs({ "•", "└", "…", "⋯", "›", "│", "!", "Called", "exit", "compacted", "lines" }) do
+        for _, gone in ipairs({ "⏺", "⎿", "…", "⋯", "›", "│", "!", "exit", "compacted", "lines" }) do
             assert.is_false(has(all, gone), gone .. " is drawn although the theme replaced it")
         end
         for _, shown in ipairs({
-            " T> Read notes.txt",
-            ' T> Invoked mystery {"que',
-            "   B> row 1",
+            "T> Read(notes.txt)",
+            'T> mystery({"que',
+            "  B>  row 1",
             "      M> 9 more",
             " S> false  (status 1)",
             "squashed",
@@ -539,6 +538,7 @@ describe("themes", function()
         assert.is_true(has(select, "item-4"))
         assert.is_false(has(select, "item-5"))
         assert.is_true(has(select, "1 to 4 / 6"))
+        assert.equal(#select:match("([^\n]*)item%-2"), #select:match("([^\n]*)1 to 4 / 6"), "the range lines up with the items")
         ui.modal:close()
         ui:present(Prompt({ title = "Key", value = "secret", hidden = true }))
         assert.is_true(has(look(), "  ? ******C"))

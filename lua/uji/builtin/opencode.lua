@@ -1,5 +1,6 @@
 local catalog = require("uji.core.catalog")
 local common = require("uji.builtin.apis.common")
+local list = require("uji.utils.list")
 
 local METADATA = "https://models.dev/api.json"
 local AGENT = "uji/" .. require("uji.version")
@@ -64,10 +65,12 @@ end
 local function efforts(options)
     for _, option in ipairs(options or {}) do
         if option.type == "effort" then
-            local out = {}
-            for _, value in ipairs(option.values) do
-                out[#out + 1] = EFFORTS[value]
-            end
+            local listed = list.filtered(option.values, function(value)
+                return EFFORTS[value] ~= nil
+            end)
+            local out = list.mapped(listed, function(value)
+                return EFFORTS[value]
+            end)
             return #out > 0 and out or nil
         end
     end

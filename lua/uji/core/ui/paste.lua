@@ -1,4 +1,5 @@
 local class = require("uji.core.class")
+local list = require("uji.utils.list")
 local text = require("ito").text
 
 local Pastes = class()
@@ -87,13 +88,9 @@ function Pastes:forget(id)
 end
 
 function Pastes:prune(value)
-    local kept = {}
-    for _, entry in ipairs(self.entries) do
-        if value:find(entry.marker, 1, true) then
-            kept[#kept + 1] = entry
-        end
-    end
-    self.entries = kept
+    self.entries = list.filtered(self.entries, function(entry)
+        return value:find(entry.marker, 1, true) ~= nil
+    end)
 end
 
 Pastes.clean = function(value)

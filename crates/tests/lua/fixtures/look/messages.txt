@@ -8,54 +8,54 @@
  4| Reading them first.
   |1+7 fg=#D4D4D4; 9+4 fg=#D4D4D4; 14+6 fg=#D4D4D4
  5|
- 6| • Read notes.txt
-  |0+3 fg=#808080; 3+14 fg=#D4D4D4 bold
- 7|
- 8| • Called mystery {"query":1}
-  |0+3 fg=#808080; 3+26 fg=#D4D4D4 bold
- 9|   └ alpha
-  |0+10 fg=#808080
-10|     beta
-  |0+9 fg=#808080
-11|   └ row 1
-  |0+10 fg=#808080
+ 6|⏺ Read(notes.txt)
+  |0+1 fg=#87D787; 2+4 fg=#D4D4D4 bold; 6+11 fg=#D4D4D4
+ 7|  ⎿  alpha
+  |2+1 fg=#808080; 5+5 fg=#808080
+ 8|     beta
+  |5+4 fg=#808080
+ 9|
+10|⏺ mystery({"query":1})
+  |0+1 fg=#87D787; 2+7 fg=#D4D4D4 bold; 9+13 fg=#D4D4D4
+11|  ⎿  row 1
+  |2+1 fg=#808080; 5+5 fg=#808080
 12|     row 2
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 13|     row 3
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 14|     row 4
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 15|     row 5
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 16|     row 6
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 17|     row 7
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 18|     row 8
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 19|     … +4 lines
-  |0+15 fg=#808080 dim
-20|   └ error: the build failed
-  |0+28 fg=Red
+  |5+10 fg=#808080 dim
+20|  ⎿  error: the build failed
+  |2+1 fg=#808080; 5+23 fg=Red
 21|
 22| ! ls
-  |0+5 fg=Cyan bold
-23|   └ a.txt
-  |0+10 fg=#808080
+  |1+4 fg=Cyan bold
+23|  ⎿  a.txt
+  |2+1 fg=#808080; 5+5 fg=#808080
 24|     b.txt
-  |0+10 fg=#808080
+  |5+5 fg=#808080
 25|
 26| ! false  (exit 1)
-  |0+18 fg=Cyan bold
+  |1+17 fg=Cyan bold
 27|
 28| A system note
-  |0+14 fg=#808080 italic
+  |1+13 fg=#808080 italic
 29|
 30| Something went wrong
-  |0+21 fg=Red
+  |1+20 fg=Red
 31|
-32| ───────────────────────────────── compacted ─────────────────────────────────
-  |0+78 fg=#808080 dim
+32| ───────────────────────────────── compacted ──────────────────────────────────
+  |1+33 fg=#808080 dim; 35+9 fg=#808080 dim; 45+34 fg=#808080 dim
 33|
 34|
   |0+80 fg=#D4D4D4 bg=#343541
@@ -65,13 +65,13 @@
   |0+80 fg=#D4D4D4 bg=#343541
 37|
 38| ! a notice for you
-  |0+19 fg=Red
+  |1+1 fg=Red; 3+16 fg=Red
 39|
 40| ⋯ run_command  compiling the project
-  |0+37 fg=#808080 dim
+  |1+1 fg=#808080 dim; 3+34 fg=#808080 dim
 41|
 42| › a queued message
-  |0+19 fg=#808080 dim
+  |1+1 fg=#808080 dim; 3+16 fg=#808080 dim
 43|
 44|
 45|

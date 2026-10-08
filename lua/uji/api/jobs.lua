@@ -1,5 +1,6 @@
 local check = require("uji.core.check")
 local jobs = require("uji.core.jobs")
+local list = require("uji.utils.list")
 
 local SETTINGS = { wake = "boolean", max = "number", limit = "number" }
 
@@ -9,11 +10,7 @@ end
 
 uji.jobs = {
     list = function()
-        local rows = {}
-        for index, job in ipairs(jobs.list()) do
-            rows[index] = row(job)
-        end
-        return rows
+        return list.mapped(jobs.list(), row)
     end,
     stop = function(id)
         return jobs.stop(jobs.get(id))

@@ -59,13 +59,9 @@ function Job:status()
 end
 
 function M.running()
-    local found = {}
-    for _, job in ipairs(M.jobs) do
-        if job.state == "running" then
-            found[#found + 1] = job
-        end
-    end
-    return found
+    return list.filtered(M.jobs, function(job)
+        return job.state == "running"
+    end)
 end
 
 local function full()
@@ -191,7 +187,7 @@ function M.start(spec)
         job:line(text)
     end
     job.handle = process.start({
-        argv = process.argv(spec.command),
+        shell = spec.command,
         cwd = spec.cwd,
         on_stdout = line,
         on_stderr = line,
@@ -268,10 +264,7 @@ context.add("jobs", function()
     if #M.unreported == 0 then
         return nil
     end
-    local reports = {}
-    for index, job in ipairs(M.unreported) do
-        reports[index] = report(job)
-    end
+    local reports = list.mapped(M.unreported, report)
     M.unreported = {}
     return { text = table.concat(reports, "\n\n"), at = "turn" }
 end)

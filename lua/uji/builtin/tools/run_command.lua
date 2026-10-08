@@ -6,7 +6,9 @@ uji.tool.add("run_command", {
     description = "Run a shell command and return its combined stdout and stderr, plus the exit code when it "
         .. "is non-zero. Every command starts in the working directory, so there is no need to `cd` "
         .. "into it first. Use it to build, test, run linters, search with `rg`, `grep` or `find`, and "
-        .. "explore with `ls`. Read and change files with `read_file`, `edit_file` and `write_file`. "
+        .. "explore with `ls`. Read files with `read_file`, not `cat`, `head`, `tail` or `sed -n`. Change "
+        .. "them with `edit_file`, not `sed` or `awk`, and create them with `write_file`, not `echo` or "
+        .. "`cat` with a redirect. "
         .. "The command is non-interactive: it cannot prompt. Output is "
         .. string.format(
             "truncated to the last %d lines or %s, whichever is hit first, and then the full output is saved to a temp file. ",
@@ -43,7 +45,7 @@ uji.tool.add("run_command", {
     end,
     policy = "ask",
     display = {
-        verb = "Ran",
+        label = "Shell",
         question = "Would you like to run the following command?",
     },
     run = function(args, ctx)

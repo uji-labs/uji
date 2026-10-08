@@ -1,0 +1,10 @@
+id: lua-no-shell-exec
+language: lua
+severity: error
+message: Run commands through uji.core.system.process, which picks the right shell on each system.
+files:
+  - "lua/uji/**"
+rule:
+  any:
+    - pattern: os.execute($$$)
+    - pattern: io.popen($$$)

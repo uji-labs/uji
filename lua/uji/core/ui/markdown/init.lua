@@ -17,15 +17,13 @@ local Block = class()
 
 function Block:init()
     self.tokens = {}
-    self.indent = ""
-    self.hanging = ""
+    self.place = { indent = 0 }
     self.pending_space = false
 end
 
-function Block:open(indent, hanging)
+function Block:open(place)
     if #self.tokens == 0 then
-        self.indent = indent
-        self.hanging = hanging
+        self.place = place
     end
 end
 
@@ -83,7 +81,8 @@ end
 function Renderer:flush()
     local block = self.block
     if #block.tokens > 0 then
-        self:add(Paragraph({ tokens = block.tokens, indent = block.indent, hanging = block.hanging }))
+        local place = block.place
+        self:add(Paragraph({ tokens = block.tokens, indent = place.indent, quote = place.quote, marker = place.marker }))
         self.block = Block()
     end
 end
@@ -103,23 +102,18 @@ function Renderer:break_block()
     self:blank()
 end
 
-function Renderer:indents(marker)
-    local ctx = self.ctx
-    local step = string.rep(" ", ctx.limits.indent)
-    local pad = string.rep(step, math.max(#self.list - 1, 0))
+function Renderer:place(marker)
+    local step = self.ctx.limits.indent
     if self.quote > 0 then
-        pad = string.rep(step, self.quote - 1) .. ctx.symbols.quote .. " "
+        return { indent = step * (self.quote - 1), quote = true, marker = marker }
     end
-    if marker then
-        return pad .. marker .. " ", pad .. string.rep(" ", text.length(marker) + 1)
-    end
-    return pad, pad
+    return { indent = step * math.max(#self.list - 1, 0), marker = marker }
 end
 
 function Renderer:open()
     local marker = self.marker
     self.marker = nil
-    self.block:open(self:indents(marker))
+    self.block:open(self:place(marker))
 end
 
 function Renderer:push_style(role)

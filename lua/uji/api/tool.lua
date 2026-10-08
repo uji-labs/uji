@@ -8,6 +8,4 @@ uji.tool = {
     enable = tool.enable,
     disable = tool.disable,
     policy = tool.policy,
-    confine = tool.confine,
-    roots = tool.roots,
 }

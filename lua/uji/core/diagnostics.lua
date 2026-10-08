@@ -11,7 +11,7 @@ local M = { queue = {}, last = {} }
 
 local function file()
     local data = paths.data()
-    return data and data .. "/" .. FILE
+    return data and sys.fs.join(data, FILE)
 end
 
 local function entry(source, failure)
@@ -33,7 +33,7 @@ local function newest(log)
 end
 
 local function write(path, added)
-    sys.fs.mkdir(path:match("^(.*)/[^/]*$"))
+    sys.fs.mkdir(sys.fs.parent(path))
     local found = sys.fs.stat(path)
     if (found and found.size or 0) + #added > LIMIT then
         sys.fs.write(path, newest((sys.fs.read(path) or "") .. added))

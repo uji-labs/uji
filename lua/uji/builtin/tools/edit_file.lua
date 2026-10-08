@@ -76,7 +76,8 @@ uji.tool.add("edit_file", {
         properties = {
             path = {
                 type = "string",
-                description = "Path to the file to edit, absolute or relative to the working directory.",
+                description = "Path to the file to edit: absolute, relative to the working directory, or starting "
+                    .. "with `~/`. A `*` stands for any part of a name when exactly one file matches.",
             },
             old_string = {
                 type = "string",
@@ -94,10 +95,12 @@ uji.tool.add("edit_file", {
         required = { "path", "old_string", "new_string" },
         additionalProperties = false,
     },
+    resolve = field.resolve,
     subject = field.subject("path"),
+    path = true,
     policy = "ask",
     display = {
-        verb = "Edited",
+        label = "Update",
         question = "Would you like to make the following edit?",
         preview = function(args)
             local edit = apply(args)

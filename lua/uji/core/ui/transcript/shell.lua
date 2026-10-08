@@ -8,7 +8,7 @@ return ito.view(function(props)
     if props.code ~= 0 then
         header = header .. "  (" .. ctx.text.exit .. " " .. tostring(props.code) .. ")"
     end
-    local rows = { Wrapped({ text = header, prefix = " ", style = ctx.styles.accent }) }
+    local rows = { Wrapped({ text = header, style = ctx.styles.accent }) }
     if props.output ~= "" then
         rows[2] = ToolOutput({
             content = props.output,

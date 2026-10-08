@@ -125,6 +125,7 @@ The default theme has these colours.
 | `notice` | `ito.Color.red` |
 | `syntax.keyword`, `syntax.string`, `syntax.number`, `syntax.comment` | `ito.Color.cyan`, `ito.rgb(0xe0af68)`, `ito.rgb(0xe0af68)`, `ito.rgb(0x808080)` |
 | `syntax.func`, `syntax.type`, `syntax.constant` | `ito.rgb(0xdcdcaa)`, `ito.rgb(0x4ec9b0)`, `ito.rgb(0x569cd6)` |
+| `call.done` | `ito.rgb(0x87d787)` |
 | `diff.added`, `diff.removed` | `ito.rgb(0x5fd75f)`, `ito.rgb(0xd75f5f)` |
 | `diff.added_bg`, `diff.removed_bg` | `ito.rgb(0x005f00)`, `ito.rgb(0x5f0000)` |
 | `diff.added_word_bg`, `diff.removed_word_bg` | `ito.rgb(0x008700)`, `ito.rgb(0x870000)` |
@@ -207,6 +208,8 @@ The default theme has these styles.
 | `table_head` | The header row of a table, merged on top of each cell. | bold |
 | `syntax.keyword`, `syntax.string`, `syntax.number`, `syntax.comment`, `syntax.func`, `syntax.type`, `syntax.constant` | Highlighted code, in replies and in diffs. | the `syntax` colour of the same name, `syntax.comment` in italic |
 | `selection` | Text you select with the mouse. | reverse |
+| `call.label`, `call.detail` | A tool call's name and, in brackets after it, its subject. | `text`, bold, and `text` |
+| `call.running`, `call.done`, `call.failed` | The mark before a tool call while it runs, after it worked and after it failed. | `muted`, `call.done`, `error` |
 | `diff.added`, `diff.removed` | Added and removed lines in a diff, across the whole row. | on `diff.added_bg`, `text` on `diff.removed_bg` |
 | `diff.added_sign`, `diff.removed_sign` | The number and the `+` or `-` of those lines. | `diff.added` on `diff.added_bg`, `diff.removed` on `diff.removed_bg` |
 | `diff.added_word`, `diff.removed_word` | The words that changed on those lines, merged on top. | on `diff.added_word_bg`, on `diff.removed_word_bg` |
@@ -216,8 +219,8 @@ The default theme has these styles.
 | Key | Meaning | Default |
 |---|---|---|
 | `symbols.spinner` | The frames of the waiting animation. | `⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏` |
-| `symbols.tool` | The mark before a tool call. | `•` |
-| `symbols.branch` | The mark before a tool's output. | `└` |
+| `symbols.tool` | The mark before a tool call. | `⏺` |
+| `symbols.branch` | The mark before a tool's output. | `⎿` |
 | `symbols.more` | The mark before the count of hidden output lines. | `…` |
 | `symbols.shell` | The mark before a command you ran. | `!` |
 | `symbols.rule` | The line drawn where the session was compacted. | `─` |
@@ -237,7 +240,6 @@ The default theme has these styles.
 | `symbols.prompt` | The mark before what you type in a picker or prompt. | `>` |
 | `text.confirm_yes` | The word that allows a tool call. | `"Yes"` |
 | `text.confirm_no` | The word that refuses it. | `"No"` |
-| `text.called` | The word before a tool call that has no verb of its own. | `"Called"` |
 | `text.exit` | The word before a command's exit status. | `"exit"` |
 | `text.compacted` | The label where the session was compacted. | `"compacted"` |
 | `text.hidden` | The count of hidden output lines. `%d` is the count. | `"+%d lines"` |
@@ -264,7 +266,7 @@ The default theme has these styles.
 | `limits.tool_preview` | Rows of tool output shown before you open it. | `8` |
 | `limits.diff_preview` | Rows of a diff shown before you open it. | `20` |
 | `limits.diff_context` | Unchanged lines that [`uji.diff`](../api/tool.md#ujidiffold-new-path) keeps around each change. | `3` |
-| `limits.argument_preview` | Characters of a tool call's arguments shown when it has no verb. | `200` |
+| `limits.argument_preview` | Characters of a tool call's arguments shown when it has no subject. | `200` |
 | `limits.message_gap` | Blank rows between messages. | `1` |
 | `limits.section_gap` | Blank rows before the notices, the queue and the running tool. | `1` |
 | `limits.bottom_gap` | Rows kept free under the transcript, where the jump shows. | `1` |
@@ -273,7 +275,7 @@ The default theme has these styles.
 | `limits.block_gap` | Blank rows between markdown blocks. | `1` |
 | `limits.reply_margin` | Columns to the left of a reply. | `1` |
 | `limits.input_rows` | The most rows the input line grows to. | `10` |
-| `limits.select_rows` | The most items a list shows at once. | `12` |
+| `limits.select_rows` | The most rows a list takes, with the line under it that counts its items. | `13` |
 | `limits.suggest_name` | The width of a command's name in the suggestions. | `12` |
 | `limits.preview_min` | The width a picker needs on each side before it shows a preview. | `24` |
 | `limits.sessions_updated`, `limits.sessions_id` | The widths of the UPDATED and ID columns of `uji list`. | `14`, `36` |
@@ -412,26 +414,21 @@ return require("uji.themes.default")({
 | `uji.ui.Activity` | none | The line shown while the model works. |
 | `uji.ui.Flash` | none | The copy message in the top right corner. |
 | `uji.ui.Input` | none | The input line. |
-| `uji.ui.SelectList` | `title`, `query`, `items`, `matches`, `selection`, `current`, `height` | A list to choose from. `matches` are the indexes into `items` that fit the query, `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row), and `height` is the room there is. |
+| `uji.ui.SelectList` | `title`, `query`, `items`, `matches`, `selection`, `current` | A list to choose from. `matches` are the indexes into `items` that fit the query, and `selection` is a state that holds the chosen match, ready for [`ito.List`](../ito/controls.md#itolistitems-row). |
 | `uji.ui.PromptField` | `title`, `value` | A question with a text answer. |
-| `uji.ui.Suggestions` | `items`, `selection`, `height` | The command suggestions. Its items have `name` and `desc`. |
-| `uji.ui.Approval` | `title`, `body`, `allow`, `keys`, `scroll`, `width`, `height` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
-| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `current`, `preview`, `query`, `total`, `width`, `height` | The picker with a preview. |
-| `uji.ui.Sessions` | `directory`, `sessions`, `cursor`, `now`, `height` | The screen `uji list` shows. |
+| `uji.ui.Suggestions` | `items`, `selection` | The command suggestions. Its items have `name` and `desc`. |
+| `uji.ui.Approval` | `title`, `body`, `preview`, `allow`, `keys`, `scroll` | An approval. `scroll` is the [`ito.ScrollState`](../ito/controls.md#itoscrollstateopts) of its body. |
+| `uji.ui.Picker` | `title`, `items`, `matches`, `selection`, `current`, `preview`, `query`, `total` | The picker with a preview. |
+| `uji.ui.Sessions` | `directory`, `sessions`, `selection`, `now` | The screen `uji list` shows. `selection` holds the chosen session's index, ready for [`ito.List`](../ito/controls.md#itolistitems-row). |
 
 `ito.theme()` gives the theme's `colors`, `styles`, `symbols`, `borders`,
 `text`, `limits` and `options`. Asking its `styles` for a name the theme does
 not have raises an error, such as `the theme has no style named heading7`. It
-also has these helpers, which give the lines an `ito.Lines` draws.
+also has these helpers.
 
 | Helper | Returns |
 |---|---|
-| `ctx:wrap(text, opts)` | `text` wrapped into lines. `opts` has `style`, a `prefix` for every line, `fill` to pad each line to the full width, and `width`. |
-| `ctx:chunks(text, width)` | The pieces of `text` wrapped to `width`, as strings. |
-| `ctx:fold(text, opts)` | The rows of `text` wrapped to `opts.width`, at most `opts.limit` of them, and how many rows are left out. Without a limit it gives every row. |
 | `ctx:typed(field, styles)` | The spans of a text field with the cursor in it. `field` has `text`, `cursor` and `hidden`, and `styles` has `text` and `cursor`. |
-| `ctx:clip(text, width)` | `text` cut to `width` columns. |
-| `ctx:pad(text, width)` | `text` padded with spaces to `width` columns. |
 | `ctx:measure(text)` | The number of columns `text` takes. |
 | `ctx:first(text, count)` | The first `count` characters of `text`. |
 

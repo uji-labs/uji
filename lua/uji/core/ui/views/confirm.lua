@@ -58,7 +58,7 @@ function Confirm:key(chord, ui)
     end
 end
 
-function Confirm:view(_, _, room)
+function Confirm:view()
     return Approval({
         title = self.title,
         body = self.body,
@@ -66,8 +66,6 @@ function Confirm:view(_, _, room)
         allow = self.allow,
         keys = KEYS,
         scroll = self.scroll,
-        width = room.width,
-        height = room.height,
     })
 end
 

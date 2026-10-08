@@ -80,8 +80,36 @@ it("pages numbered lines from read_file and refuses what it cannot read", { time
         numbered(counted(2990, 3000), 2990),
         numbered({ long }, 1),
         "empty.txt is empty",
-        "error: ../outside.txt is outside the working directory (" .. sandbox.work .. "); tools can only reach files under it",
+        numbered({ "outside" }, 1),
         "error: `path` is required and must be a non-empty string",
+    }, results)
+end)
+
+it("reads and edits the one file a * matches and lists the matches otherwise", { timeout = 20 }, function()
+    sandbox.file("app/[id].txt", "page\n")
+    local many = {}
+    for n = 1, 25 do
+        many[n] = "many/" .. n .. ".txt"
+        sandbox.file(many[n], "")
+    end
+    table.sort(many)
+    local results = round_trip({
+        { "read_file", '{"path": "no*s.txt", "limit": 1}' },
+        { "edit_file", '{"path": "*otes.txt", "old_string": "gamma", "new_string": "GAMMA"}' },
+        { "read_file", '{"path": "app/[id]*"}' },
+        { "read_file", '{"path": "../out*.txt"}' },
+        { "read_file", '{"path": "*.txt"}' },
+        { "read_file", '{"path": "many/*"}' },
+        { "read_file", '{"path": "nothing*"}' },
+    })
+    assert.same({
+        numbered({ "alpha" }, 1) .. "\n[showed lines 1-1 of 5; continue with offset 2]",
+        "edited notes.txt at line 3",
+        numbered({ "page" }, 1),
+        numbered({ "outside" }, 1),
+        "error: *.txt matches 4 files; name one of them:\nbig.txt\nempty.txt\nlong.txt\nnotes.txt",
+        "error: many/* matches 25 files; name one of them:\n" .. table.concat(slice(many, 1, 20), "\n") .. "\nand 5 more",
+        "error: no file matches nothing*",
     }, results)
 end)
 
@@ -155,6 +183,49 @@ it("runs every tool under a default of allow except what a rule denies", functio
     assert.same({ allow = true, arguments = write }, app.agent:approve("write_file", write))
     assert.same({ allow = true, arguments = { command = "ls" } }, app.agent:approve("run_command", { command = "ls" }))
     assert.same({ deny = "denied by policy" }, app.agent:approve("run_command", { command = "rm -rf build" }))
+end)
+
+it("checks the policy against the file a * matches", { timeout = 20 }, function()
+    sandbox.file("secret.env", "x")
+    uji.tool.policy({ read_file = { deny = { "*.env" } } })
+    local results = round_trip({
+        { "read_file", '{"path": "secret.en*"}' },
+        { "read_file", '{"path": "note*", "limit": 1}' },
+    })
+    assert.same({
+        "denied: denied by policy",
+        numbered({ "alpha" }, 1) .. "\n[showed lines 1-1 of 5; continue with offset 2]",
+    }, results)
+end)
+
+it("keeps named rule sets apart and matches file rules against the full path", function()
+    local edit = function(path)
+        return app.agent:approve("edit_file", { path = path, old_string = "a", new_string = "b" })
+    end
+    uji.tool.policy({ default = "allow", edit_file = { allow = { "*" } } })
+    uji.tool.policy({
+        edit_file = {
+            deny = {
+                { pattern = sandbox.work .. "/ref/**", message = "ref is read-only" },
+                { pattern = "~/elsewhere/**", message = "elsewhere is read-only" },
+            },
+        },
+    }, { name = "readonly" })
+    uji.tool.policy({ edit_file = { allow = { "ref/*" } } })
+    assert.same({ deny = "ref is read-only" }, edit("ref/a.txt"))
+    assert.same({ deny = "ref is read-only" }, edit("src/../ref/a.txt"))
+    assert.same({ deny = "elsewhere is read-only" }, edit(sys.os.home() .. "/elsewhere/a.txt"))
+    assert.is_true(edit("src/a.txt").allow)
+end)
+
+it("answers with an error when a tool's resolve returns nothing", { timeout = 20 }, function()
+    uji.tool.add("blank", {
+        resolve = function() end,
+        run = function()
+            return "ran"
+        end,
+    })
+    assert.same({ "error: blank resolve returned no arguments" }, round_trip({ { "blank", "{}" } }))
 end)
 
 it("puts a tool's own default before the top-level default", function()

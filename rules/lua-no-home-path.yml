@@ -1,0 +1,17 @@
+id: lua-no-home-path
+language: lua
+severity: error
+message: >-
+  The home directory is not HOME on every system, and "~/" is not how every
+  system writes it. Use sys.os.expand and sys.os.shorten instead.
+files:
+  - "lua/uji/**"
+rule:
+  any:
+    - pattern: $E.env("HOME")
+    - pattern: $E.env("USERPROFILE")
+    - pattern: os.getenv("HOME")
+    - pattern: os.getenv("USERPROFILE")
+    - pattern:
+        context: local _ = "~/" .. $X
+        selector: binary_expression

@@ -11,7 +11,7 @@ uji.tool.add("branch", {
   description = "Name of the current git branch.",
   parameters = { type = "object", properties = {} },
   policy = "allow",
-  display = { verb = "Checked the branch" },
+  display = { label = "Branch" },
   run = function()
     return io.popen("git branch --show-current"):read("*l") or "not a git repository"
   end,
@@ -28,7 +28,7 @@ uji.tool.add("count_todos", {
   description = "Count TODO comments per file in the working directory.",
   parameters = { type = "object", properties = {} },
   policy = "allow",
-  display = { verb = "Counted TODOs" },
+  display = { label = "TODOs" },
   run = function(_, ctx)
     local lines = {}
     local job = uji.job.start({
@@ -67,7 +67,7 @@ uji.tool.add("fetch_url", {
     return args.url
   end,
   policy = "ask",
-  display = { verb = "Fetched", question = "Fetch this page?" },
+  display = { label = "Fetch", question = "Fetch this page?" },
   run = function(args, ctx)
     return uji.http.request({ url = args.url }, function(response, err)
       if not response then

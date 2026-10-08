@@ -5,11 +5,11 @@
  4|
  5|
  6|  model       pick a model
-  |0+14 fg=#D4D4D4; 14+12 fg=#808080
+  |2+5 fg=#D4D4D4; 14+12 fg=#808080
  7|  effort      set the reasoning effort
-  |0+14 fg=Cyan bg=#3A3A4A; 14+24 fg=#808080 bg=#3A3A4A; 38+42 bg=#3A3A4A
+  |0+2 bg=#3A3A4A; 2+6 fg=Cyan bg=#3A3A4A; 8+6 bg=#3A3A4A; 14+24 fg=#808080 bg=#3A3A4A; 38+42 bg=#3A3A4A
  8|  compact     summarise the session
-  |0+14 fg=#D4D4D4; 14+21 fg=#808080
+  |2+7 fg=#D4D4D4; 14+21 fg=#808080
  9|────────────────────────────────────────────────────────────────────────────────
   |0+80 fg=#808080
 10|█

@@ -1,9 +1,6 @@
 local ito = require("ito")
 
-local function lines(width, ctx)
-    return { { { string.rep(ctx.symbols.rule, math.min(width, ctx.limits.rule_width)), ctx.styles.muted } } }
-end
-
 return ito.view(function()
-    return ito.Lines(lines, ito.theme())
+    local ctx = ito.theme()
+    return ito.HStack({ ito.Text(ctx.symbols.rule):style(ctx.styles.muted):repeating():width(ctx.limits.rule_width) })
 end)

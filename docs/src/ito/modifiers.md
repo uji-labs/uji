@@ -48,8 +48,8 @@ ito.Text("ready"):border(ito.theme().borders.plain, { edges = ito.Edges.horizont
 
 ## :title(title)
 
-Puts `title` in the top border. It is a string, or a line of spans as
-[`ito.Lines`](views.md#itolineslines-value) takes.
+Puts `title` in the top border, with a space on each side. It is a string, or
+a line of spans as [`ito.Lines`](views.md#itolineslines-value) takes.
 
 ## :background(colour)
 
@@ -73,6 +73,15 @@ shows it again.
 
 ```lua
 Editor():hidden(not open.value)
+```
+
+## :invisible(hide)
+
+Keeps the view's room and state but draws nothing there, so the views beside
+it stay where they are. `false` draws it again.
+
+```lua
+ito.HStack({ ito.Text("›"):invisible(not active), ito.Text(name) }):spacing(1)
 ```
 
 ## :focus_scope(value)
@@ -108,6 +117,20 @@ The parts follow the weights, and a view with no weight given has `1`.
 ito.HStack({
   ito.Lines(files):grow(),
   ito.Lines(diff):grow(2),
+})
+```
+
+## :shrink()
+
+Keeps the view at its own size until its stack runs out of room, then takes the
+missing rows or columns from it first, so the views around it keep theirs. An
+`ito.ScrollView` that shrinks scrolls what no longer fits.
+
+```lua
+ito.VStack({
+  ito.Text(question):wrap(),
+  ito.ScrollView(details):shrink(),
+  ito.Text("y to proceed"),
 })
 ```
 

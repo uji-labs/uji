@@ -8,36 +8,32 @@ local M = {
     overrides = {},
 }
 
-local function absolute(path)
-    return path and path:sub(1, 1) == "/"
-end
-
 local function dir(own, xdg, fallback)
     local set = sys.os.env(own)
     if set then
         return set
     end
     local base = sys.os.env(xdg)
-    if absolute(base) then
-        return base .. "/uji"
+    if base and sys.fs.absolute(base) then
+        return sys.fs.join(base, "uji")
     end
-    local home = sys.os.env("HOME")
+    local home = sys.os.home()
     if home then
-        return home .. "/" .. fallback .. "/uji"
+        return sys.fs.join(home, unpack(fallback))
     end
 end
 
 function M.config()
-    return M.overrides.config or dir("UJI_CONFIG_DIR", "XDG_CONFIG_HOME", ".config")
+    return M.overrides.config or dir("UJI_CONFIG_DIR", "XDG_CONFIG_HOME", { ".config", "uji" })
 end
 
 function M.data()
-    return M.overrides.data or dir("UJI_DATA_DIR", "XDG_DATA_HOME", ".local/share")
+    return M.overrides.data or dir("UJI_DATA_DIR", "XDG_DATA_HOME", { ".local", "share", "uji" })
 end
 
 function M.site()
     local data = M.data()
-    return data and data .. "/site"
+    return data and sys.fs.join(data, "site")
 end
 
 function M.db()
@@ -49,15 +45,11 @@ function M.db()
         return set
     end
     local data = M.data()
-    return data and data .. "/uji.db"
+    return data and sys.fs.join(data, "uji.db")
 end
 
 function M.expand(path)
-    local home = sys.os.env("HOME")
-    if home and path:sub(1, 2) == "~/" then
-        return home .. path:sub(2)
-    end
-    return path
+    return sys.os.expand(path)
 end
 
 return M

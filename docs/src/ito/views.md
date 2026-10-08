@@ -49,14 +49,34 @@ ito.VStack({
 })
 ```
 
+`:spacing(cells)` leaves `cells` blank rows between each child and the next,
+skipping the hidden ones.
+
 ## ito.HStack(children)
 
 Places `children` side by side from the left. A child is as wide as its
 `width`, its `share`, or its text, and one that has `grow` or no natural width
-takes a part of the columns the others leave.
+takes a part of the columns the others leave. `:spacing(cells)` leaves `cells`
+blank columns between each child and the next.
 
 ```lua
 ito.HStack({ ito.Text("main"), ito.Spacer(), ito.Text("3 files changed") })
+ito.HStack({ ito.Text("enter"):bold(), ito.Text("open") }):spacing(1)
+```
+
+## ito.Grid(rows) and ito.GridRow(cells)
+
+Stacks `rows` like `ito.VStack` and lines up the cells of each
+`ito.GridRow` in columns. A column is as wide as its widest cell, and a column
+with a cell that has `grow` takes a part of the columns the others leave. A
+cell with [`:align`](modifiers.md#alignalignment) keeps its own size inside its
+column. A row that is not an `ito.GridRow` takes the whole width.
+
+```lua
+ito.Grid({
+  ito.GridRow({ ito.Text("9"):align(ito.Alignment.top_trailing), ito.Text("main.lua"):grow() }),
+  ito.GridRow({ ito.Text("120"):align(ito.Alignment.top_trailing), ito.Text("README.md"):grow() }),
+})
 ```
 
 ## ito.Spacer()
@@ -66,21 +86,51 @@ far edge.
 
 ## ito.Text(text)
 
-Draws `text`, one row for each line in it. Nothing wraps. A line too long
-for the view is cut at its edge, and these modifiers style the whole text.
+Draws `text`, one row for each line in it. `text` is a string, or a list of
+spans, each `{ text, style }`, for text in more than one style. A tab takes
+four columns. A line too long for the view is cut at its edge unless the text
+wraps. Text with more rows than its room shows the first ones, and text from
+[`ctx:typed`](../configuration/themes.md#views) shows the rows up to its
+cursor. These modifiers style the whole text, and a span's own style goes on
+top.
 
 | Modifier | Effect |
 |---|---|
 | `:foreground(colour)` | The text colour, an [`ito.Color`](modifiers.md#colours). |
 | `:bold()`, `:dim()`, `:italic()`, `:underline()`, `:reverse()`, `:strikethrough()`, `:blink()` | Turns on that attribute. |
 | `:style(style)` | Merges an [`ito.TextStyle`](../configuration/themes.md#styles) on top of the text's style so far. |
+| `:wrap()` | Wraps each line to the width the view gets. |
+| `:repeating()` | Repeats the text across and down all the room the view gets, such as a bar beside a column or a rule across a row. |
 
 ```lua
 ito.Text("build failed"):foreground(ito.Color.red):bold()
 ito.Text("3 files"):style(ito.theme().styles.muted)
+ito.HStack({
+  ito.Text("│"):repeating():padding({ trailing = 1 }),
+  ito.Text({ { "Note", ito.theme().styles.bold }, { " the build is slow on a cold cache" } }):wrap():grow(),
+})
 ```
 
-`ito.Text` raises an error when `text` is not a string.
+`ito.Text` raises an error when `text` is neither a string nor a list.
+
+## ito.Fold(content, opts)
+
+Shows `content` up to `opts.rows` rows. When `content` is taller, it shows the
+first `opts.rows` rows and, under them, the view `opts.more(hidden)` gives,
+where `hidden` is the number of rows left out. Without `opts.rows` it shows all
+of `content`.
+
+```lua
+ito.Fold(ito.Text(log):wrap(), {
+  rows = 8,
+  more = function(hidden)
+    return ito.Text("… " .. hidden .. " more"):dim()
+  end,
+})
+```
+
+Raises an error when `opts.rows` is not a whole number or `opts.more` is not a
+function.
 
 ## ito.Lines(lines, value)
 
@@ -112,16 +162,6 @@ end)
 ```
 
 [Styles](../configuration/themes.md#styles) lists the styles every theme has.
-
-```lua
-local function note(width, value)
-  return value.theme:wrap(value.text, { width = width, style = value.theme.styles.text })
-end
-
-local Note = ito.view(function(props)
-  return ito.Lines(note, { theme = ito.theme(), text = props.text })
-end)
-```
 
 ## ito.spans.wrap(line, width)
 

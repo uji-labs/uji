@@ -2,30 +2,19 @@ local calls = require("uji.core.ui.transcript.calls")
 local ito = require("ito")
 
 local function heading(ctx, call)
-    local called = ctx.text.called
-    if call.verb and call.detail then
-        return call.verb .. " " .. call.detail
-    elseif call.verb then
-        return call.verb .. " " .. call.name
-    elseif call.detail then
-        return called .. " " .. call.name .. " " .. call.detail
+    local look = ctx.styles.call
+    local spans = { { call.label or call.name, look.label } }
+    local detail = call.detail or ctx:first(call.arguments, ctx.limits.argument_preview)
+    if detail ~= "" then
+        spans[2] = { "(" .. detail:gsub("\n", " ") .. ")", look.detail }
     end
-    return called .. " " .. call.name .. " " .. ctx:first(call.arguments, ctx.limits.argument_preview)
-end
-
-local function lines(width, value)
-    local ctx, head, marker = value.ctx, value.head, value.marker
-    local indent = string.rep(" ", ctx:measure(marker))
-    local chunks = ctx:chunks(head, math.max(width - ctx:measure(marker) - 1, 1))
-    local out = { { { marker, ctx.styles.muted }, { chunks[1] or "", ctx.styles.bold } } }
-    for index = 2, #chunks do
-        out[index] = { { indent .. chunks[index], ctx.styles.text } }
-    end
-    return out
+    return spans
 end
 
 return ito.view(function(props)
     local ctx = ito.theme()
-    local head = heading(ctx, calls.describe(props.call)):gsub("\n", " ")
-    return ito.Lines(lines, { ctx = ctx, head = head, marker = " " .. ctx.symbols.tool .. " " })
+    return ito.HStack({
+        ito.Text(ctx.symbols.tool):style(ctx.styles.call[props.status]):padding({ trailing = 1 }),
+        ito.Text(heading(ctx, calls.describe(props.call))):wrap():grow(),
+    })
 end)
