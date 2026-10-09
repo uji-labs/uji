@@ -16,7 +16,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  LINUX_LIBRARIES: libsqlite3-dev libssl-dev pkg-config
   MDBOOK: https://github.com/rust-lang/mdBook/releases/download/v0.5.4/mdbook-v0.5.4-x86_64-unknown-linux-gnu.tar.gz
   STYLUA: https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip
   LUACHECK: 1.2.0
@@ -36,8 +35,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_LIBRARIES
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets -- -D warnings
@@ -90,8 +87,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_LIBRARIES
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release -p uji-tests --bin uji-test -- -l crates/tests/lua/main.lua
@@ -101,8 +96,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y $LINUX_LIBRARIES
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --release -p uji-tests --bin uji-test -- -l bench/main.lua torture

@@ -7,6 +7,21 @@ God's chosen harness.
 
 Read the [documentation](https://docs.uji.sh).
 
+## Installation
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/uji-labs/uji/main/install.sh | sh
+```
+
+Or with Homebrew:
+
+```sh
+brew install uji-labs/uji/uji
+```
+
+[Installation](https://docs.uji.sh/getting-started/install.html) has the other
+ways.
+
 ## License
 
 Copyright (C) 2026 dracarys18

@@ -19,9 +19,52 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes --verify-tag
 
-  formula:
+  binaries:
     needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-14
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install rustup where the runner has none
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - run: rustup toolchain install
+      - run: cargo build --release --locked --package uji
+      - name: Attach the build to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          ARCHIVE: uji-${{ matrix.target }}.tar.gz
+        run: |
+          tar -czf "$ARCHIVE" -C target/release uji
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          else
+            shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          fi
+          gh release upload "$TAG" "$ARCHIVE" "$ARCHIVE.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+
+  formula:
+    needs: binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,20 +74,56 @@ jobs:
 
       - name: Point the formula at the release
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
-          sha256="$(curl -fsSL "$url" | sha256sum | cut -d ' ' -f 1)"
-          ruby - "$url" "$sha256" tap/Formula/uji.rb <<'RUBY'
-          url, sha256, path = ARGV
-          stable = %(  url "#{url}"\n  sha256 "#{sha256}"\n)
-          formula = File.read(path).sub(/^  bottle do\n.*?^  end\n\n/m, "")
-          formula = if formula.match?(/^  url "/)
-            formula.sub(/^  url ".*"\n  sha256 ".*"\n/, stable)
-          else
-            formula.sub(/^(  homepage ".*"\n)/) { "#{Regexp.last_match(1)}#{stable}" }
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "*.sha256" --dir sums
+          sum() { cut -d ' ' -f 1 "sums/uji-$1.tar.gz.sha256"; }
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          cat > tap/Formula/uji.rb <<RUBY
+          class Uji < Formula
+            desc "Coding agent you can shape with Lua"
+            homepage "https://github.com/uji-labs/uji"
+            license "GPL-3.0-or-later"
+
+            head do
+              url "https://github.com/uji-labs/uji.git", branch: "main"
+              depends_on "rust" => :build
+            end
+
+            on_macos do
+              depends_on arch: :arm64
+
+              on_arm do
+                url "${base}/uji-aarch64-apple-darwin.tar.gz"
+                sha256 "$(sum aarch64-apple-darwin)"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "${base}/uji-x86_64-unknown-linux-gnu.tar.gz"
+                sha256 "$(sum x86_64-unknown-linux-gnu)"
+              end
+
+              on_arm do
+                url "${base}/uji-aarch64-unknown-linux-gnu.tar.gz"
+                sha256 "$(sum aarch64-unknown-linux-gnu)"
+              end
+            end
+
+            def install
+              if build.head?
+                system "cargo", "install", *std_cargo_args(path: "crates/uji")
+              else
+                bin.install "uji"
+              end
+            end
+
+            test do
+              assert_match(/^uji \d+\.\d+\.\d+$/, shell_output("#{bin}/uji --version"))
+            end
           end
-          File.write(path, formula)
           RUBY
 
       - name: Open a pull request on the tap
