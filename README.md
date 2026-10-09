@@ -8,7 +8,7 @@
 <p align="center">God's chosen harness.</p>
 
 <p align="center">
-  A coding agent for your terminal. Replace any part you don't like with a few lines of Lua.
+  uji is a coding agent built to be extended and made your own. Every part is a module, so you can swap anything in or out. Built on JIT-compiled Lua, it stays extremely fast and light: a whole turn fits in about 25 MB of memory.
 </p>
 
 <p align="center">
@@ -19,9 +19,8 @@ Read the [documentation](https://docs.uji.sh), or see [uji.sh](https://uji.sh).
 
 ## Yours to shape
 
-- **Change anything.** Every part can be swapped out, right down to the screen.
+- **Change anything.** Even the screen. Every view is Lua you can rewrite.
 - **Only what you need.** It starts small. Add plugins as you go.
-- **Extremely fast and lightweight.**
 
 ## Installation
 
