@@ -7,13 +7,6 @@ the latest release:
 curl -fsSL https://raw.githubusercontent.com/uji-labs/uji/main/install.sh | sh
 ```
 
-It puts `uji` in `~/.local/bin`. On a machine without a uji config, it also
-writes `~/.config/uji/init.lua`, which installs
-[uji-plugins](https://github.com/uji-labs/uji-plugins) and turns on its
-statusline, themes and websearch plugins. uji installs plugins with `git`.
-Running the command again replaces uji with the latest release and leaves your
-config alone.
-
 | Variable | Effect |
 |---|---|
 | `UJI_INSTALL_DIR` | The folder `uji` goes in, instead of `~/.local/bin`. |
