@@ -70,13 +70,6 @@
               "--package"
               "uji"
             ];
-            nativeBuildInputs = [ pkgs.pkg-config ];
-            # rusqlite links the system SQLite; on Linux reqwest's TLS is OpenSSL
-            # (macOS uses its Security framework from the SDK)
-            buildInputs = [
-              pkgs.sqlite
-            ]
-            ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.openssl ];
             # the test suite runs separately (crates/tests); keep installs fast
             doCheck = false;
             meta = {
