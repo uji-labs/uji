@@ -3707,7 +3707,7 @@ dependencies = [
 
 [[package]]
 name = "uji"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "uji-kernel",
  "uji-lua",
@@ -3715,7 +3715,7 @@ dependencies = [
 
 [[package]]
 name = "uji-kernel"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -3749,11 +3749,11 @@ dependencies = [
 
 [[package]]
 name = "uji-lua"
-version = "0.2.1"
+version = "0.2.2"
 
 [[package]]
 name = "uji-macros"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3762,7 +3762,7 @@ dependencies = [
 
 [[package]]
 name = "uji-tests"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "uji-kernel",
  "uji-lua",
