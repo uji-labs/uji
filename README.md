@@ -3,7 +3,7 @@
   <img src="design/joinery/readme-header-light.png" width="640" alt="uji. A small, lightweight, composable coding harness">
 </picture>
 
-God's chosen harness.
+<p align="center">God's chosen harness.</p>
 
 Read the [documentation](https://docs.uji.sh).
 
