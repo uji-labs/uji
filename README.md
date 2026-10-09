@@ -1,7 +1,9 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="design/joinery/readme-header-dark.png">
-  <img src="design/joinery/readme-header-light.png" width="640" alt="uji. A small, lightweight, composable coding harness">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/joinery/readme-header-dark.png">
+    <img src="design/joinery/readme-header-light.png" width="640" alt="uji. A small, lightweight, composable coding harness">
+  </picture>
+</p>
 
 <p align="center">God's chosen harness.</p>
 
