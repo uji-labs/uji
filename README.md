@@ -8,7 +8,7 @@
 <p align="center">God's chosen harness.</p>
 
 <p align="center">
-  uji is a coding agent built to be extended and made your own. Every part is a module, so you can swap anything in or out. Built on JIT-compiled Lua, it stays extremely fast and light: a whole turn fits in about 25 MB of memory.
+  uji is a coding agent where everything is a module. Swap any of them at runtime, even the core, and extend it however you like. Extremely fast and light.
 </p>
 
 <p align="center">
