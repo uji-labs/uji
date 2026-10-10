@@ -20,6 +20,8 @@ function M.text(message)
         return message.content or ""
     elseif kind == "shell" then
         return message.output or ""
+    elseif kind == "job" then
+        return message.output or ""
     elseif kind == "compaction" then
         return message.summary or ""
     end

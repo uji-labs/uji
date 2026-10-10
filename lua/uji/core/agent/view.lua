@@ -6,6 +6,12 @@ local FILES_HEADER = "Files touched so far:"
 
 local M = {}
 
+local TRANSCRIPT_ONLY = { shell = true, job = true }
+
+function M.transcript_only(kind)
+    return TRANSCRIPT_ONLY[kind] == true
+end
+
 function M.summary_message(summary, files)
     local text = SUMMARY_HEADER .. "\n\n" .. summary
     if files and #files > 0 then
@@ -108,7 +114,7 @@ function M.build(stored)
         local kind = message.type
         if kind == "context" then
             out[#out + 1] = { type = "user", text = message.text }
-        elseif kind ~= "shell" and kind ~= "compaction" then
+        elseif kind ~= "compaction" and not M.transcript_only(kind) then
             out[#out + 1] = message
         end
     end

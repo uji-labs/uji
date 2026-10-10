@@ -19,6 +19,17 @@ it("never sends a shell message to the model", function()
     end
 end)
 
+it("never sends a job message to the model", function()
+    local context = view.build({
+        stored(0, { type = "user", text = "hello" }),
+        stored(1, { type = "job", id = 1, command = "npm run build", output = "built in 2.1s", code = 0, state = "finished" }),
+    })
+    assert.equal(1, #context)
+    for _, message in ipairs(context) do
+        assert.is_nil(text(message):find("built in 2.1s", 1, true), "job output leaked into the context")
+    end
+end)
+
 it("cuts the history a compaction summarised", function()
     local context = view.build({
         stored(0, { type = "user", text = "ancient history" }),
