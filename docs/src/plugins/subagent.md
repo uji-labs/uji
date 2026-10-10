@@ -48,13 +48,6 @@ agent there replaces one of yours with the same name. A project's agents ask bef
 run, unless `confirm_project` is `false`, because the repository controls
 them.
 
-## Commands
-
-| Command | Does |
-|---|---|
-| `/agent <name> <task>` | Asks the model to run that agent on the task with the `subagent` tool. The agent's answer shows under the tool call, and the model replies with what it found. |
-| `/agent` | Lists the agents. Picking one puts `/agent <name> ` in the input. |
-
 ## The tool
 
 | Arguments | Runs |

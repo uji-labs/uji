@@ -344,6 +344,20 @@ describe("the screen", function()
         assert.is_true(uji.auth.authenticated("groq"))
     end)
 
+    it("signs out of a provider from the login command", { size = { 40, 10 } }, function()
+        uji.auth.save_key("groq", "test-key")
+        local name = uji.provider.get("groq").name
+        local asked = {}
+        uji.ui.select = function(opts)
+            asked[#asked + 1] = opts
+            return #asked == 1 and name or "Sign out"
+        end
+        require("uji.core.command").run("login")
+        assert.same({ "Sign in again", "Sign out" }, asked[2].items)
+        assert.is_false(uji.auth.authenticated("groq"))
+        assert.is_false(uji.auth.remove("groq"))
+    end)
+
     it("replaces a built in command when a plugin adds its name", { size = { 40, 10 } }, function()
         local ran = false
         uji.command.add("help", function()
