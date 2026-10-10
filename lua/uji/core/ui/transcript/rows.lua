@@ -92,24 +92,24 @@ local BODY = {
         }
     end,
     job = function(_, message, expanded, toggle)
-        local bad = message.state == "timed out" or (message.state ~= "stopped" and (message.code or 0) ~= 0)
-        local views = {
+        local failure = message.state == "timed out" or (message.state ~= "stopped" and (message.code or 0) ~= 0)
+        local out = {
             Call({
                 label = "Job",
                 detail = message.command,
                 note = message.status,
-                status = bad and "failed" or "done",
+                status = failure and "failed" or "done",
             }),
         }
         if message.output and message.output ~= "" then
-            views[2] = ToolOutput({
+            out[#out + 1] = ToolOutput({
                 content = message.output,
-                failed = bad,
+                failed = failure,
                 expanded = expanded,
                 toggle = toggle,
             })
         end
-        return views
+        return out
     end,
     system = function(_, message)
         return { SystemMessage({ text = message.text or "" }) }
