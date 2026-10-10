@@ -19,6 +19,7 @@ Type `/login` and pick a provider from the list.
   an empty prompt uses that variable instead.
 - Custom asks for the `base_url` and model of a server that takes OpenAI chat
   requests.
+- A provider you are signed in to asks whether to sign in again or sign out.
 
 uji saves keys in `auth.toml` in the
 [data directory](../configuration/files.md), readable only by you. To keep them

@@ -2,6 +2,8 @@ local list = require("uji.utils.list")
 
 local SUBSCRIPTION = "Subscription (sign in with browser)"
 local API_KEY = "API key"
+local SIGN_IN = "Sign in again"
+local SIGN_OUT = "Sign out"
 
 local function configure(provider, url)
     uji.model.use({ provider = provider.id, base_url = url and url.base_url or "", model = url and url.model })
@@ -45,6 +47,17 @@ local function sign_in(provider)
     end
 end
 
+local function sign_out(provider)
+    local removed, err = uji.auth.remove(provider.id)
+    if removed == nil then
+        uji.notify("failed to sign out: " .. tostring(err))
+    elseif removed then
+        uji.notify("signed out of " .. provider.id)
+    else
+        uji.notify(provider.id .. " uses the key in " .. table.concat(provider.auth_env, " or ") .. ", so unset it to sign out")
+    end
+end
+
 local function chosen(name)
     for _, provider in ipairs(uji.provider.list()) do
         if provider.name == name then
@@ -63,6 +76,14 @@ uji.command.add("login", {
         local provider = name and chosen(name)
         if not provider then
             return
+        end
+        if uji.auth.authenticated(provider.id) then
+            local action = uji.ui.select({ title = provider.name, items = { SIGN_IN, SIGN_OUT } })
+            if action == SIGN_OUT then
+                return sign_out(provider)
+            elseif action ~= SIGN_IN then
+                return
+            end
         end
         if provider.loop then
             return configure(provider)

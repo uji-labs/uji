@@ -42,6 +42,17 @@ provider or an empty key.
 local ok, err = uji.auth.save_key("openrouter", os.getenv("MY_OPENROUTER_KEY"))
 ```
 
+## uji.auth.remove(id)
+
+Deletes the saved key or sign-in of the provider `id`, from the keychain and
+from `auth.toml`. Returns `true` when it deleted one, `false` when nothing was
+saved, or `nil` and an error message. A key in one of the provider's
+`auth_env` variables stays. Raises an error for an unknown provider.
+
+```lua
+uji.auth.remove("openrouter")
+```
+
 ## uji.auth.login(id, on_done)
 
 Signs in to the provider `id` with its subscription. uji opens your browser,

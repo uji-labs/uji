@@ -65,25 +65,52 @@ function Credentials:key(provider)
     return credential and credential.type == "api_key" and credential.key or nil
 end
 
-function Credentials:save(provider, credential)
-    if self.keychain and sys.keychain.set(SERVICE, provider, sys.json.encode(credential)) then
-        return credential
-    end
+function Credentials:write_file(all)
     local path = self:path()
     if not path then
         return nil, "no data directory to keep the credential in"
+    end
+    sys.fs.mkdir(self.directory)
+    return sys.fs.write(path, sys.toml.encode(all), { mode = PRIVATE })
+end
+
+function Credentials:save(provider, credential)
+    if self.keychain and sys.keychain.set(SERVICE, provider, sys.json.encode(credential)) then
+        return credential
     end
     local all, err = self:file()
     if not all then
         return nil, err
     end
     all[provider] = credential
-    sys.fs.mkdir(self.directory)
-    local written, failure = sys.fs.write(path, sys.toml.encode(all), { mode = PRIVATE })
+    local written, failure = self:write_file(all)
     if not written then
         return nil, failure
     end
     return credential
+end
+
+function Credentials:remove(provider)
+    local in_keychain = self.keychain and sys.keychain.get(SERVICE, provider) ~= nil
+    if in_keychain then
+        local deleted, err = sys.keychain.delete(SERVICE, provider)
+        if not deleted then
+            return nil, err
+        end
+    end
+    local all, err = self:file()
+    if not all then
+        return nil, err
+    end
+    local in_file = all[provider] ~= nil
+    if in_file then
+        all[provider] = nil
+        local written, failure = self:write_file(all)
+        if not written then
+            return nil, failure
+        end
+    end
+    return in_keychain or in_file
 end
 
 function Credentials.env_key(names)

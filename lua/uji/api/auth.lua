@@ -25,6 +25,9 @@ uji.auth = {
         end
         return true
     end,
+    remove = function(id)
+        return auth.remove(provider(id).id)
+    end,
     login = task.callback(function(id)
         return auth.login(provider(id))
     end),

@@ -35,6 +35,10 @@ function M.save_key(provider_id, key)
     return M.credentials():save(provider_id, { type = "api_key", key = key })
 end
 
+function M.remove(provider_id)
+    return M.credentials():remove(provider_id)
+end
+
 function M.authenticated(provider)
     return M.credentials():authenticated(provider)
 end
