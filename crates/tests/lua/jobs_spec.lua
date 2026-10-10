@@ -59,8 +59,18 @@ it("starts a background job and wakes the model when it ends", { timeout = 10 },
     woken:await()
     assert.is_true(has(sent(mock), "Background job 1 (`echo built; sleep 0.3; echo done`) finished, exit 0"))
     assert.is_true(has(sent(mock), "done"))
+    local reported
+    for _, message in ipairs(app.session:messages()) do
+        if message.type == "job" then
+            reported = message
+        end
+    end
+    assert.is_not_nil(reported)
+    assert.equal("echo built; sleep 0.3; echo done", reported.command)
+    assert.equal("finished, exit 0", reported.status)
+    assert.is_true(has(reported.output, "done"), reported.output)
     ui:take_notices()
-    assert.is_true(has(table.concat(ui.notices, "\n"), "job 1 (echo built; sleep 0.3; echo done) finished, exit 0"))
+    assert.is_false(has(table.concat(ui.notices, "\n"), "job 1"), "a finished job joins the chat, not the notices")
 end)
 
 it("moves a command to the background at its timeout", { timeout = 10 }, function()
@@ -128,14 +138,14 @@ it("stops a job with stop_job and refuses one over the limit", { timeout = 10 },
     assert.equal(5, #mock:turns(), "a stopped job wakes nobody")
 end)
 
-it("shows running jobs in the theme's words and stops one from /jobs", { size = { 60, 12 }, timeout = 10 }, function()
+it("names jobs in the theme's words and reports a stopped one in the chat", { size = { 60, 12 }, timeout = 10 }, function()
     uji.jobs.configure({ wake = false })
     uji.ui.configure({ theme = require("uji.themes.default")({ text = { job = "task %d" } }) })
     jobs.start({ command = "echo hi; sleep 5", cwd = sandbox.work, background = true })
     eventually(function()
         return uji.jobs.list()[1].tail == "hi"
     end)
-    assert.is_not_nil(screen.find("task 1  echo hi; sleep 5  hi"))
+    assert.is_nil(screen.find("task 1  echo hi; sleep 5  hi"), "the footer leaves a running job alone")
     local asked
     uji.ui.pick = function(opts)
         asked = opts
@@ -148,11 +158,10 @@ it("shows running jobs in the theme's words and stops one from /jobs", { size = 
     eventually(ended)
     assert.equal("stopped", uji.jobs.list()[1].state)
     eventually(function()
-        ui:take_notices()
-        return has(table.concat(ui.notices, "\n"), "task 1 (echo hi; sleep 5) stopped")
+        return screen.find("Job(echo hi; sleep 5) stopped") ~= nil
     end)
-    screen.rows(true)
-    assert.is_nil(screen.find("task 1  echo hi"))
+    ui:take_notices()
+    assert.is_false(has(table.concat(ui.notices, "\n"), "task 1"), "a stopped job joins the chat, not the notices")
 end)
 
 it("waits for your next message when waking is off", { timeout = 10 }, function()

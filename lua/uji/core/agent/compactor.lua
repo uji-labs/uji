@@ -63,7 +63,7 @@ function M.transcript(messages)
     for index = #messages, 1, -1 do
         local message = messages[index]
         local kind = message.type
-        if kind ~= "shell" and kind ~= "context" then
+        if kind ~= "context" and not view.transcript_only(kind) then
             local label = kind == "tool" and message.name or LABELS[kind]
             local text = tokens.text(message)
             if text:find("%S") then

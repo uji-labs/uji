@@ -1,3 +1,4 @@
+local Call = require("uji.core.ui.transcript.call")
 local Compaction = require("uji.core.ui.transcript.compaction")
 local Custom = require("uji.core.ui.transcript.custom")
 local ErrorMessage = require("uji.core.ui.transcript.error")
@@ -89,6 +90,26 @@ local BODY = {
                 toggle = toggle,
             }),
         }
+    end,
+    job = function(_, message, expanded, toggle)
+        local failure = message.state == "timed out" or (message.state ~= "stopped" and (message.code or 0) ~= 0)
+        local out = {
+            Call({
+                label = "Job",
+                detail = message.command,
+                note = message.status,
+                status = failure and "failed" or "done",
+            }),
+        }
+        if message.output and message.output ~= "" then
+            out[#out + 1] = ToolOutput({
+                content = message.output,
+                failed = failure,
+                expanded = expanded,
+                toggle = toggle,
+            })
+        end
+        return out
     end,
     system = function(_, message)
         return { SystemMessage({ text = message.text or "" }) }

@@ -117,6 +117,19 @@ describe("the default look", function()
         look("messages")
     end)
 
+    it("draws a finished background job like a tool result", { size = { 80, 12 } }, function()
+        app.session:append({
+            type = "job",
+            id = 1,
+            command = "npm run build",
+            output = "building the site\nbuilt in 2.1s",
+            code = 0,
+            state = "finished",
+            status = "finished, exit 0",
+        })
+        look("job")
+    end)
+
     it("draws markdown and a reply as it streams", { size = { 80, 60 } }, function()
         fixture.markdown()
         highlighted()

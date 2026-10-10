@@ -4,7 +4,6 @@ local context = require("uji.core.context")
 local event = require("uji.core.event")
 local ito = require("ito")
 local list = require("uji.utils.list")
-local notices = require("uji.core.notices")
 local process = require("uji.core.system.process")
 local sys = require("uji.sys")
 local tables = require("uji.core.tables")
@@ -170,8 +169,17 @@ local function finish(job, code, reason)
         end
         return done(result(job, text))
     end
-    local name = string.format(require("uji.core.ui").theme.tokens.text.job, job.id)
-    notices.push(name .. " (" .. job.command .. ") " .. job:status())
+    if app.agent then
+        app.agent:append({
+            type = "job",
+            id = job.id,
+            command = job.command,
+            output = job:tail(),
+            code = job.code,
+            state = job.state,
+            status = job:status(),
+        })
+    end
     if job.state ~= "stopped" then
         M.unreported = list.appended(M.unreported, job)
         wake()
