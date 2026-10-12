@@ -1,37 +1,45 @@
+local list = require("uji.utils.list")
+
+local function as_option(raw)
+    if type(raw) == "table" then
+        return { label = raw.label, description = raw.description or "" }
+    end
+    return { label = raw, description = "" }
+end
+
 local function label(option)
-    return type(option) == "table" and option.label or tostring(option)
+    return option.label
 end
 
 local function described(options)
     for _, option in ipairs(options) do
-        if type(option) == "table" and type(option.description) == "string" and option.description ~= "" then
+        if option.description ~= "" then
             return true
         end
     end
     return false
 end
 
-local function chosen(question, options)
-    local choice
+local function asked(question, options)
     if described(options) then
-        choice = uji.ui.pick({
+        return uji.ui.pick({
             title = question,
             items = options,
             label = label,
             preview = function(option)
-                if type(option) == "table" and option.description then
-                    return { option.description }
-                end
-                return {}
+                return { option.description }
             end,
         })
-    else
-        choice = uji.ui.select({ title = question, items = options })
     end
-    if choice == nil then
+    return uji.ui.select({ title = question, items = options, label = label })
+end
+
+local function chosen(question, options)
+    local choice = asked(question, list.mapped(options, as_option))
+    if not choice then
         return "the person closed the question without choosing"
     end
-    return "the person chose: " .. label(choice)
+    return "the person chose: " .. choice.label
 end
 
 uji.tool.add("ask_user", {

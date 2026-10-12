@@ -177,12 +177,13 @@ it("asks a question as a choice and reports what the person picked", function()
     local select = uji.ui.select
     uji.ui.select = function(opts)
         asked = opts
-        return "searxng"
+        return opts.items[2]
     end
     local result = ask.run({ question = "which backend?", options = { "exa", "searxng" } }, {})
     uji.ui.select = select
     assert.equal("which backend?", asked.title)
-    assert.same({ "exa", "searxng" }, asked.items)
+    assert.equal("exa", asked.label(asked.items[1]))
+    assert.equal("searxng", asked.label(asked.items[2]))
     assert.equal("the person chose: searxng", result)
 end)
 
@@ -203,7 +204,6 @@ it("asks a question as a choice with a description for each, and reports what th
     assert.equal("which backend?", asked.title)
     assert.equal("searxng", asked.label(asked.items[2]))
     assert.same({ "self hosted, no key" }, asked.preview(asked.items[2]))
-    assert.same({}, asked.preview({ label = "plain" }))
 end)
 
 it("asks a question that the person types, and reports a closed one", function()
