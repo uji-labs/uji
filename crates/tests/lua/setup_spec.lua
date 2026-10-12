@@ -186,6 +186,26 @@ it("asks a question as a choice and reports what the person picked", function()
     assert.equal("the person chose: searxng", result)
 end)
 
+it("asks a question as a choice with a description for each, and reports what the person picked", function()
+    local ask = require("uji.core.tool").get("ask_user")
+    local asked
+    local pick = uji.ui.pick
+    uji.ui.pick = function(opts)
+        asked = opts
+        return opts.items[2]
+    end
+    local options = {
+        { label = "exa", description = "hosted, needs a key" },
+        { label = "searxng", description = "self hosted, no key" },
+    }
+    assert.equal("the person chose: searxng", ask.run({ question = "which backend?", options = options }, {}))
+    uji.ui.pick = pick
+    assert.equal("which backend?", asked.title)
+    assert.equal("searxng", asked.label(asked.items[2]))
+    assert.same({ "self hosted, no key" }, asked.preview(asked.items[2]))
+    assert.same({}, asked.preview({ label = "plain" }))
+end)
+
 it("asks a question that the person types, and reports a closed one", function()
     local ask = require("uji.core.tool").get("ask_user")
     local prompt = uji.ui.prompt

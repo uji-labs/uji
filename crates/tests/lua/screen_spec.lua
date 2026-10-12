@@ -95,6 +95,13 @@ describe("the screen", function()
         assert.is_true(has(text, "a preview line"), "the preview is missing")
     end)
 
+    it("wraps a long preview so nothing is cut off", { size = { 60, 20 } }, function()
+        ui:present(Pick({ title = "backends", items = { "one", "two" } }))
+        ui.modal.preview = { "self hosted, for a machine that keeps its own index " .. string.rep("filler ", 12) .. "wraptail" }
+        ui.modal.previewed = ui.modal:chosen()
+        assert.is_true(has(screen.screen(), "wraptail"), "a long preview line should wrap instead of being cut off")
+    end)
+
     it("wraps a long message to the width", { size = { 30, 20 } }, function()
         app.session:append({ type = "user", text = string.rep("wrap ", 40) })
         local wrapped = 0

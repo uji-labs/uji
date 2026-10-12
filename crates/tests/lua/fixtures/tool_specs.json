@@ -1,15 +1,30 @@
 [
   {
     "function": {
-      "description": "Ask the person a question and wait for their answer. Use it when a change or a setup needs something only they know, such as which backend, which url, or which of two files. Pass options when the answer is one of a few choices, and leave them out when the person should type the answer.",
+      "description": "Ask the person a question and wait for their answer. Use it when a change or a setup needs something only they know, such as which backend, which url, or which of two files. Pass options when the answer is one of a few choices, best first, each with a label and a description of what it means, and leave them out when the person should type the answer.",
       "name": "ask_user",
       "parameters": {
         "additionalProperties": false,
         "properties": {
           "options": {
-            "description": "The answers to choose between. Leave it out when the person types the answer.",
+            "description": "The answers to choose between, the one you would pick first. Leave it out when the person types the answer.",
             "items": {
-              "type": "string"
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "description": "What the choice means, so the person can tell them apart.",
+                  "type": "string"
+                },
+                "label": {
+                  "description": "The choice, a few words.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "label",
+                "description"
+              ],
+              "type": "object"
             },
             "type": "array"
           },

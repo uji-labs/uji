@@ -24,8 +24,9 @@ this setup uses. Start with the first question. Do not read files or run
 commands before it.
 
 Interview them with the ask_user tool, one question at a time. Give the
-answers to choose between as options, with the one you would pick first, and
-say in the question why you would pick it. Ask what changes the config and
+answers to choose between as options, the one you would pick first, each with
+a label and a line on what it means, and say in the question why you would
+pick that one. Ask what changes the config and
 nothing else, skip what the map already answers, and stop when they say that
 is enough. Cover, in this order:
 - what uji may do without asking: the commands that run without approval and

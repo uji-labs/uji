@@ -25,7 +25,7 @@ return ito.view(function(props)
             :title({ { props.title, styles.accent } })
     end
     local function preview()
-        return ito.Text(table.concat(list.mapped(props.preview, tostring), "\n")):style(styles.muted):border(plain)
+        return ito.Text(table.concat(list.mapped(props.preview, tostring), "\n")):style(styles.muted):wrap():border(plain)
     end
     return ito.VStack({
         ito.SubcomposeLayout(function(room)
