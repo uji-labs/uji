@@ -37,7 +37,7 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install rustup where the runner has none
         run: |
           if ! command -v rustup >/dev/null 2>&1; then
@@ -66,7 +66,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: uji-labs/homebrew-uji
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -141,3 +141,85 @@ jobs:
           git push origin "$branch"
           gh pr create --repo uji-labs/homebrew-uji --base main --head "$branch" \
             --title "uji ${version}" --body "Moves the formula to [${TAG}](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG})."
+
+  copr:
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: source
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: uji-labs/copr
+          ref: master
+          token: ${{ secrets.COPR_PACKAGING_TOKEN }}
+          path: packaging
+      - name: Open a packaging pull request
+        env:
+          GH_TOKEN: ${{ secrets.COPR_PACKAGING_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
+            echo 'COPR packaging requires a stable vMAJOR.MINOR.PATCH tag.' >&2
+            exit 1
+          }
+          version="${TAG#v}"
+          branch="uji-${version}"
+          existing=$(gh pr list --repo uji-labs/copr --head "$branch" --state all --json url --jq '.[0].url // empty')
+          if [[ -n "$existing" ]]; then
+            echo "A packaging pull request already exists: $existing"
+            exit 0
+          fi
+          remote=$(git -C packaging ls-remote --heads origin "$branch")
+          if [[ -n "$remote" ]]; then
+            git -C packaging fetch origin "$branch"
+            git -C packaging switch -c "$branch" FETCH_HEAD
+          else
+            git -C packaging switch -c "$branch"
+          fi
+          COMMIT=$(git -C source rev-parse HEAD)
+          export COMMIT
+          python3 <<'PY'
+          import datetime
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("packaging/uji.spec")
+          spec = path.read_text()
+          version = os.environ["TAG"][1:]
+          commit = os.environ["COMMIT"]
+          if re.search(rf"^Version:\s+{re.escape(version)}$", spec, re.M) and spec.startswith(f"%global commit {commit}\n"):
+              raise SystemExit(0)
+          for pattern, replacement in (
+              (r"^%global commit .+$", f"%global commit {commit}"),
+              (r"^Version:.*$", f"Version:        {version}"),
+              (r"^Release:.*$", "Release:        1%{?dist}"),
+          ):
+              spec, count = re.subn(pattern, replacement, spec, count=1, flags=re.M)
+              if count != 1:
+                  raise SystemExit(f"Missing spec field: {pattern}")
+          date = datetime.datetime.now(datetime.timezone.utc).strftime("%a %b %d %Y")
+          entry = f"* {date} github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com> - {version}-1\n- Update to {os.environ['TAG']}.\n\n"
+          if spec.count("%changelog\n") != 1:
+              raise SystemExit("The spec must contain one changelog.")
+          path.write_text(spec.replace("%changelog\n", "%changelog\n" + entry, 1))
+          PY
+          cd packaging
+          if git diff --quiet -- uji.spec; then
+            echo 'The spec already points to this release.'
+            [[ -n "$remote" ]] || exit 0
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add uji.spec
+            git commit -m "copr: Update uji to ${version}"
+            git push origin "$branch"
+          fi
+          gh pr create --repo uji-labs/copr --base master --head "$branch" \
+            --title "copr: Update uji to ${version}" \
+            --body "Updates the pinned source to [${TAG}](https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}). Review dependency licenses before merging. Merging starts COPR publication after Fedora checks pass."
