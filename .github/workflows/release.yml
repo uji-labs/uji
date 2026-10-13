@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: uji-labs/homebrew-uji
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          token: ${{ secrets.PACKAGE_TOKEN }}
           path: tap
 
       - name: Point the formula at the release
@@ -128,7 +128,7 @@ jobs:
 
       - name: Open a pull request on the tap
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
           TAG: ${{ github.ref_name }}
         working-directory: tap
         run: |
@@ -156,11 +156,11 @@ jobs:
         with:
           repository: uji-labs/copr
           ref: master
-          token: ${{ secrets.COPR_PACKAGING_TOKEN }}
+          token: ${{ secrets.PACKAGE_TOKEN }}
           path: packaging
       - name: Open a packaging pull request
         env:
-          GH_TOKEN: ${{ secrets.COPR_PACKAGING_TOKEN }}
+          GH_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           [[ "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || {
