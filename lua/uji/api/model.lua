@@ -1,6 +1,7 @@
 local catalog = require("uji.core.catalog")
 local check = require("uji.core.check")
 local decision = require("uji.core.decision")
+local list = require("uji.utils.list")
 local model = require("uji.core.model")
 
 local KNOWN = {}
@@ -14,15 +15,13 @@ local function state_text(value)
     if type(value) == "string" then
         return value
     end
-    if type(value) ~= "table" then
+    local parts = type(value) == "table" and list.filtered(value, function(part)
+        return type(part) == "string"
+    end)
+    if not parts or #parts ~= #value then
         error("uji.model.decide needs state: " .. STATE_KINDS, 3)
     end
-    for _, part in ipairs(value) do
-        if type(part) ~= "string" then
-            error("uji.model.decide needs state: " .. STATE_KINDS, 3)
-        end
-    end
-    return table.concat(value, "\n\n")
+    return table.concat(parts, "\n\n")
 end
 
 local function questions_asked(value)

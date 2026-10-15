@@ -3,6 +3,7 @@ local catalog = require("uji.core.catalog")
 local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local sys = require("uji.sys")
+local tables = require("uji.core.tables")
 local task = require("uji.core.task")
 
 local M = {}
@@ -31,23 +32,15 @@ end
 
 local function probabilities(answers, questions)
     local out = {}
-    for id in pairs(questions) do
-        local found = probability(answers[id])
-        if found then
-            out[id] = found
-        end
+    for _, id in ipairs(tables.keys(questions)) do
+        out[id] = probability(answers[id])
     end
     return out
 end
 
 local function question_listing(questions)
-    local ids = {}
-    for id in pairs(questions) do
-        ids[#ids + 1] = id
-    end
-    table.sort(ids)
     return table.concat(
-        list.mapped(ids, function(id)
+        list.mapped(tables.keys(questions), function(id)
             return id .. ": " .. questions[id]
         end),
         "\n"

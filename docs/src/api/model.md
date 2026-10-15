@@ -67,5 +67,5 @@ answers decisions.
 | `state` | string or table | What the questions are about. A list of strings joins as paragraphs. |
 | `questions` | table | Instructions per question id, each a string. |
 | `provider` | string | The provider to ask. The provider in use by default. |
-| `model` | string | The model to ask. The provider's first model by default, and the API's own default when the provider lists no model. |
+| `model` | string | The model to ask, when the provider answers decisions itself — its first model by default. Over chat, the model in use answers. |
 | `timeout` | number | Seconds for the whole answer, including the provider's own retries. |
