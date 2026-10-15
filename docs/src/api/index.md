@@ -111,6 +111,7 @@ Every function lives under the global `uji` table. A function that finishes late
 | [`uji.model.current()`](model.md#ujimodelcurrent) | Returns the provider, model, API root and effort the next turn uses. |
 | [`uji.model.use(opts)`](model.md#ujimodeluseopts) | Changes the provider, model, API root or effort, and saves the choice. |
 | [`uji.model.efforts()`](model.md#ujimodelefforts) | Returns the reasoning efforts the current model accepts. |
+| [`uji.model.decide(opts)`](model.md#ujimodeldecideopts) | Asks a provider how likely it is that each question about a state is yes. |
 
 ## Providers
 

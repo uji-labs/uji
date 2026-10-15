@@ -1,10 +1,11 @@
 # Provider APIs
 
 A provider's `api` turns a model call into a request in one HTTP API's format
-and streams the answer back. It's an object with a `stream` method, and you set it with
+and streams the answer back. It's an object with a `stream` method, or a
+`decision` method for a provider that answers decisions, and you set it with
 the `api` field of [`uji.provider.add`](provider.md#ujiprovideraddspec).
 
-uji ships four API classes under `uji.api`, and calling a class makes an
+uji ships five API classes under `uji.api`, and calling a class makes an
 object.
 
 | Class | API |
@@ -13,6 +14,7 @@ object.
 | `uji.api.responses` | OpenAI Responses, `/responses`. The OpenAI and xAI providers use it. |
 | `uji.api.anthropic` | Anthropic Messages, `/messages`. |
 | `uji.api.gemini` | Gemini `streamGenerateContent`. |
+| `uji.api.jev` | TypeSafe's Jev decision API, `/systemone`, for the `jev` provider. It has a `decision` method and no `stream`. |
 
 `uji.api.<name>` loads `lua/uji/builtin/apis/<name>.lua`, so a file of your
 own in that folder of your config adds `uji.api.<name>` too.
@@ -124,6 +126,13 @@ cancels the call. The request has these fields:
 
 An assistant message carries the `replay` its API returned, described below.
 
+A provider whose api answers decisions is called as `api:decision(request)`
+instead, from [`uji.model.decide`](model.md#ujimodeldecideopts). That request
+has `model`, `state`, `questions`, a table of instructions by question id,
+`timeout`, `provider` and `auth`, as above. Its answer is a table of answers by
+question id, each a probability from 0 to 1 or a table with that number in
+`noul`, or `nil` and a failure.
+
 ## The reply
 
 The reply table has four functions:
@@ -186,7 +195,9 @@ built-in classes all use it.
 uji ends the call with a failure in these cases:
 - The status is not 2xx. A 401 or 403 is an `auth` failure, and anything else
   is an `http` failure with the status, the `retry-after` seconds and the
-  start of the body.
+  start of the body. An API that reads its answer without `run` makes the same
+  failure with `uji.api.stream.status_error(response)`, from a `response` with
+  `status`, `headers` and `body`.
 - No data arrives for 120 seconds.
 - The stream ends before `parts:finish()`. A provider that never says it
   finished can call `parts:finish()` from `finished`.

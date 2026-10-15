@@ -23,10 +23,10 @@ When the provider exists, each field you give replaces the old one, except
 `models`, which merge by `id`. A model whose `id` is already listed replaces
 the old one whole.
 
-Raises an error for an unknown field, for an `api` without a `stream` method,
-for a `loop` that is not a class with a `run` method, for `models` that are
-neither a list nor a function, for an unknown effort, and for a new provider
-that lacks `name` or `api`, or has neither `base_url` nor `loop`.
+Raises an error for an unknown field, for an `api` without a `stream` or
+`decision` method, for a `loop` that is not a class with a `run` method, for
+`models` that are neither a list nor a function, for an unknown effort, and for
+a new provider that lacks `name` or `api`, or has neither `base_url` nor `loop`.
 
 ```lua
 uji.provider.add({

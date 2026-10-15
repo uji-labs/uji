@@ -1,7 +1,8 @@
 # uji.model
 
 These functions read and change the provider and model that uji sends turns
-to, and the reasoning effort it asks for. `/models`, `/effort` and `/login` use them.
+to, the reasoning effort it asks for, and the decisions it asks a provider for.
+`/models`, `/effort` and `/login` use them.
 
 ## uji.model.current()
 
@@ -51,3 +52,20 @@ provider's API supplies it for a model without one.
 ```lua
 local efforts = uji.model.efforts()
 ```
+
+## uji.model.decide(opts)
+
+Asks a decision model how likely yes is the answer to each question about one
+state, from 0 to 1. Returns `{ probabilities, calibrated }`, with a number for
+each question it could answer, or `nil` and a `{ kind, message }` failure.
+`calibrated` is `true` when a provider that answers decisions itself answered,
+and `false` when uji asked the model in use over chat. The `jev` provider
+answers decisions.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `state` | string or table | What the questions are about. A list of strings joins as paragraphs. |
+| `questions` | table | Instructions per question id, each a string. |
+| `provider` | string | The provider to ask. The provider in use by default. |
+| `model` | string | The model to ask. The provider's first model by default, and the API's own default when the provider lists no model. |
+| `timeout` | number | Seconds for the whole answer, including the provider's own retries. |

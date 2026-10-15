@@ -33,7 +33,7 @@ local function truncated_call(name)
     )
 end
 
-local function status_error(response)
+function M.status_error(response)
     local status = response.status
     local message = M.clip(trim(response.body), MAX_ERROR_BODY)
     if status == 401 or status == 403 then
@@ -199,7 +199,7 @@ local function run(spec, reply)
         return nil, { kind = "http", message = err }
     end
     if body.status < 200 or body.status >= 300 then
-        return nil, status_error({ status = body.status, headers = body.headers, body = body:read() or "" })
+        return nil, M.status_error({ status = body.status, headers = body.headers, body = body:read() or "" })
     end
     local failure = drain(body, state, spec.read) or state.failure
     if failure then

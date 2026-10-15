@@ -8,6 +8,10 @@ local SIGN_OUT = "Sign out"
 local SIGN_IN_WITH = { [SUBSCRIPTION] = "browser", [DEVICE] = "device" }
 
 local function configure(provider, url)
+    if provider.api and not provider.api.stream then
+        uji.notify((provider.name or provider.id) .. " is configured; it answers decisions, not chat")
+        return
+    end
     uji.model.use({ provider = provider.id, base_url = url and url.base_url or "", model = url and url.model })
     uji.notify("logged in to " .. provider.id)
 end

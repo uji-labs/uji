@@ -66,8 +66,13 @@ local function model(spec)
 end
 
 local function api(value, id)
-    if value ~= nil and (type(value) ~= "table" or type(value.stream) ~= "function") then
-        error("the api of provider " .. id .. " needs a stream method", 0)
+    if value == nil then
+        return value
+    end
+    local streams = type(value) == "table" and type(value.stream) == "function"
+    local decides = type(value) == "table" and type(value.decision) == "function"
+    if not (streams or decides) then
+        error("the api of provider " .. id .. " needs a stream method, or a decision method", 0)
     end
     return value
 end

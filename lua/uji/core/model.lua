@@ -191,6 +191,10 @@ function M.stream(request, reply)
         return nil, { kind = "provider", message = NOT_CONFIGURED }
     end
     local api = provider.api
+    if type(api) ~= "table" or type(api.stream) ~= "function" then
+        local name = provider.name or provider.id
+        return nil, { kind = "provider", message = name .. " does not answer chat" }
+    end
     local credentials, missing = auth.resolve(provider)
     if not credentials then
         return nil, missing
