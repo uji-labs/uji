@@ -57,10 +57,10 @@ local efforts = uji.model.efforts()
 
 Asks a decision model how likely yes is the answer to each question about one
 state, from 0 to 1. Returns `{ probabilities, calibrated }`, with a number for
-each question it could answer, or `nil` and a `{ kind, message }` failure.
-`calibrated` is `true` when a provider that answers decisions itself answered,
-and `false` when uji asked the model in use over chat. The `jev` provider
-answers decisions.
+each question it could answer, or `nil` and a `{ kind, message }` failure. uji
+ships the `jev` provider, which answers decisions itself and gives `calibrated`
+`true`; every other provider is asked over chat, as the model in use, and gives
+`false`.
 
 | Field | Type | Meaning |
 |---|---|---|

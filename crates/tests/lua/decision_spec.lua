@@ -1,8 +1,6 @@
 local server = require("support.server")
 local sys = require("uji.sys")
 
-local Jev = require("uji.builtin.apis.jev")
-
 local function answers(probabilities)
     return sys.json.encode({ answers = probabilities })
 end
@@ -18,16 +16,20 @@ local function chatty(url)
     uji.model.use({ provider = "chatty", model = "m" })
 end
 
-local function judge(url)
+local function judge(url, opts)
+    opts = opts or {}
+    local id = opts.id or "jev-test"
     uji.provider.add({
-        id = "jev-test",
+        id = id,
         name = "Jev Test",
-        api = Jev(),
-        base_url = url .. "/v1",
-        auth_env = { "TYPESAFE_API_KEY" },
-        models = {},
+        api = uji.api.jev(),
+        base_url = (url or "http://127.0.0.1:1") .. "/v1",
+        auth_env = opts.auth_env or { "TYPESAFE_API_KEY" },
+        models = opts.models or {},
     })
-    uji.auth.save_key("jev-test", "secret")
+    if opts.key ~= false then
+        uji.auth.save_key(id, opts.key or "secret")
+    end
 end
 
 describe("decisions", function()
@@ -138,15 +140,37 @@ describe("decisions", function()
         assert.equal(0.4, found.probabilities["2"])
     end)
 
-    it("says what to set when there is no key", function()
-        uji.provider.add({
-            id = "jev-nokey",
-            name = "Jev Nokey",
-            api = Jev(),
-            base_url = "http://127.0.0.1:1/v1",
-            auth_env = { "UJI_TEST_UNSET_KEY" },
-            models = {},
+    it("asks the provider's own model when it lists one", function()
+        local seen
+        local mock = server.start(function(request)
+            seen = request
+            return server.status(200, answers({ safe = { noul = 0.8 } }))
+        end)
+        judge(mock.url, { id = "jev-models", models = { { id = "jev-2" } } })
+        local found = uji.model.decide({
+            provider = "jev-models",
+            state = "state",
+            questions = { safe = "Is this safe?" },
         })
+        assert.equal(0.8, found.probabilities.safe)
+        assert.equal("jev-2", seen.body.model)
+    end)
+
+    it("asks a provider that needs no key without one", function()
+        local mock = server.start(function()
+            return server.status(200, answers({ safe = { noul = 0.3 } }))
+        end)
+        judge(mock.url, { id = "jev-local", auth_env = {}, key = false })
+        local found = uji.model.decide({
+            provider = "jev-local",
+            state = "state",
+            questions = { safe = "Is this safe?" },
+        })
+        assert.equal(0.3, found.probabilities.safe)
+    end)
+
+    it("says what to set when there is no key", function()
+        judge(nil, { id = "jev-nokey", auth_env = { "UJI_TEST_UNSET_KEY" }, key = false })
         local found, failure = uji.model.decide({
             provider = "jev-nokey",
             state = "state",

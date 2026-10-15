@@ -8,12 +8,10 @@ local task = require("uji.core.task")
 
 local M = {}
 
-local ANSWER_SHAPE = table.concat({
-    "Answer with one JSON object and nothing else:",
-    '{"answers":{"<id>":<number>}},',
-    "where the number for each id is how likely yes is, from 0 (certainly no) to 1 (certainly yes).",
-    "Answer every id you are given.",
-}, " ")
+local PROMPT = "You answer questions about a state with how likely yes is. "
+    .. "The user message is the state, then the questions, one per line, id first. "
+    .. "Give one number per question, from 0 (certainly no) to 1 (certainly yes). "
+    .. 'Reply with one JSON object alone, no preamble: {"answers":{"<id>":<number>}}.'
 
 local function decides(provider)
     local api = provider and provider.api
@@ -61,7 +59,7 @@ local function over_chat(provider, opts)
         return nil, { kind = "provider", message = name .. " is not the provider in use, so it cannot answer a decision" }
     end
     local answer, failure = model.generate({
-        system = ANSWER_SHAPE,
+        system = PROMPT,
         messages = { { type = "user", text = opts.state .. "\n\n" .. question_listing(opts.questions) } },
     })
     if not answer then

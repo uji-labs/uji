@@ -14,7 +14,7 @@ object.
 | `uji.api.responses` | OpenAI Responses, `/responses`. The OpenAI and xAI providers use it. |
 | `uji.api.anthropic` | Anthropic Messages, `/messages`. |
 | `uji.api.gemini` | Gemini `streamGenerateContent`. |
-| `uji.api.jev` | TypeSafe's Jev decision API, `/systemone`, for the `jev` provider. It has a `decision` method and no `stream`. |
+| `uji.api.jev` | TypeSafe's Jev decision API, `/systemone`, for the `jev` provider. It has a `decision` method and no `stream`, and asks `jev-latest` when nothing names another model. |
 
 `uji.api.<name>` loads `lua/uji/builtin/apis/<name>.lua`, so a file of your
 own in that folder of your config adds `uji.api.<name>` too.
