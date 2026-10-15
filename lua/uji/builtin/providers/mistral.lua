@@ -36,7 +36,7 @@ uji.provider.add({
         { id = "pixtral-12b", context = 128000, output = 128000, images = true },
         { id = "pixtral-large-latest", context = 128000, output = 128000, images = true },
         { id = "voxtral-small-latest", context = 32000, output = 32000, images = false },
-        { id = "zai-glm-5-2", context = 1000000, output = 131072, reasoning = true, images = false },
+        { id = "zai-glm-5-3", context = 1000000, output = 131072, reasoning = true, images = false },
         { id = "mistral-embed", context = 8000, output = 3072, images = false },
         { id = "voxtral-mini-tts-latest", images = false },
         { id = "voxtral-mini-latest", images = false },
