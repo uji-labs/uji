@@ -187,7 +187,8 @@ function Agent:repair()
 end
 
 function Agent:prompt(text)
-    local env = { directory = self.session.directory, os = sys.os.platform, instructions = self.instructions }
+    local env =
+        { directory = self.session.directory, os = sys.os.platform, instructions = self.instructions, tools = tool.specs(self.tools) }
     local ok, base = pcall(function()
         return require("uji.core.prompt").system(env)
     end)

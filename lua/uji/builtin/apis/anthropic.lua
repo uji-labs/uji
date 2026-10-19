@@ -350,6 +350,7 @@ function Anthropic:stream(request, reply)
     local body = self:body(request)
     return stream.run({
         url = request.provider.base_url .. "/messages",
+        provider = request.provider.id,
         headers = self:headers(request, body),
         body = body,
         read = function(event, parts)

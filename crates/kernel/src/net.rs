@@ -1,11 +1,15 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
+use brotli::enc::BrotliEncoderParams;
 use bytes::{Buf, Bytes, BytesMut};
+use flate2::Compression;
+use flate2::write::{GzEncoder, ZlibEncoder};
 use futures_util::StreamExt;
 use mlua::{BString, Lua, Table};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::header::{CONTENT_ENCODING, HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Method};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
@@ -23,6 +27,61 @@ const CHUNKS: usize = 64;
 const NEWLINE: u8 = b'\n';
 const RETURN: u8 = b'\r';
 const LOOPBACK: &str = "127.0.0.1";
+const MIN_PACKED: usize = 1024;
+const ZSTD: i32 = 3;
+
+#[derive(Clone, Copy)]
+enum Encoding {
+    Gzip,
+    Deflate,
+    Zstd,
+    Brotli,
+}
+
+impl Encoding {
+    fn parse(name: &str) -> Result<Self, NetError> {
+        match name {
+            "gzip" => Ok(Self::Gzip),
+            "deflate" => Ok(Self::Deflate),
+            "zstd" => Ok(Self::Zstd),
+            "br" => Ok(Self::Brotli),
+            _ => Err(NetError::Invalid(format!(
+                "unknown content encoding {name}"
+            ))),
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Gzip => "gzip",
+            Self::Deflate => "deflate",
+            Self::Zstd => "zstd",
+            Self::Brotli => "br",
+        }
+    }
+
+    fn pack(self, body: &[u8]) -> Result<Vec<u8>, NetError> {
+        match self {
+            Self::Gzip => {
+                let mut packer = GzEncoder::new(Vec::new(), Compression::default());
+                packer.write_all(body)?;
+                Ok(packer.finish()?)
+            }
+            Self::Deflate => {
+                let mut packer = ZlibEncoder::new(Vec::new(), Compression::default());
+                packer.write_all(body)?;
+                Ok(packer.finish()?)
+            }
+            Self::Zstd => Ok(zstd::stream::encode_all(body, ZSTD)?),
+            Self::Brotli => {
+                let mut packed = Vec::new();
+                let mut source = body;
+                brotli::BrotliCompress(&mut source, &mut packed, &BrotliEncoderParams::default())?;
+                Ok(packed)
+            }
+        }
+    }
+}
 
 static CLIENT: LazyLock<Client> = LazyLock::new(|| {
     Client::builder()
@@ -68,6 +127,7 @@ struct RequestOptions {
     #[serde(default)]
     headers: HashMap<String, String>,
     body: Option<String>,
+    encoding: Option<String>,
     timeout: Option<f64>,
     idle: Option<f64>,
 }
@@ -77,6 +137,7 @@ struct Request {
     url: reqwest::Url,
     headers: HeaderMap,
     body: Option<String>,
+    encoding: Option<Encoding>,
     timeout: Option<Duration>,
     idle: Duration,
 }
@@ -105,20 +166,29 @@ impl Request {
             url,
             headers,
             body: opts.body,
+            encoding: opts.encoding.as_deref().map(Encoding::parse).transpose()?,
             timeout: seconds(opts.timeout, "timeout")?,
             idle: seconds(opts.idle, "idle")?.unwrap_or(IDLE),
         })
     }
 
-    fn build(self) -> reqwest::RequestBuilder {
+    fn build(self) -> Result<reqwest::RequestBuilder, NetError> {
         let mut builder = CLIENT.request(self.method, self.url).headers(self.headers);
         if let Some(body) = self.body {
-            builder = builder.body(body);
+            let bytes = match self.encoding {
+                Some(encoding) if body.len() >= MIN_PACKED => {
+                    builder =
+                        builder.header(CONTENT_ENCODING, HeaderValue::from_static(encoding.name()));
+                    encoding.pack(body.as_bytes())?
+                }
+                _ => body.into_bytes(),
+            };
+            builder = builder.body(bytes);
         }
         if let Some(timeout) = self.timeout {
             builder = builder.timeout(timeout);
         }
-        builder
+        Ok(builder)
     }
 }
 
@@ -159,10 +229,14 @@ async fn stream(
     chunks: mpsc::Sender<Result<Bytes, NetError>>,
 ) {
     let idle = request.idle;
-    let response = match request.build().send().await {
+    let sent = match request.build() {
+        Ok(builder) => builder.send().await.map_err(NetError::from),
+        Err(err) => Err(err),
+    };
+    let response = match sent {
         Ok(response) => response,
         Err(err) => {
-            drop(head.send(Err(err.into())));
+            drop(head.send(Err(err)));
             return;
         }
     };
@@ -330,7 +404,7 @@ fn url(text: &str) -> Option<Url> {
 
 #[function(net)]
 async fn request(opts: RequestOptions) -> Result<Response, NetError> {
-    let response = Request::new(opts)?.build().send().await?;
+    let response = Request::new(opts)?.build()?.send().await?;
     let head = Head::of(&response);
     let body = response.text().await?;
     Ok(Response { head, body })

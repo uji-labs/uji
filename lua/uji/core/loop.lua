@@ -70,6 +70,11 @@ local function arguments(raw)
             )
     end
     if type(value) == "table" and getmetatable(value) ~= ARRAY then
+        for key, item in pairs(value) do
+            if item == sys.json.null then
+                value[key] = nil
+            end
+        end
         return value
     end
     return nil, "error: arguments must be a JSON object, got " .. kind(value) .. ". Send a single object matching the tool schema."

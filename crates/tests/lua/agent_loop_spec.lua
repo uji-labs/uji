@@ -93,7 +93,7 @@ it("answers malformed arguments and unknown tools without running them", { timeo
         shape("a string"),
         "error: `path` is required and must be a non-empty string",
         shape("a number"),
-        "error: unknown tool `nope`. Available tools: ask_user, edit_file, job_output, read_file, run_command, stop_job, write_file.",
+        "error: unknown tool `nope`. Available tools: ask_user, docs, edit_file, job_output, read_file, run_command, stop_job, write_file.",
     }, agent.tool_results(run(mock.url)))
 end)
 

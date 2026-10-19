@@ -1,6 +1,7 @@
 local agent = require("support.agent")
 local app = require("uji.core.app")
 local sandbox = require("support.sandbox")
+local tool = require("uji.core.tool")
 local server = require("support.server")
 local sys = require("uji.sys")
 
@@ -50,6 +51,21 @@ it("sends the model tool specs that match the built in tools", { timeout = 20 },
     local _, mock = round_trip({})
     local expected = sys.json.decode(sandbox.read(sandbox.fixtures .. "/tool_specs.json"), { nulls = false })
     assert.same(expected, mock:turns()[1].body.tools)
+end)
+
+it("names the tools it can call in the system prompt", { timeout = 20 }, function()
+    app.attach(app.session)
+    local system = app.agent:prompt("hello")
+    assert.is_true(system:find("# Tools", 1, true) ~= nil)
+    assert.is_true(system:find("ask_user, docs, edit_file, job_output, read_file, run_command, stop_job, write_file", 1, true) ~= nil)
+end)
+
+it("reads uji's own reference and lists its pages", { timeout = 20 }, function()
+    local docs = tool.get("docs")
+    assert.is_true(docs ~= nil)
+    assert.is_true(docs.run({ page = "api/tool.md" }):find("uji.tool.add", 1, true) ~= nil)
+    assert.is_true(docs.run({}):find("api/tool.md", 1, true) ~= nil)
+    assert.is_true(docs.run({ page = "nope.md" }):find("there is no page", 1, true) ~= nil)
 end)
 
 it("pages numbered lines from read_file and refuses what it cannot read", { timeout = 20 }, function()

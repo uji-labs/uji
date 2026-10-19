@@ -2,8 +2,13 @@ local M = {}
 
 local MAX_ERROR_BODY = 2000
 local EVENTS = { nulls = false }
+local COMPRESSED = { anthropic = "gzip" }
 
 M.idle = 120
+
+function M.encoding(provider)
+    return COMPRESSED[provider]
+end
 
 function M.clip(text, max)
     local count, cut = 0, nil
@@ -182,7 +187,7 @@ local function drain(body, state, read)
     end
 end
 
-local function run(spec, reply)
+local function attempt(spec, reply, encoding)
     local state = parts(reply)
     local headers = { ["Content-Type"] = "application/json" }
     for name, value in pairs(spec.headers) do
@@ -193,6 +198,7 @@ local function run(spec, reply)
         method = "POST",
         headers = headers,
         body = uji.json.encode(spec.body),
+        encoding = encoding,
         idle = M.idle,
     })
     if not body then
@@ -221,7 +227,7 @@ local function run(spec, reply)
 end
 
 function M.run(spec, reply)
-    local answer, failure = run(spec, reply)
+    local answer, failure = attempt(spec, reply, M.encoding(spec.provider))
     if answer then
         reply.done(answer)
         return answer

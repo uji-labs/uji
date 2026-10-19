@@ -144,8 +144,14 @@ function Responses:input(request)
     return out
 end
 
-function Responses:spec(tool)
-    return { type = "function", name = tool.name, description = tool.description, parameters = tool.parameters }
+function Responses:spec(tool, request)
+    local spec = { type = "function", name = tool.name, description = tool.description, parameters = tool.parameters }
+    local strict = self.strict and not (request.auth and request.auth.oauth) and common.strict(tool.parameters)
+    if strict then
+        spec.parameters = strict
+        spec.strict = true
+    end
+    return spec
 end
 
 function Responses:body(request)
@@ -153,7 +159,7 @@ function Responses:body(request)
         model = request.model,
         input = self:input(request),
         tools = common.nonempty(common.map(request.tools, function(tool)
-            return self:spec(tool)
+            return self:spec(tool, request)
         end)),
         stream = true,
         store = false,

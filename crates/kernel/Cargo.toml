@@ -12,6 +12,8 @@ description = "The Lua runtime and operating system primitives uji is built on"
 arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
 base64 = "0.22"
 bytes = "1"
+brotli = "8"
+flate2 = "1"
 futures-util = "0.3"
 glob = "0.3.4"
 globset = "0.4"
@@ -38,6 +40,7 @@ toml = "1"
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-onig"] }
 unicode-width = "0.2"
 uji-macros = { path = "../macros" }
+zstd = { version = "0.13", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.31", default-features = false, features = ["process", "signal"] }

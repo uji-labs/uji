@@ -43,6 +43,23 @@
   },
   {
     "function": {
+      "description": "Read a page of uji's own reference: every `uji.*` function, the config directory, packs, themes, plugins and slash commands, as of the uji that is running. Without `page`, lists every page. Read it only when the person asks you to change how uji itself works, not for the project being worked on.",
+      "name": "docs",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "description": "The page to read, named as the list names it, such as `api/tool.md`.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "type": "function"
+  },
+  {
+    "function": {
       "description": "Replace an exact snippet of an existing file, leaving the rest untouched. This is the tool to use for changing code. `old_string` must reproduce the file's current text byte for byte, including indentation and newlines, and must appear exactly once unless `replace_all` is true - include a few surrounding lines to make it unique. Do not include the `NNN| ` line-number prefixes that read_file adds. To delete code, pass an empty `new_string`.",
       "name": "edit_file",
       "parameters": {

@@ -3,6 +3,7 @@ local Responses = uji.api.responses
 
 local OpenAI = uji.class(Responses)
 
+OpenAI.strict = true
 OpenAI.oauth_url = "https://chatgpt.com/backend-api/codex/responses"
 
 function OpenAI:url(request)

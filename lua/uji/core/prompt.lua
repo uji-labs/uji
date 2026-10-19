@@ -1,3 +1,5 @@
+local list = require("uji.utils.list")
+
 local M = {}
 
 M.text = [[
@@ -35,14 +37,32 @@ Ask with `ask_user` when you are blocked on a decision that is genuinely theirs:
 - Do not create git commits or branches unless asked.
 - After editing, verify with the project's own build or tests when they exist.
 
+# Changing uji
+
+The `docs` tool holds uji's own reference: every `uji.*` function, the config directory, packs, themes, plugins and slash commands. Read a page from it only when the person asks you to change uji itself, not when working on their project.
+
 # Replying
 
 Be concise and factual. State what you changed and where, referencing paths like `src/app.rs:42`. Do not paste back files you just wrote, and do not tell the user to save anything - your edits are already on disk.]]
+
+local function listed(tools)
+    local names = list.mapped(tools or {}, function(tool)
+        return tool.name
+    end)
+    if #names == 0 then
+        return nil
+    end
+    return "# Tools\n\nCall a tool by its exact name, with one JSON object that matches its schema: " .. table.concat(names, ", ") .. "."
+end
 
 function M.system(env)
     local text = M.text
     if env.instructions then
         text = text .. "\n\n" .. env.instructions
+    end
+    local tools = listed(env.tools)
+    if tools then
+        text = text .. "\n\n" .. tools
     end
     return text .. "\n\n# Environment\n\nWorking directory: " .. env.directory .. "\nOS: " .. env.os
 end
