@@ -45,24 +45,19 @@ The `docs` tool holds uji's own reference: every `uji.*` function, the config di
 
 Be concise and factual. State what you changed and where, referencing paths like `src/app.rs:42`. Do not paste back files you just wrote, and do not tell the user to save anything - your edits are already on disk.]]
 
-local function listed(tools)
-    local names = list.mapped(tools or {}, function(tool)
-        return tool.name
-    end)
-    if #names == 0 then
-        return nil
-    end
-    return "# Tools\n\nCall a tool by its exact name, with one JSON object that matches its schema: " .. table.concat(names, ", ") .. "."
-end
-
 function M.system(env)
     local text = M.text
     if env.instructions then
         text = text .. "\n\n" .. env.instructions
     end
-    local tools = listed(env.tools)
-    if tools then
-        text = text .. "\n\n" .. tools
+    if env.tools and #env.tools > 0 then
+        local names = list.mapped(env.tools, function(tool)
+            return tool.name
+        end)
+        text = text
+            .. "\n\n# Tools\n\nCall a tool by its exact name, with one JSON object that matches its schema: "
+            .. table.concat(names, ", ")
+            .. "."
     end
     return text .. "\n\n# Environment\n\nWorking directory: " .. env.directory .. "\nOS: " .. env.os
 end

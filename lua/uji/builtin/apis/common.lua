@@ -1,4 +1,5 @@
 local json = require("uji.utils.json")
+local tables = require("uji.core.tables")
 
 local MIN_ANSWER = 1024
 local MIN_BUDGET = 1024
@@ -105,121 +106,58 @@ local UNSUPPORTED = {
     definitions = true,
     allOf = true,
     oneOf = true,
+    anyOf = true,
     patternProperties = true,
-    dependentSchemas = true,
-    dependencies = true,
-    unevaluatedProperties = true,
-    propertyNames = true,
-    contains = true,
-    prefixItems = true,
     ["not"] = true,
     ["if"] = true,
     ["then"] = true,
     ["else"] = true,
 }
 
-local function clone(value)
-    if type(value) ~= "table" or value == uji.json.null then
-        return value
-    end
-    local meta = getmetatable(value)
-    local out = type(meta) == "table" and setmetatable({}, meta) or {}
-    for key, item in pairs(value) do
-        out[key] = clone(item)
-    end
-    return out
-end
-
-local function nullable(schema)
-    if schema == nil then
-        return false
-    end
-    if schema.type == "null" then
-        return true
-    end
-    if type(schema.type) == "table" then
-        for _, name in ipairs(schema.type) do
-            if name == "null" then
-                return true
-            end
-        end
-    end
-    if type(schema.enum) == "table" then
-        for _, value in ipairs(schema.enum) do
-            if value == uji.json.null then
-                return true
-            end
-        end
-    end
-    if type(schema.anyOf) == "table" then
-        for _, variant in ipairs(schema.anyOf) do
-            if nullable(variant) then
-                return true
-            end
-        end
-    end
-    return false
-end
-
 local function strict_node(schema)
     if type(schema) ~= "table" then
-        return false
+        return nil
     end
     for key in pairs(UNSUPPORTED) do
         if schema[key] ~= nil then
-            return false
+            return nil
         end
     end
-    if schema.anyOf then
-        for _, variant in ipairs(schema.anyOf) do
-            if variant.type == "object" or variant.type == "array" or variant.properties or variant.items then
-                return false
-            end
-            if not strict_node(variant) then
-                return false
-            end
-        end
-    end
-    if schema.items then
-        if schema.items[1] ~= nil or not strict_node(schema.items) then
-            return false
-        end
+    local out = tables.copy(schema)
+    if schema.type == "array" then
+        out.items = strict_node(schema.items)
+        return out.items and out or nil
     end
     if schema.type ~= "object" then
-        return schema.properties == nil
+        return out
     end
     if schema.additionalProperties ~= nil and schema.additionalProperties ~= false then
-        return false
+        return nil
     end
     local required = {}
     for _, name in ipairs(schema.required or {}) do
         required[name] = true
     end
-    local names = {}
+    out.properties = {}
+    out.required = uji.json.array({})
     for name, property in pairs(schema.properties or {}) do
-        if not strict_node(property) then
-            return false
+        local child = strict_node(property)
+        if not child then
+            return nil
         end
-        names[#names + 1] = name
-        if not required[name] and not nullable(property) then
-            schema.properties[name] = { anyOf = { property, { type = "null" } } }
-        end
+        out.properties[name] = required[name] and child or { anyOf = { child, { type = "null" } } }
+        out.required[#out.required + 1] = name
     end
-    table.sort(names)
-    schema.required = #names > 0 and names or uji.json.array({})
-    schema.additionalProperties = false
-    return true
+    table.sort(out.required)
+    out.additionalProperties = false
+    return out
 end
 
 function M.strict(parameters)
     if type(parameters) ~= "table" or parameters.type ~= "object" then
         return nil
     end
-    local schema = clone(parameters)
-    if not strict_node(schema) then
-        return nil
-    end
-    return schema
+    return strict_node(parameters)
 end
 
 return M

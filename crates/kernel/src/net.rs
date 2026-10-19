@@ -30,27 +30,17 @@ const LOOPBACK: &str = "127.0.0.1";
 const MIN_PACKED: usize = 1024;
 const ZSTD: i32 = 3;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum Encoding {
     Gzip,
     Deflate,
     Zstd,
+    #[serde(rename = "br")]
     Brotli,
 }
 
 impl Encoding {
-    fn parse(name: &str) -> Result<Self, NetError> {
-        match name {
-            "gzip" => Ok(Self::Gzip),
-            "deflate" => Ok(Self::Deflate),
-            "zstd" => Ok(Self::Zstd),
-            "br" => Ok(Self::Brotli),
-            _ => Err(NetError::Invalid(format!(
-                "unknown content encoding {name}"
-            ))),
-        }
-    }
-
     fn name(self) -> &'static str {
         match self {
             Self::Gzip => "gzip",
@@ -127,7 +117,7 @@ struct RequestOptions {
     #[serde(default)]
     headers: HashMap<String, String>,
     body: Option<String>,
-    encoding: Option<String>,
+    encoding: Option<Encoding>,
     timeout: Option<f64>,
     idle: Option<f64>,
 }
@@ -166,7 +156,7 @@ impl Request {
             url,
             headers,
             body: opts.body,
-            encoding: opts.encoding.as_deref().map(Encoding::parse).transpose()?,
+            encoding: opts.encoding,
             timeout: seconds(opts.timeout, "timeout")?,
             idle: seconds(opts.idle, "idle")?.unwrap_or(IDLE),
         })
