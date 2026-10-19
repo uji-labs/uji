@@ -125,6 +125,9 @@ local function strict_node(schema)
     end
     local out = tables.copy(schema)
     if schema.type == "array" then
+        if schema.items == nil or schema.items[1] ~= nil then
+            return nil
+        end
         out.items = strict_node(schema.items)
         return out.items and out or nil
     end
