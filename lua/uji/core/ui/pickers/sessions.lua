@@ -56,6 +56,7 @@ return ito.view(function(props)
         hint = hints(styles, {
             { words.key_move, words.navigate },
             { words.key_open, words.resume },
+            { words.key_delete, words.delete },
             { words.key_quit, words.quit },
         })
     end

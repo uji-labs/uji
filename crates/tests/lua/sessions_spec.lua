@@ -1,4 +1,5 @@
 local app = require("uji.core.app")
+local Sessions = require("uji.core.ui.sessions").Sessions
 local sys = require("uji.sys")
 
 before_each(function()
@@ -79,6 +80,42 @@ it("refuses to switch sessions mid-turn", function()
     assert.is_nil(ok)
     assert.equal("finish or interrupt the current turn before resuming another session", problem)
     assert.equal(0, #launched)
+end)
+
+local function picker()
+    return Sessions(uji.session.list({ directory = app.session.directory }), app.session.directory)
+end
+
+local function choose(instance, id)
+    for index, item in ipairs(instance.sessions) do
+        if item.id == id then
+            instance.selection.value = index
+        end
+    end
+end
+
+it("deletes the session D asks about, once you say yes", function()
+    local other = added("Delete me")
+    local instance = picker()
+    choose(instance, other.id)
+    instance:key({ key = "D" })
+    assert.equal(other.id, instance.asking.id)
+    instance:key({ key = "y" })
+    assert.is_nil(instance.asking)
+    assert.is_nil(app.store:session(other.id))
+    for _, item in ipairs(instance.sessions) do
+        assert.is_true(item.id ~= other.id, "the deleted session left the list")
+    end
+end)
+
+it("keeps the session when the delete is answered no", function()
+    local other = added("Keep me")
+    local instance = picker()
+    choose(instance, other.id)
+    instance:key({ key = "D" })
+    instance:key({ key = "n" })
+    assert.is_nil(instance.asking)
+    assert.is_not_nil(app.store:session(other.id))
 end)
 
 it("saves a new session with its first message", function()

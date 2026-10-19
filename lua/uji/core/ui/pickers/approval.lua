@@ -23,8 +23,18 @@ return ito.view(function(props)
         ito.Spacer():height(1),
         ito.ScrollView(ito.VStack(body)):state(scroll):shrink(),
         hint,
-        Option({ index = 1, label = words.confirm_yes .. ", " .. words.confirm_allow, key = props.keys.allow, active = props.allow }),
-        Option({ index = 2, label = words.confirm_no .. ", " .. words.confirm_deny, key = props.keys.deny, active = not props.allow }),
+        Option({
+            index = 1,
+            label = props.allow_label or words.confirm_yes .. ", " .. words.confirm_allow,
+            key = props.keys.allow,
+            active = props.allow,
+        }),
+        Option({
+            index = 2,
+            label = props.deny_label or words.confirm_no .. ", " .. words.confirm_deny,
+            key = props.keys.deny,
+            active = not props.allow,
+        }),
         ito.Spacer():height(1),
     })
 end)

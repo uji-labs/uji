@@ -20,5 +20,5 @@
   |0+1 fg=Cyan; 1+9 fg=#D4D4D4; 27+11 fg=#D4D4D4; 43+36 fg=#D4D4D4; 79+1 fg=Cyan
 10|└──────────────────────────────────────────────────────────────────────────────┘
   |0+80 fg=Cyan
-11|↑/↓ navigate   enter resume   esc quit
-  |0+3 fg=Cyan; 4+8 fg=#808080; 15+5 fg=Cyan; 21+6 fg=#808080; 30+3 fg=Cyan; 34+4 fg=#808080
+11|↑/↓ navigate   enter resume   D delete   esc quit
+  |0+3 fg=Cyan; 4+8 fg=#808080; 15+5 fg=Cyan; 21+6 fg=#808080; 30+1 fg=Cyan; 32+6 fg=#808080; 41+3 fg=Cyan; 45+4 fg=#808080
