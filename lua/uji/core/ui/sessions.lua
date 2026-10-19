@@ -73,20 +73,24 @@ end
 function Sessions:draw()
     self.window = self.window or ito.Window(ui:open(), function() end)
     local words = ui.theme:context().text
-    render.show(ui, self.window, self.asking and Approval({
-        title = words.confirm_delete,
-        body = string.format(words.confirm_delete_body, self.asking.title),
-        allow = true,
-        keys = { allow = "y", deny = "n" },
-        allow_label = words.confirm_yes,
-        deny_label = words.confirm_no,
-        scroll = self.scroll,
-    }) or SessionList({
+    local view = SessionList({
         directory = self.directory,
         sessions = self.sessions,
         selection = self.selection,
         now = sys.os.now(),
-    }))
+    })
+    if self.asking then
+        view = Approval({
+            title = words.confirm_delete,
+            body = string.format(words.confirm_delete_body, self.asking.title),
+            allow = true,
+            keys = { allow = "y", deny = "n" },
+            allow_label = words.confirm_yes,
+            deny_label = words.confirm_no,
+            scroll = self.scroll,
+        })
+    end
+    render.show(ui, self.window, view)
 end
 
 local M = { Sessions = Sessions }
