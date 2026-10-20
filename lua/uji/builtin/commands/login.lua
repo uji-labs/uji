@@ -97,12 +97,17 @@ uji.command.add("login", {
         local needs_url = provider.base_url == ""
         local blank = needs_url and { base_url = "", model = "" } or nil
         if provider.oauth then
-            local items = { SUBSCRIPTION }
+            local items = {}
+            if provider.browser_auth then
+                items[#items + 1] = SUBSCRIPTION
+            end
             if provider.device_auth then
                 items[#items + 1] = DEVICE
             end
-            items[#items + 1] = API_KEY
-            local choice = uji.ui.select({ title = provider.name .. " sign-in", items = items })
+            if provider.api_key then
+                items[#items + 1] = API_KEY
+            end
+            local choice = #items == 1 and items[1] or uji.ui.select({ title = provider.name .. " sign-in", items = items })
             local method = SIGN_IN_WITH[choice]
             if method then
                 sign_in(provider, method, blank)

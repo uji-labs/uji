@@ -61,6 +61,7 @@ EFFORTS = {
 
 UNMANAGED = {
     "openai": "its table uses effort constants and carries image and embedding models models.dev does not list",
+    "github-copilot": "its models come from the authenticated Copilot API",
     "github-models": "GitHub Models is not models.dev's github-copilot",
     "custom": "it has no models",
     "jev": "its models come from its own api",
