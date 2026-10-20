@@ -97,8 +97,14 @@ it("moves the running command to the background with ctrl z", { timeout = 10 }, 
     local mock = script({ run({ command = "echo go; sleep 1; echo end" }) })
     agent.allow_all()
     local woken = finished(2)
-    uji.defer(0.3, function()
-        ui:key(keys.parse("<C-z>"))
+    uji.defer(0, function()
+        for _ = 1, 100 do
+            if #uji.jobs.list() > 0 then
+                return
+            end
+            ui:key(keys.parse("<C-z>"))
+            sys.sleep(0.02)
+        end
     end)
     local result = agent.tool_results(agent.run({ url = mock.url }))[1]
     assert.is_true(has(result, "The user moved this command to the background as job 1."), result)
@@ -113,7 +119,12 @@ it("keeps background jobs running when the turn is interrupted", { timeout = 10 
     })
     agent.allow_all()
     local woken = finished(2)
-    uji.defer(0.3, uji.session.interrupt)
+    uji.defer(0, function()
+        eventually(function()
+            return uji.jobs.list()[1] ~= nil
+        end)
+        uji.session.interrupt()
+    end)
     assert.equal("interrupted", agent.last_error(agent.run({ url = mock.url })))
     assert.equal("running", uji.jobs.list()[1].state)
     woken:await()

@@ -12,6 +12,8 @@ require("ito").setup({
     end,
 })
 
+local COMMANDS = { new = true, resume = true, list = true, run = true, plugin = true }
+
 local function open_session(store, parsed)
     local Store = require("uji.core.store")
     if parsed.command == "new" then
@@ -39,6 +41,16 @@ local function start(session, created)
     agent:repair()
     require("uji.core.config").refresh()
     require("uji.core.task").release()
+end
+
+local function plugin(parsed)
+    local lines, err = require("uji.core.plugins").cli(parsed)
+    if not lines then
+        return cli.fail(err)
+    end
+    for _, line in ipairs(lines) do
+        io.stdout:write(line .. "\n")
+    end
 end
 
 local function run(args)
@@ -84,7 +96,7 @@ local function run(args)
         return
     end
     local command = parsed.command
-    if command ~= "new" and command ~= "resume" and command ~= "list" and command ~= "run" then
+    if not COMMANDS[command] then
         return cli.fail("unrecognized subcommand '" .. command .. "'")
     end
     require("uji.core.task").hold()
@@ -98,6 +110,9 @@ local function run(args)
     config.load()
     if config.settle(args) then
         return
+    end
+    if command == "plugin" then
+        return plugin(parsed)
     end
     if command == "run" then
         return require("uji.core.run")(store, parsed)

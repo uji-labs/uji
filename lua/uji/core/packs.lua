@@ -127,10 +127,13 @@ local function repo_name(url)
     return trimmed:match("([^/:]+)$") or url
 end
 
+function M.is_local(value)
+    local first = value:sub(1, 1)
+    return sys.fs.absolute(value) or first == "." or first == "~"
+end
+
 local function expand_url(short)
-    local first = short:sub(1, 1)
-    local looks_local = sys.fs.absolute(short) or first == "." or first == "~"
-    if short:find("://", 1, true) or short:sub(1, 4) == "git@" or looks_local then
+    if short:find("://", 1, true) or short:sub(1, 4) == "git@" or M.is_local(short) then
         return paths.expand(short)
     end
     local _, slashes = short:gsub("/", "")
@@ -234,6 +237,14 @@ function M.add(specs)
             notices.push("pack: " .. found.name .. ": " .. tostring(problem))
         end
     end
+end
+
+function M.install(value)
+    local found, err = spec(value)
+    if not found then
+        return nil, err
+    end
+    return install(found)
 end
 
 function M.list()

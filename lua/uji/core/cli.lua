@@ -11,6 +11,7 @@ Commands:
   resume  Resume a session: the latest one here, or --id <ID>
   list    Pick a session in this directory to resume
   delete  Delete a session by id
+  plugin  List, add or remove plugins: uji plugin add <name|user/repo>
   run     Run one prompt without the screen and print the answer
 
 Options for run:
@@ -26,7 +27,7 @@ Options:
   -h, --help     Print help
   -V, --version  Print version]]
 
-local SWITCHES = { json = true }
+local SWITCHES = { json = true, force = true }
 
 local UUID = "^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$"
 
