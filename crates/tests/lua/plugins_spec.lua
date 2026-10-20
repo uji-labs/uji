@@ -22,14 +22,21 @@ local function exists(path)
     return sys.fs.stat(path) ~= nil
 end
 
+local function drain(proc)
+    local text = {}
+    for line in proc:lines() do
+        text[#text + 1] = line
+    end
+    return table.concat(text, "\n")
+end
+
 local function git(cwd, ...)
     local proc = sys.proc.spawn({ "git", ... }, { cwd = cwd })
     if not proc then
         return false
     end
-    for _ in proc:lines() do
-    end
-    return proc:wait().success
+    local output = drain(proc)
+    return proc:wait().success, output
 end
 
 it("adds a plugin that an installed pack offers", function()
@@ -141,9 +148,8 @@ it("refuses to write through a symlink", function()
     assert(sys.fs.mkdir(sandbox.cfg .. "/plugin"))
     local link = sandbox.cfg .. "/plugin/ten.lua"
     local made = assert(sys.proc.spawn({ "ln", "-s", sandbox.work .. "/target.lua", link }))
-    for _ in made:lines() do
-    end
-    assert(made:wait().success)
+    local output = drain(made)
+    assert(made:wait().success, output)
     local path, err = plugins.add("ten", { force = true })
     assert.is_nil(path)
     assert.is_true(err:find("symlink", 1, true) ~= nil)
