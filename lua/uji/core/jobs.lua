@@ -30,20 +30,23 @@ function Job:init(spec)
     self.started = sys.os.clock()
     self.state = "running"
     self.seen = 0
-    self.tail_text = ""
+    self.printed = 0
     ito.observable(self)
 end
 
 function Job:line(text)
     self.capture:push(text)
-    self.tail_text = table.concat(self.capture:since(self.capture.total - TAIL), "\n")
+    self.printed = self.printed + 1
     if self.progress then
         self.progress(text)
     end
 end
 
 function Job:tail()
-    return self.tail_text
+    if self.printed == 0 then
+        return ""
+    end
+    return table.concat(self.capture:since(self.capture.total - TAIL), "\n")
 end
 
 function Job:status()
