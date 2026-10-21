@@ -427,7 +427,7 @@ describe("themes", function()
             local rows = screen.rows(true)
             local latest = uji.diagnostics.list()[1]
             assert.is_true(has(latest.text, case[2]), latest.text)
-            assert.equal(string.rep("─", 40), rows[#rows - 2])
+            assert.equal(string.rep("─", 40), rows[#rows - 3])
         end
         local count = #uji.diagnostics.list()
         screen.rows(true)

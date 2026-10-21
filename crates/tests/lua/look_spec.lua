@@ -2,6 +2,7 @@ local app = require("uji.core.app")
 local Confirm = require("uji.core.ui.views.confirm")
 local event = require("uji.core.event")
 local fixture = require("support.fixture")
+local model = require("uji.core.model")
 local Pick = require("uji.core.ui.views.pick")
 local plugin = require("uji.core.plugin")
 local Prompt = require("uji.core.ui.views.prompt")
@@ -111,6 +112,7 @@ end
 describe("the default look", function()
     before_each(function()
         assert(pcall(plugin.run, "defaults", nil, require, "uji.builtin.defaults"))
+        app.session.directory = "/work/project"
     end)
 
     it("draws every kind of message", { size = { 80, 70 } }, function()
@@ -129,6 +131,20 @@ describe("the default look", function()
             status = "finished, exit 0",
         })
         look("job")
+    end)
+
+    it("draws the status line", { size = { 80, 8 } }, function()
+        model.current = { id = "acme", name = "Acme", model = "glm-5", effort = "high" }
+        look("status")
+    end)
+
+    it("draws the running jobs below the input", { size = { 80, 12 } }, function()
+        ui.tasks = {
+            { id = 2, name = "job 2", detail = "npm run build", elapsed = 12, state = "running" },
+            { id = 1, name = "job 1", detail = "pytest -q", elapsed = 64, state = "finished" },
+        }
+        ui.selected = 2
+        look("tasks")
     end)
 
     it("draws the compaction in place of the input", { size = { 80, 12 } }, function()

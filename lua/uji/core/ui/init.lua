@@ -8,11 +8,14 @@ local diagnostics = require("uji.core.diagnostics")
 local event = require("uji.core.event")
 local images = require("uji.core.images")
 local ito = require("ito")
+local jobs = require("uji.core.jobs")
 local keys = require("uji.core.ui.keys")
 local Keymap = require("uji.core.ui.keymap")
 local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local notices = require("uji.core.notices")
+local Output = require("uji.core.ui.views.output")
+local Overlay = require("uji.core.ui.views.overlay")
 local Pastes = require("uji.core.ui.paste")
 local process = require("uji.core.system.process")
 local render = require("uji.core.ui.render")
@@ -24,6 +27,8 @@ local Theme = require("uji.core.ui.theme")
 
 local FRAME = 1 / 60
 local SCROLL_LINES = 3
+local TASKS = 5
+local TASK_LINGER = 30
 
 local ALLOWED_WHILE_COMPACTING = {
     interrupt = true,
@@ -72,6 +77,10 @@ function Ui:init()
     self.stream = Stream()
     self.reasoning = ""
     self.running = nil
+    self.tasks = {}
+    self.selected = nil
+    self.dropped = {}
+    self.hint = nil
     self.modal = nil
     self.presented = {}
     self.capture = nil
@@ -95,6 +104,18 @@ function Ui:invalidate()
     if not self.dirty.settled then
         self.dirty:resolve()
     end
+end
+
+function Ui:claims(placement)
+    for _, declared in ipairs(self.toolbars) do
+        local found = list.found(declared.items, function(item)
+            return item ~= nil and item.placement == placement
+        end)
+        if found then
+            return true
+        end
+    end
+    return false
 end
 
 function Ui:toolbar(items)
@@ -184,6 +205,118 @@ end
 
 function Ui:working()
     return app.agent ~= nil and app.agent:working()
+end
+
+function Ui:busy()
+    return self:working() or #jobs.running() > 0
+end
+
+local function showing(job, now)
+    if job.state == "running" then
+        return true
+    end
+    if job.state == "finished" and job.code == 0 then
+        return false
+    end
+    return job.ended == nil or now - job.ended < TASK_LINGER
+end
+
+function Ui:task_rows()
+    local rows, now = {}, sys.os.clock()
+    for _, job in ipairs(jobs.list()) do
+        if showing(job, now) and not self.dropped[job.id] then
+            rows = list.appended(rows, {
+                id = job.id,
+                name = string.format(self.theme.tokens.text.job, job.id),
+                detail = job.command,
+                elapsed = math.floor((job.ended or now) - job.started),
+                state = job.state,
+            })
+        end
+    end
+    table.sort(rows, function(left, right)
+        local live, other = left.state == "running", right.state == "running"
+        if live ~= other then
+            return live
+        end
+        return left.id < right.id
+    end)
+    return { table.unpack(rows, 1, math.min(#rows, TASKS)) }
+end
+
+function Ui:stop_task(row)
+    jobs.stop(jobs.get(row.id))
+end
+
+function Ui:drop_task(row)
+    self.dropped[row.id] = true
+    self.selected = nil
+    self.tasks = self:task_rows()
+end
+
+function Ui:open_task(row)
+    local job = jobs.get(row.id)
+    if job then
+        self:present(Overlay(function()
+            return Output({ name = row.name, job = job })
+        end))
+    end
+end
+
+function Ui:hint_finished(job)
+    if job.state ~= "finished" or job.code ~= 0 then
+        return
+    end
+    local shown = { text = self.theme.tokens.text.jobs_hint }
+    self.hint = shown
+    task.spawn(function()
+        sys.sleep(TASK_LINGER)
+        if self.hint == shown then
+            self.hint = nil
+            self:invalidate()
+        end
+    end)
+end
+
+function Ui:task_key(chord)
+    local rows, key = self.tasks, chord.key
+    if #rows == 0 or self.composer:text() ~= "" then
+        return false
+    end
+    if keys.is_char(chord) and key ~= "x" then
+        self.selected = nil
+        return false
+    end
+    local at
+    for index, row in ipairs(rows) do
+        if row.id == self.selected then
+            at = index
+        end
+    end
+    if not at then
+        if key ~= "up" then
+            return false
+        end
+        self.selected = rows[1].id
+    elseif key == "up" then
+        self.selected = rows[math.max(at - 1, 1)].id
+    elseif key == "down" then
+        self.selected = rows[at + 1] and rows[at + 1].id
+    elseif key == "esc" then
+        self.selected = nil
+    elseif key == "enter" then
+        self:open_task(rows[at])
+    elseif key == "x" then
+        if rows[at].state == "running" then
+            self:stop_task(rows[at])
+        else
+            self:drop_task(rows[at])
+        end
+    else
+        return false
+    end
+    self:invalidate()
+    return true
 end
 
 function Ui:compacting()
@@ -481,6 +614,9 @@ function Ui:normal_key(chord)
     if self:compacting() and keys.is_char(chord) then
         return
     end
+    if self:task_key(chord) then
+        return
+    end
     if key == "esc" then
         if self:compacting() or self.composer:text() == "" then
             self:interrupt()
@@ -634,15 +770,16 @@ function Ui:read()
 end
 
 function Ui:tick()
-    if self.ticking or not self:working() then
+    if self.ticking or not self:busy() then
         return
     end
     self.ticking = task.spawn(function()
-        while self:working() do
+        while self:busy() do
             sys.sleep(self.theme.tokens.limits.spinner_interval)
-            if self:working() then
+            if self:busy() then
                 self.activity = self:current_activity()
                 self.compaction = self:current_compaction()
+                self.tasks = self:task_rows()
                 self:invalidate()
             end
         end
@@ -732,9 +869,13 @@ function Ui:listen()
         tool_progress = function(payload)
             self:progress(payload)
         end,
-        status_changed = function()
+        status_changed = function(payload)
             self.activity = self:current_activity()
             self.compaction = self:current_compaction()
+            self.tasks = self:task_rows()
+            if payload.finished then
+                self:hint_finished(payload.finished)
+            end
             self:tick()
             self:invalidate()
         end,

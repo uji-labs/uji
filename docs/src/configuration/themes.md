@@ -227,7 +227,9 @@ The default theme has these styles.
 | `symbols.notice` | The mark `uji.ui.Notice` puts before its text. | `!` |
 | `symbols.thinking` | The bar beside the model's thinking. | `│` |
 | `symbols.queued` | The mark before a queued message. | `›` |
-| `symbols.running` | The mark before the tool that is running. | `⋯` |
+| `symbols.running` | The mark before the tool that is running, and before a job in the panel under the input. | `⋯` |
+| `symbols.failed` | The mark before a job in the panel that failed or was stopped. | `✗` |
+| `symbols.separator` | The mark between the parts of the status line. | `·` |
 | `symbols.jump` | The arrow on the jump to the bottom. | `↓` |
 | `symbols.bullets` | The bullets of each list level, used in turn. | `• ◦ ▪` |
 | `symbols.quote` | The bar beside a quote. | `│` |
@@ -250,7 +252,8 @@ The default theme has these styles.
 | `text.confirm_allow`, `text.confirm_deny` | The rest of each approval answer, after `confirm_yes` and `confirm_no`. | `"proceed"`, `"and tell uji what to do differently"` |
 | `text.scroll` | The line an approval shows when its details do not fit. | `"lines %d-%d of %d, scroll for more"` |
 | `text.working` | The line shown while the model works. `%d` is the seconds so far. | `"Working (%ds)"` |
-| `text.job` | The name of a background job wherever uji shows one: the footer, `/jobs`, its notices and the `job_output` and `stop_job` lines. `%d` is its number. | `"job %d"` |
+| `text.job` | The name of a background job wherever uji shows one: the panel under the input, `/jobs`, its notices and the `job_output` and `stop_job` lines. `%d` is its number. | `"job %d"` |
+| `text.jobs_hint` | The line under the input once a job finishes, naming where its output went. | `"/jobs to see finished jobs"` |
 | `text.added`, `text.removed` | The parts of the line above a diff, joined by a comma when both are there. `%d` is the count and `%s` is `text.line` or `text.lines`. The line starts with a capital letter. | `"Added %d %s"`, `"removed %d %s"` |
 | `text.line`, `text.lines` | The word for one line and for more. | `"line"`, `"lines"` |
 | `text.copied`, `text.copied_terminal` | The message after you copy a selection. `%d` is the line count. | `"copied %d line(s)"`, `"copied %d line(s) via the terminal"` |

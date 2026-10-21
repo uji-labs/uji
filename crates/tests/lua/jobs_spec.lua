@@ -158,6 +158,7 @@ it("names jobs in the theme's words and reports a stopped one in the chat", { si
         return uji.jobs.list()[1].tail == "hi"
     end)
     assert.is_nil(screen.find("task 1  echo hi; sleep 5  hi"), "the footer leaves a running job alone")
+    assert.is_not_nil(screen.find("task 1  echo hi; sleep 5"), "the panel lists the running job")
     local asked
     uji.ui.pick = function(opts)
         asked = opts
@@ -247,4 +248,40 @@ it("stops the server a job started when it stops the job", { timeout = 10 }, fun
     eventually(function()
         return not wait.alive(pid)
     end)
+end)
+
+it("selects a job below the input, opens it, stops it and drops its row", { size = { 80, 12 }, timeout = 10 }, function()
+    uji.jobs.configure({ wake = false })
+    local job = jobs.start({ command = "echo hi; sleep 1; echo later; sleep 5", cwd = sandbox.work, background = true })
+    eventually(function()
+        return screen.find("job 1  echo hi; sleep 1; echo later; sleep 5") ~= nil
+    end)
+    screen.press("up")
+    assert.equal(job.id, ui.selected)
+    screen.press("enter")
+    assert.is_true(ui.modal ~= nil, "enter opens the job's output")
+    eventually(function()
+        return screen.find("later") ~= nil
+    end)
+    screen.press("esc")
+    assert.is_nil(ui.modal, "esc closes it")
+    screen.press("x")
+    eventually(function()
+        return uji.jobs.list()[1].state == "stopped"
+    end)
+    assert.is_not_nil(screen.find("✗ job 1"), "a stopped job keeps its row")
+    screen.press("x")
+    assert.is_nil(ui.selected, "a dropped row is let go")
+    eventually(function()
+        return screen.find("✗ job 1") == nil
+    end)
+end)
+
+it("says where a finished job went", { size = { 80, 12 }, timeout = 10 }, function()
+    uji.jobs.configure({ wake = false })
+    jobs.start({ command = "echo hi", cwd = sandbox.work, background = true })
+    eventually(function()
+        return screen.find("/jobs to see finished jobs") ~= nil
+    end)
+    assert.is_nil(screen.find("job 1  echo hi"), "a job that worked leaves no row")
 end)

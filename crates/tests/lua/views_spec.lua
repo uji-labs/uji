@@ -1,12 +1,21 @@
 local app = require("uji.core.app")
 local Confirm = require("uji.core.ui.views.confirm")
+local ito = require("ito")
 local keys = require("uji.core.ui.keys")
+local list = require("uji.utils.list")
 local screen = require("support.ui")
 local sys = require("uji.sys")
 local ui = require("uji.core.ui")
 
 local function trimmed(row)
     return (row:gsub("%s+$", ""))
+end
+
+local function unfocused(rows)
+    local cursor = ito.theme().symbols.cursor
+    return list.mapped(rows, function(row)
+        return (row:gsub(cursor, " "))
+    end)
 end
 
 local function press(...)
@@ -185,7 +194,7 @@ describe("views for plugins", function()
             return nil
         end)
         local after = screen.rows(true)
-        assert.same({ table.unpack(before, 1, 10) }, { table.unpack(after, 1, 10) })
+        assert.same(unfocused(before), unfocused(after))
     end)
 
     it("lets a theme restyle a plugin's view", { size = { 30, 6 } }, function()

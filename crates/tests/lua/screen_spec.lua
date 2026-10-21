@@ -1,6 +1,7 @@
 local app = require("uji.core.app")
 local Ask = require("uji.core.ui.views.ask")
 local Confirm = require("uji.core.ui.views.confirm")
+local ito = require("ito")
 local keys = require("uji.core.ui.keys")
 local Pick = require("uji.core.ui.views.pick")
 local Prompt = require("uji.core.ui.views.prompt")
@@ -71,7 +72,13 @@ describe("the screen", function()
         assert.is_true(has(text, "api key"), "the title should be drawn")
         assert.is_true(has(text, MASK), "the value should be masked")
         assert.is_false(has(text, "hunter2"))
-        assert.is_false(has(text, "2"))
+        local masked
+        for _, row in ipairs(screen.rows()) do
+            if has(row, MASK) then
+                masked = row
+            end
+        end
+        assert.is_false(has(masked, "2"))
         assert.is_true(has(text, CURSOR), "the cursor should still be drawn")
     end)
 
@@ -289,7 +296,7 @@ describe("the screen", function()
         ui:mouse({ kind = "scroll_up" })
         ui:mouse({ kind = "scroll_up" })
         local scrolled = rows()
-        assert.are_not.equal(at_bottom[1], scrolled[1])
+        assert.are_not.equal(table.concat(at_bottom, "\n"), table.concat(scrolled, "\n"))
         assert.is_true(any(scrolled, "Jump to bottom"))
         ui.theme.revision = ui.theme.revision + 1
         assert.same(scrolled, rows(), "redrawing everything keeps the view where it was")
@@ -425,7 +432,6 @@ describe("the screen", function()
     it("draws the view a render_message handler returns", { size = { 30, 6 } }, function()
         uji.on("render_message", function(block)
             if block.type == "user" then
-                local ito = require("ito")
                 local styles = ito.theme().styles
                 return ito.Lines({ { { "said ", styles.muted }, { block.text, styles.accent } } })
             end
@@ -502,5 +508,20 @@ describe("the screen", function()
             listed[name] = true
         end
         assert.is_true(listed.help and listed.login)
+    end)
+end)
+
+describe("the status line", function()
+    it("shows the directory until a plugin claims the bottom bar", { size = { 60, 10 } }, function()
+        app.session.directory = "/work/project"
+        screen.rows(true)
+        assert.is_not_nil(screen.find("/work/project"), "the status line names the directory")
+        uji.ui.toolbar({
+            ito.ToolbarItem(ito.ToolbarPlacement.bottom_bar, function()
+                return ito.Text("mine")
+            end),
+        })
+        assert.is_nil(screen.find("/work/project"), "a plugin's item takes the bottom bar")
+        assert.is_not_nil(screen.find("mine"))
     end)
 end)
