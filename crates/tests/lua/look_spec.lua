@@ -139,12 +139,12 @@ describe("the default look", function()
     end)
 
     it("draws the running jobs below the input", { size = { 80, 12 } }, function()
-        ui.tasks = {
-            { id = 2, name = "job 2", detail = "npm run build", elapsed = 12, state = "running" },
-            { id = 1, name = "job 1", detail = "pytest -q", elapsed = 64, state = "finished" },
+        ui.jobs.rows = {
+            { id = 2, name = "job 2", detail = "npm run build", elapsed = 12, running = true },
+            { id = 1, name = "job 1", detail = "pytest -q", elapsed = 64 },
         }
-        ui.selected = 2
-        look("tasks")
+        ui.jobs.selected = 2
+        look("jobs")
     end)
 
     it("draws the compaction in place of the input", { size = { 80, 12 } }, function()
@@ -236,6 +236,11 @@ describe("the default look", function()
     it("draws a flash message", { size = { 80, 8 } }, function()
         ui:flash("copied 1 line(s)")
         look("flash")
+    end)
+
+    it("draws a warning in yellow", { size = { 80, 8 } }, function()
+        ui:flash("alpha is deprecated: the status line is built in now", 30, "warning")
+        look("warning")
     end)
 
     it("draws a select", { size = { 80, 24 } }, function()

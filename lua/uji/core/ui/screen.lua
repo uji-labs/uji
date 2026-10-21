@@ -5,7 +5,7 @@ local host = require("uji.core.ui.host")
 local ito = require("ito")
 local presentations = require("uji.core.ui.presentations")
 local Status = require("uji.core.ui.status")
-local Tasks = require("uji.core.ui.tasks")
+local Jobs = require("uji.core.ui.jobs.view")
 local Transcript = require("uji.core.ui.transcript")
 
 local M = {}
@@ -34,8 +34,8 @@ M.slots = {
     activity = function()
         return Activity()
     end,
-    tasks = function()
-        return Tasks()
+    jobs = function()
+        return Jobs()
     end,
     status = function()
         return Status()
@@ -56,7 +56,7 @@ M.Screen = ito.view(function(screen)
         screen.modals(),
         ito.ToolbarItems(placement.keyboard),
         screen.composer():border(ito.theme().borders.plain, { edges = ito.Edges.horizontal }),
-        screen.tasks(),
+        screen.jobs(),
         screen.status(),
         ito.ToolbarItems(placement.bottom_bar),
     })

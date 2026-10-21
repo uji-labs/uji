@@ -1,6 +1,7 @@
 local list = require("uji.utils.list")
 local notices = require("uji.core.notices")
 local paths = require("uji.core.paths")
+local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 local tables = require("uji.core.tables")
 
@@ -312,7 +313,12 @@ function M.searcher(module)
                 if not chunk then
                     error(err, 0)
                 end
-                return chunk, path
+                local loader = function(...)
+                    local value = chunk(...)
+                    plugin.declared(module, value)
+                    return value
+                end
+                return loader, path
             end
             tried[#tried + 1] = "\n\tno file '" .. path .. "'"
         end

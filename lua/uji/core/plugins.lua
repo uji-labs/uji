@@ -1,5 +1,6 @@
 local packs = require("uji.core.packs")
 local paths = require("uji.core.paths")
+local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 
 local M = {}
@@ -87,9 +88,9 @@ function M.available()
 end
 
 local function found(name)
-    for _, plugin in ipairs(M.available()) do
-        if plugin.name == name then
-            return plugin
+    for _, listed in ipairs(M.available()) do
+        if listed.name == name then
+            return listed
         end
     end
 end
@@ -161,15 +162,15 @@ end
 
 function M.add(target, opts)
     opts = opts or {}
-    local plugin, err = resolve(target, opts)
-    if not plugin then
+    local chosen, err = resolve(target, opts)
+    if not chosen then
         return nil, err
     end
-    local path = target_path(plugin.name)
+    local path = target_path(chosen.name)
     if not path then
         return nil, "$HOME is not set"
     end
-    local at = M.enabled(plugin.name)
+    local at = M.enabled(chosen.name)
     if at and at ~= path then
         return nil, "enabled in " .. sys.os.shorten(at) .. "; remove it there"
     end
@@ -185,7 +186,7 @@ function M.add(target, opts)
     if not made then
         return nil, dir .. ": " .. tostring(problem)
     end
-    local written, failure = sys.fs.write(path, template(plugin.name, plugin.spec))
+    local written, failure = sys.fs.write(path, template(chosen.name, chosen.spec))
     if not written then
         return nil, path .. ": " .. tostring(failure)
     end
@@ -217,9 +218,17 @@ end
 
 function M.lines()
     local out = {}
-    for _, plugin in ipairs(M.available()) do
-        local state = M.enabled(plugin.name) and "on" or "off"
-        out[#out + 1] = string.format("%-20s %-3s %s", plugin.name, state, sys.os.shorten(plugin.root))
+    for _, listed in ipairs(M.available()) do
+        local state = M.enabled(listed.name) and "on" or "off"
+        local line = string.format("%-20s %-3s %s", listed.name, state, sys.os.shorten(listed.root))
+        local reason = plugin.deprecation(listed.name)
+        if reason ~= nil then
+            line = line .. "  deprecated"
+            if reason ~= "" then
+                line = line .. ": " .. reason
+            end
+        end
+        out[#out + 1] = line
     end
     return out
 end

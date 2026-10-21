@@ -12,6 +12,7 @@ local COLORS = {
     cursor = ito.Color.white,
     error = ito.Color.red,
     notice = ito.Color.red,
+    warning = ito.Color.yellow,
     syntax = {
         keyword = ito.Color.cyan,
         string = ito.rgb(0xe0af68),
@@ -55,6 +56,7 @@ local function styles(c)
         chosen_desc = S({ foreground = c.muted, background = c.selected_bg }),
         error = S({ foreground = c.error }),
         notice = S({ foreground = c.notice }),
+        warning = S({ foreground = c.warning }),
         cursor = S({ foreground = c.cursor, blink = true }),
         input = S({ foreground = c.text }),
         border = S({ foreground = c.muted }),

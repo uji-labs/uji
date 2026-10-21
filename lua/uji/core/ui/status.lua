@@ -22,7 +22,7 @@ return ito.view(function()
     end
     add(sys.os.shorten(session.directory), ctx.styles.muted)
     local current = model.current
-    if current.name then
+    if current.model ~= "" then
         add(current.model, ctx.styles.accent)
     end
     if current.effort and current.effort ~= "off" then

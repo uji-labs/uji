@@ -164,7 +164,7 @@ local function finish(job, code, reason)
     end
     local text = job.capture:finish()
     job.ended = sys.os.clock()
-    event.emit("status_changed", { finished = job })
+    event.emit("status_changed", { finished = job.id and job })
     if job.done then
         local done = job.done
         job.done = nil

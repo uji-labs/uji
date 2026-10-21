@@ -1,11 +1,14 @@
 local task = require("uji.core.task")
 
+local WARNING_SECONDS = 6
+
 local M = {
     stack = {},
     loaded = {},
     order = {},
     registries = setmetatable({}, { __mode = "k" }),
     cleanups = {},
+    deprecations = {},
 }
 
 function M.current()
@@ -15,6 +18,23 @@ end
 function M.track(registry)
     M.registries[registry] = true
     return registry
+end
+
+function M.declared(name, value)
+    if type(value) ~= "table" or not value.deprecated or M.deprecations[name] ~= nil then
+        return
+    end
+    local reason = type(value.deprecated) == "string" and value.deprecated or ""
+    M.deprecations[name] = reason
+    local said = name .. " is deprecated"
+    if reason ~= "" then
+        said = said .. ": " .. reason
+    end
+    require("uji.core.notices").push(said, WARNING_SECONDS, "warning")
+end
+
+function M.deprecation(name)
+    return M.deprecations[name]
 end
 
 function M.on_unload(cleanup)
@@ -36,6 +56,7 @@ function M.run(name, path, fn, ...)
     if not results[1] then
         error(results[2], 0)
     end
+    M.declared(name, results[2])
     return task.unpack(results, 2)
 end
 
@@ -68,6 +89,7 @@ function M.unload(name)
         pcall(cleanup)
     end
     M.cleanups[name] = nil
+    M.deprecations[name] = nil
     M.loaded[name] = nil
     return true
 end

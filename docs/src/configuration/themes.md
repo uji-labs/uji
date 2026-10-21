@@ -123,6 +123,7 @@ The default theme has these colours.
 | `cursor` | `ito.Color.white` |
 | `error` | `ito.Color.red` |
 | `notice` | `ito.Color.red` |
+| `warning` | `ito.Color.yellow` |
 | `syntax.keyword`, `syntax.string`, `syntax.number`, `syntax.comment` | `ito.Color.cyan`, `ito.rgb(0xe0af68)`, `ito.rgb(0xe0af68)`, `ito.rgb(0x808080)` |
 | `syntax.func`, `syntax.type`, `syntax.constant` | `ito.rgb(0xdcdcaa)`, `ito.rgb(0x4ec9b0)`, `ito.rgb(0x569cd6)` |
 | `call.done` | `ito.rgb(0x87d787)` |
@@ -195,6 +196,7 @@ The default theme has these styles.
 | `chosen_desc` | The description on a chosen suggestion. | `muted` on `selected_bg` |
 | `error` | Errors and failed tool output. | `error` |
 | `notice` | A notice a `uji.ui.Notice` draws. | `notice` |
+| `warning` | A warning drawn above the input, such as a deprecated plugin. | `warning` |
 | `cursor` | The cursor. | `cursor`, blink |
 | `input` | Text on the input line. | `text` |
 | `border` | Borders. | `muted` |

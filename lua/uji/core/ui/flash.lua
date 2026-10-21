@@ -6,6 +6,9 @@ return ito.view(function()
     if not flashed then
         return nil
     end
-    local reverse = ito.theme().styles.reverse
-    return ito.Text(flashed.text):style(reverse):padding({ horizontal = 1 }):background(reverse)
+    local ctx = ito.theme()
+    if flashed.kind == "warning" then
+        return ito.Text(flashed.text):style(ctx.styles.warning):padding({ horizontal = 1 })
+    end
+    return ito.Text(flashed.text):style(ctx.styles.reverse):padding({ horizontal = 1 }):background(ctx.styles.reverse)
 end)

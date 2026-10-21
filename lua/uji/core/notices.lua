@@ -13,13 +13,13 @@ local function announce()
     while announced < #M.pending do
         announced = announced + 1
         local notice = M.pending[announced]
-        event.emit("notice", { text = notice.text, seconds = notice.seconds })
+        event.emit("notice", { text = notice.text, seconds = notice.seconds, kind = notice.kind })
     end
     announcing = false
 end
 
-function M.push(message, seconds)
-    M.pending[#M.pending + 1] = { text = tostring(message), seconds = seconds }
+function M.push(message, seconds, kind)
+    M.pending[#M.pending + 1] = { text = tostring(message), seconds = seconds, kind = kind }
     announce()
 end
 

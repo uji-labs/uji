@@ -152,21 +152,21 @@ end)
 
 it("names jobs in the theme's words and reports a stopped one in the chat", { size = { 60, 12 }, timeout = 10 }, function()
     uji.jobs.configure({ wake = false })
-    uji.ui.configure({ theme = require("uji.themes.default")({ text = { job = "task %d" } }) })
+    uji.ui.configure({ theme = require("uji.themes.default")({ text = { job = "run %d" } }) })
     jobs.start({ command = "echo hi; sleep 5", cwd = sandbox.work, background = true })
     eventually(function()
         return uji.jobs.list()[1].tail == "hi"
     end)
-    assert.is_nil(screen.find("task 1  echo hi; sleep 5  hi"), "the footer leaves a running job alone")
-    assert.is_not_nil(screen.find("task 1  echo hi; sleep 5"), "the panel lists the running job")
+    assert.is_nil(screen.find("run 1  echo hi; sleep 5  hi"), "the footer leaves a running job alone")
+    assert.is_not_nil(screen.find("run 1  echo hi; sleep 5"), "the panel lists the running job")
     local asked
     uji.ui.pick = function(opts)
         asked = opts
         return opts.items[1]
     end
     require("uji.core.command").run("jobs")
-    assert.is_true(has(asked.label(asked.items[1]), "task 1  running for"))
-    assert.equal("task 1", tool.detail(tool.get("stop_job"), { id = 1 }))
+    assert.is_true(has(asked.label(asked.items[1]), "run 1  running for"))
+    assert.equal("run 1", tool.detail(tool.get("stop_job"), { id = 1 }))
     assert.same({ "hi" }, asked.preview(asked.items[1]))
     eventually(ended)
     assert.equal("stopped", uji.jobs.list()[1].state)
@@ -257,7 +257,7 @@ it("selects a job below the input, opens it, stops it and drops its row", { size
         return screen.find("job 1  echo hi; sleep 1; echo later; sleep 5") ~= nil
     end)
     screen.press("up")
-    assert.equal(job.id, ui.selected)
+    assert.equal(job.id, ui.jobs.selected)
     screen.press("enter")
     assert.is_true(ui.modal ~= nil, "enter opens the job's output")
     eventually(function()
@@ -271,7 +271,7 @@ it("selects a job below the input, opens it, stops it and drops its row", { size
     end)
     assert.is_not_nil(screen.find("✗ job 1"), "a stopped job keeps its row")
     screen.press("x")
-    assert.is_nil(ui.selected, "a dropped row is let go")
+    assert.is_nil(ui.jobs.selected, "a dropped row is let go")
     eventually(function()
         return screen.find("✗ job 1") == nil
     end)
@@ -284,4 +284,85 @@ it("says where a finished job went", { size = { 80, 12 }, timeout = 10 }, functi
         return screen.find("/jobs to see finished jobs") ~= nil
     end)
     assert.is_nil(screen.find("job 1  echo hi"), "a job that worked leaves no row")
+end)
+
+it("leaves the jobs hint to jobs, not to a command that just ran", { size = { 80, 12 }, timeout = 10 }, function()
+    local mock = script({ run({ command = "echo hi" }) })
+    agent.allow_all()
+    agent.run({ url = mock.url })
+    eventually(function()
+        return screen.find("ok") ~= nil
+    end)
+    assert.is_nil(screen.find("/jobs to see finished jobs"), "a foreground command is not a job")
+end)
+
+it("keeps a failed job's row for a while and no longer", { timeout = 5 }, function()
+    local now = sys.os.clock()
+    jobs.jobs = {
+        { id = 1, state = "finished", code = 1, command = "boom", started = now - 5, ended = now - 1 },
+        { id = 2, state = "stopped", command = "stop", started = now - 40, ended = now - 31 },
+        { id = 3, state = "finished", code = 0, command = "fine", started = now - 5, ended = now - 1 },
+    }
+    ui.jobs:refresh()
+    local rows = ui.jobs.rows
+    assert.same(
+        { 1 },
+        list.mapped(rows, function(row)
+            return row.id
+        end)
+    )
+    assert.is_true(ui:busy(), "a row that is still shown keeps the screen moving")
+end)
+
+it("lists at most five jobs, running ones first", { timeout = 5 }, function()
+    local now = sys.os.clock()
+    local started = {}
+    for index = 1, 7 do
+        started[index] = {
+            id = index,
+            state = index > 5 and "finished" or "running",
+            code = 0,
+            command = "job " .. index,
+            started = now,
+        }
+    end
+    jobs.jobs = started
+    ui.jobs:refresh()
+    assert.equal(5, #ui.jobs.rows)
+    assert.equal(1, ui.jobs.rows[1].id)
+    assert.equal(5, ui.jobs.rows[5].id)
+end)
+
+it("keeps the selection on its job when the rows move", { size = { 80, 12 }, timeout = 10 }, function()
+    uji.jobs.configure({ wake = false })
+    local first = jobs.start({ command = "sleep 1", cwd = sandbox.work, background = true })
+    local second = jobs.start({ command = "sleep 5", cwd = sandbox.work, background = true })
+    eventually(function()
+        return #ui.jobs.rows == 2
+    end)
+    screen.press("up")
+    screen.rows()
+    screen.press("down")
+    assert.equal(second.id, ui.jobs.selected)
+    eventually(function()
+        return uji.jobs.list()[1].state == "finished"
+    end)
+    eventually(function()
+        return #ui.jobs.rows == 1
+    end)
+    assert.equal(second.id, ui.jobs.selected, "the selection follows its job, not its row")
+    assert.equal(first.id, uji.jobs.list()[1].id)
+end)
+
+it("lets go of the panel when you type", { size = { 80, 12 }, timeout = 10 }, function()
+    uji.jobs.configure({ wake = false })
+    jobs.start({ command = "sleep 5", cwd = sandbox.work, background = true })
+    eventually(function()
+        return #ui.jobs.rows == 1
+    end)
+    screen.press("up")
+    assert.is_not_nil(ui.jobs.selected)
+    screen.press("a")
+    assert.is_nil(ui.jobs.selected, "typing gives the prompt back")
+    assert.equal("a", ui.composer:text())
 end)

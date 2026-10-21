@@ -2,6 +2,7 @@ local cli = require("uji.core.cli")
 local packs = require("uji.core.packs")
 local paths = require("uji.core.paths")
 local plugins = require("uji.core.plugins")
+local ui = require("uji.core.ui")
 local sandbox = require("support.sandbox")
 local sys = require("uji.sys")
 
@@ -245,4 +246,29 @@ it("parses plugin add with its flags", function()
     assert.equal("other", parsed.flags.name)
     assert.equal("v1", parsed.flags.rev)
     assert.is_true(parsed.flags.force)
+end)
+
+it("warns in yellow when a plugin returns that it is deprecated, and says so in the list", function()
+    local root = pack("first", { "alpha", "beta" })
+    sandbox.write(root .. "/lua/alpha/init.lua", 'return { deprecated = "the status line is built in now" }\n')
+    require("alpha")
+    assert.equal("alpha is deprecated: the status line is built in now", ui.flashed and ui.flashed.text)
+    assert.equal("warning", ui.flashed and ui.flashed.kind)
+    sandbox.write(root .. "/lua/beta/init.lua", "return { deprecated = true }\n")
+    require("beta")
+    assert.equal("beta is deprecated", ui.flashed and ui.flashed.text)
+    local listed = table.concat(plugins.lines(), "\n")
+    assert.is_true(listed:find("deprecated: the status line is built in now", 1, true) ~= nil)
+    for _, line in ipairs(plugins.lines()) do
+        if line:find("beta", 1, true) then
+            assert.is_true(line:find("deprecated", 1, true) ~= nil, line)
+        end
+    end
+end)
+
+it("warns when a plugin file returns that it is deprecated", function()
+    local path = sandbox.cfg .. "/plugin/alpha.lua"
+    sandbox.write(path, 'return { deprecated = "the status line is built in now" }\n')
+    require("uji.core.plugin").source(path, "alpha")
+    assert.equal("alpha is deprecated: the status line is built in now", ui.flashed and ui.flashed.text)
 end)
