@@ -94,6 +94,14 @@ code login in your ChatGPT security settings or workspace permissions first,
 as described in the
 [OpenAI authentication guide](https://developers.openai.com/codex/auth/#login-on-headless-devices).
 
+The device sign-in panel keeps the link and code visible until sign-in
+finishes. Escape cancels sign-in and closes the panel.
+
+GitHub Copilot (`github-copilot`) supports device sign-in only, which is its
+default method. uji saves the GitHub token and exchanges it for a Copilot
+token. uji refreshes the Copilot token before it expires. Copilot does not
+offer API key sign-in in `/login`.
+
 An unsupported sign-in method for a provider returns `nil` and an error
 message. An unknown option or a `method` other than `"browser"` or `"device"`
 raises an error. With a callback, the function returns a cancellation function.

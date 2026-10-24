@@ -249,6 +249,7 @@ it("does not poll an already expired device code", function()
 end)
 
 it("cancels device polling without saving or invoking the callback", function()
+    local ui = require("uji.core.ui")
     local polls, completed = 0, false
     device_provider(function()
         polls = polls + 1
@@ -260,11 +261,82 @@ it("cancels device polling without saving or invoking the callback", function()
     wait.eventually(function()
         return polls > 0
     end)
+    assert.equal(CODE.user_code, ui.modal.code)
     cancel()
+    assert.is_nil(ui.modal)
     sys.sleep(1.1)
     assert.equal(1, polls)
     assert.is_false(completed)
     assert.is_nil(auth.credentials():get(ID))
+end)
+
+it("keeps the device code visible beyond the notification timer until sign-in finishes", { size = { 40, 14 } }, function()
+    local notices = require("uji.core.notices")
+    local screen = require("support.ui")
+    local ui = require("uji.core.ui")
+    local approved = false
+    device_provider(function(request)
+        if request.path == "/poll" then
+            return approved and json(APPROVED) or Server.status(403, "pending")
+        end
+        return json(grant())
+    end)
+    local done = sys.promise()
+    uji.auth.login(ID, { method = "device" }, function(ok, err)
+        done:resolve(ok, err)
+    end)
+    wait.eventually(function()
+        return ui.modal and ui.modal.code == CODE.user_code
+    end)
+    notices.push("another notification")
+    ui:take_notices()
+    sys.sleep(ui.theme.tokens.limits.flash + 0.1)
+    assert.truthy(screen.find(CODE.user_code), "the complete code remains visible")
+    assert.truthy(screen.find("Waiting for sign-in"))
+    screen.press("enter")
+    assert.equal(CODE.user_code, ui.modal.code)
+    approved = true
+    local ok, err = done:await()
+    assert.is_nil(err)
+    assert.is_true(ok)
+    assert.is_nil(ui.modal)
+    assert.is_nil(screen.find(CODE.user_code))
+end)
+
+it("cancels device sign-in with Escape and clears the code", { size = { 40, 14 } }, function()
+    local screen = require("support.ui")
+    local ui = require("uji.core.ui")
+    local polls = 0
+    device_provider(function()
+        polls = polls + 1
+        return Server.status(403, "pending")
+    end)
+    local done = sys.promise()
+    uji.auth.login(ID, { method = "device" }, function(ok, err)
+        done:resolve(ok, err)
+    end)
+    wait.eventually(function()
+        return polls > 0
+    end)
+    screen.press("esc")
+    local ok, err = done:await()
+    assert.is_nil(ok)
+    assert.equal("sign-in canceled", err)
+    assert.is_nil(ui.modal)
+    assert.is_nil(auth.credentials():get(ID))
+    local stopped = polls
+    sys.sleep(1.1)
+    assert.equal(stopped, polls)
+end)
+
+it("clears the device code when sign-in fails", function()
+    device_provider(function()
+        return Server.status(401, "denied")
+    end)
+    local ok, err = uji.auth.login(ID, { method = "device" })
+    assert.is_nil(ok)
+    assert.truthy(err:find("device sign-in returned 401", 1, true))
+    assert.is_nil(require("uji.core.ui").modal)
 end)
 
 it("keeps the existing credential if the final token exchange fails", function()
@@ -558,4 +630,200 @@ it("offers device login in the command and switches providers only after success
     success = true
     command.run("login")
     assert.is_true(configured)
+end)
+
+it("signs in to Copilot, loads chat models and refreshes its token for requests", function()
+    local chosen = catalog.get("github-copilot")
+    local polls, tokens = 0, 0
+    local server
+    server = Server.start(function(request)
+        assert.equal("application/json", request.headers.accept)
+        if request.path == "/device" then
+            assert.equal(chosen.oauth.client_id, request.body.client_id)
+            return json({
+                device_code = "private-device",
+                user_code = "ABCD-1234",
+                verification_uri = "https://github.com/login/device",
+                interval = 0.01,
+                expires_in = 60,
+            })
+        elseif request.path == "/poll" then
+            assert.same({
+                client_id = chosen.oauth.client_id,
+                device_code = "private-device",
+                grant_type = "urn:ietf:params:oauth:grant-type:device_code",
+            }, request.body)
+            polls = polls + 1
+            return json(polls == 1 and { error = "authorization_pending" } or { access_token = "github-token" })
+        elseif request.path == "/token" then
+            assert.equal("Bearer github-token", request.headers.authorization)
+            tokens = tokens + 1
+            return json({
+                token = "copilot-token-" .. tokens,
+                expires_at = oauth.now() + 3600,
+                endpoints = { api = server.url .. "/copilot" },
+            })
+        elseif request.path == "/copilot/models" then
+            assert.equal("Bearer copilot-token-1", request.headers.authorization)
+            return json({
+                data = {
+                    {
+                        id = "chat-model",
+                        capabilities = {
+                            type = "chat",
+                            supports = { tool_calls = true, vision = true },
+                            limits = { max_context_window_tokens = 128000, max_output_tokens = 16384 },
+                        },
+                        supported_endpoints = { "/chat/completions" },
+                    },
+                    {
+                        id = "responses-only",
+                        capabilities = { type = "chat", supports = { tool_calls = true } },
+                        supported_endpoints = { "/responses" },
+                    },
+                    {
+                        id = "messages-only",
+                        capabilities = { type = "chat", supports = { tool_calls = true } },
+                        supported_endpoints = { "/v1/messages" },
+                    },
+                    { id = "embedding", capabilities = { type = "embeddings" } },
+                },
+            })
+        elseif request.path == "/copilot/responses" then
+            assert.equal("responses-only", request.body.model)
+            assert.equal("user", request.body.input[1].role)
+            return Server.events({
+                { type = "response.output_text.delta", delta = "Responses reply" },
+                { type = "response.completed", response = { usage = { input_tokens = 2, output_tokens = 1 } } },
+            })
+        elseif request.path == "/copilot/v1/messages" then
+            assert.equal("messages-only", request.body.model)
+            assert.equal("2023-06-01", request.headers["anthropic-version"])
+            assert.is_nil(request.headers["x-api-key"])
+            return Server.events({
+                { type = "content_block_delta", index = 0, delta = { type = "text_delta", text = "Messages reply" } },
+                { type = "message_delta", delta = { stop_reason = "end_turn" }, usage = { output_tokens = 1 } },
+                { type = "message_stop" },
+            })
+        end
+        assert.equal("/copilot/chat/completions", request.path)
+        assert.equal("Bearer copilot-token-2", request.headers.authorization)
+        assert.equal("vscode-chat", request.headers["copilot-integration-id"])
+        assert.equal("user", request.headers["x-initiator"])
+        assert.equal("chat-model", request.body.model)
+        assert.is_nil(request.body.max_tokens)
+        assert.truthy(request.body.max_completion_tokens)
+        return Server.text("Hello from Copilot")
+    end)
+    chosen.base_url = server.url
+    chosen.oauth.token_url = server.url .. "/token"
+    chosen.oauth.device.code_url = server.url .. "/device"
+    chosen.oauth.device.poll_url = server.url .. "/poll"
+    process.open = function()
+        error("Copilot sign-in must not open a browser")
+    end
+    local ok, err = uji.auth.login(chosen.id)
+    assert.is_nil(err)
+    assert.is_true(ok)
+    assert.equal(2, polls)
+    local loaded = uji.provider.load(chosen.id)
+    assert.equal(catalog.STATE.LOADED, loaded.state)
+    assert.same({
+        { id = "chat-model", context = 128000, output = 16384, images = true, reasoning = false, cache = false },
+        { id = "responses-only", images = false, reasoning = false, cache = false },
+        { id = "messages-only", images = false, reasoning = false, cache = false },
+    }, loaded.models)
+    local stored = auth.credentials():get(chosen.id)
+    assert.equal("github-token", stored.refresh)
+    stored.expires_at = oauth.now() - 1
+    assert.truthy(auth.credentials():save(chosen.id, stored))
+    uji.model.use({ provider = chosen.id, model = "chat-model" })
+    local answer, failure = model.generate({ messages = { { type = "user", text = "hi" } } })
+    assert.is_nil(failure)
+    assert.equal("Hello from Copilot", answer.text)
+    assert.equal(2, tokens)
+    assert.equal("copilot-token-2", auth.credentials():get(chosen.id).access)
+    for _, entry in ipairs({ { "responses-only", "Responses reply" }, { "messages-only", "Messages reply" } }) do
+        uji.model.use({ provider = chosen.id, model = entry[1] })
+        local result, failed = model.generate({ messages = { { type = "user", text = "hi" } } })
+        assert.is_nil(failed)
+        assert.equal(entry[2], result.text)
+    end
+end)
+
+it("starts Copilot device sign-in without a method picker and keeps the account actions", function()
+    local choices = { "GitHub Copilot" }
+    local offered, configured, signed_in
+    uji.auth.authenticated = function()
+        return signed_in == true
+    end
+    uji.ui.select = function(opts)
+        offered = opts.title
+        assert.is_not_nil(choices[1], "no extra sign-in method picker")
+        return table.remove(choices, 1)
+    end
+    uji.auth.login = function(id, opts)
+        assert.equal("github-copilot", id)
+        assert.equal("device", opts.method)
+        return true
+    end
+    uji.model.use = function(opts)
+        configured = opts.provider
+    end
+    command.run("login")
+    assert.equal("Provider", offered)
+    assert.equal("github-copilot", configured)
+    signed_in, configured = true, nil
+    choices = { "GitHub Copilot", "Sign in again" }
+    command.run("login")
+    assert.equal("GitHub Copilot", offered)
+    assert.equal("github-copilot", configured)
+end)
+
+it("backs off Copilot polling and stops on denied authorization without saving", function()
+    local copilot = require("uji.core.auth.copilot")
+    local chosen = catalog.get("github-copilot")
+    local polls, delays = 0, {}
+    local server = Server.start(function()
+        polls = polls + 1
+        return json(polls == 1 and { error = "slow_down", interval = 10 } or { error = "access_denied" })
+    end)
+    chosen.oauth.device.poll_url = server.url
+    sys.sleep = function(seconds)
+        delays[#delays + 1] = seconds
+    end
+    local ok, err = pcall(copilot.login, chosen.oauth, {
+        id = "private-device",
+        interval = 1,
+        expires_at = sys.os.clock() + 60,
+    })
+    assert.is_false(ok)
+    assert.truthy(err:find("access_denied", 1, true))
+    assert.same({ 1, 10 }, delays)
+    assert.is_nil(auth.credentials():get(chosen.id))
+end)
+
+it("rejects unsupported Copilot browser login and invalid or refused tokens", function()
+    local chosen = catalog.get("github-copilot")
+    local ok, err = uji.auth.login(chosen.id, { method = "browser" })
+    assert.is_nil(ok)
+    assert.equal("this provider does not support browser sign-in", err)
+    local response = json({ token = "", expires_at = oauth.now() + 3600 })
+    local server = Server.start(function()
+        return response
+    end)
+    chosen.oauth.token_url = server.url
+    assert.truthy(auth.credentials():save(chosen.id, {
+        type = "oauth",
+        access = "expired",
+        refresh = "github-token",
+        expires_at = 1,
+    }))
+    for _, reply in ipairs({ response, Server.status(403, "no subscription") }) do
+        response = reply
+        local credentials, failure = auth.resolve(chosen)
+        assert.is_nil(credentials)
+        assert.equal("provider", failure.kind)
+        assert.equal("expired", auth.credentials():get(chosen.id).access)
+    end
 end)
