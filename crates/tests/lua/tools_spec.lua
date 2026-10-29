@@ -179,6 +179,31 @@ it("replaces exact snippets with edit_file and explains what it could not do", {
     assert.equal("alpha\nLINE TWO\nGAMMA\ndElta\nEpsil0n\n", sandbox.read(sandbox.work .. "/notes.txt"))
 end)
 
+it("rejects missing or non-string file contents without changing the file", { timeout = 20 }, function()
+    local results = round_trip({
+        { "edit_file", '{"path": "notes.txt", "old_string": "gamma"}' },
+        { "edit_file", '{"path": "notes.txt", "old_string": "gamma", "new_string": null}' },
+        { "edit_file", '{"path": "notes.txt", "old_string": "gamma", "new_string": false}' },
+        { "edit_file", '{"path": "notes.txt", "old_string": "gamma", "new_string": 1}' },
+        { "edit_file", '{"path": "notes.txt", "old_string": "gamma", "new_string": {}}' },
+        { "write_file", '{"path": "notes.txt"}' },
+        { "write_file", '{"path": "notes.txt", "content": null}' },
+        { "write_file", '{"path": "notes.txt", "content": false}' },
+        { "write_file", '{"path": "notes.txt", "content": 1}' },
+        { "write_file", '{"path": "notes.txt", "content": {}}' },
+    })
+    local edit = "error: `new_string` is required and must be a string"
+    local write = "error: `content` is required and must be a string"
+    assert.same({ edit, edit, edit, edit, edit, write, write, write, write, write }, results)
+    assert.equal("alpha\nline two\ngamma\ndelta\nepsilon\n", sandbox.read(sandbox.work .. "/notes.txt"))
+end)
+
+it("deletes an exact snippet when the replacement is an explicit empty string", { timeout = 20 }, function()
+    local results = round_trip({ { "edit_file", '{"path":"notes.txt","old_string":"gamma","new_string":""}' } })
+    assert.same({ "edited notes.txt at line 3" }, results)
+    assert.equal("alpha\nline two\n\ndelta\nepsilon\n", sandbox.read(sandbox.work .. "/notes.txt"))
+end)
+
 it("creates directories with write_file and reports what it wrote", { timeout = 20 }, function()
     local results = round_trip({
         { "write_file", '{"path": "made/deep/new.txt", "content": "one\\ntwo\\n"}' },

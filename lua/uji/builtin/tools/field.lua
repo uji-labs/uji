@@ -9,6 +9,13 @@ function M.text(args, key)
     return type(value) == "string" and value or ""
 end
 
+function M.string(args, key)
+    if type(args[key]) ~= "string" then
+        return nil, "error: `" .. key .. "` is required and must be a string"
+    end
+    return args[key]
+end
+
 function M.count(args, key)
     local value = args[key]
     if type(value) == "number" and value >= 0 and value % 1 == 0 then
