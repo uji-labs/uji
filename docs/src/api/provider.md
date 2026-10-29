@@ -1,6 +1,6 @@
 # uji.provider
 
-uji ships 22 providers, and `/login` and `/models` offer every one you add
+uji ships built-in providers, and `/login` and `/models` offer every one you add
 here as well.
 
 ## uji.provider.add(spec)
@@ -18,7 +18,7 @@ Adds a provider, or merges `spec` into the provider with the same `id`.
 | `auth_file` | string | A file that holds the API key alone, read when the names give nothing. |
 | `models` | list or function | Model ids, or tables with `id`, `context`, `output`, `reasoning`, `cache`, `images` and `efforts`. `images` is `true` or `false` when you know whether the model takes images. `efforts` lists the reasoning efforts the model accepts, from `off`, `minimal`, `low`, `medium`, `high`, `xhigh` and `max`. Without it, uji asks the provider's `api`. A function returns that list, and uji calls it once, the first time it needs the provider's models. The function may wait, for example on `uji.http.request`. |
 | `context_window` | integer | The context size to assume for a model that does not set one. |
-| `oauth` | table | Subscription sign-in settings. The built-in Anthropic and OpenAI providers show the format. |
+| `oauth` | table | Subscription sign-in settings. The built-in Anthropic, OpenAI and GitHub Copilot providers show the format. |
 
 When the provider exists, each field you give replaces the old one, except
 `models`, which merge by `id`. A model whose `id` is already listed replaces
@@ -123,7 +123,8 @@ uji.provider.remove("perplexity")
 
 Returns one table per provider with `id`, `name`, `api`, `base_url`,
 `auth_env`, `auth_file`, `context_window`, `models`, `oauth`, which is `true` when the
-provider offers subscription sign-in, `device_auth`, which is `true` when its
+provider offers subscription sign-in, `browser_auth`, which is `true` when it
+offers browser sign-in, `api_key`, which is `true` when it accepts an API key, `device_auth`, which is `true` when its
 `oauth.device` settings support device code sign-in, `loop`, which is `true` when the provider
 runs its own agent loop, `state` and `error`. Each model has `id`,
 `context`, `output`, `reasoning`, `cache`, `images` and `efforts`.
