@@ -373,7 +373,9 @@ function Agent:verdict(name, entry, args, subject)
     end
     local subjects = { subject }
     if entry and entry.path then
-        subjects[2] = Files(self.session.directory):resolve(subject)
+        local resolved = Files(self.session.directory):resolve(subject)
+        subjects[2] = resolved
+        subjects[3] = sys.fs.canonical(resolved)
     end
     local policy = tool.compiled()
     local action, message

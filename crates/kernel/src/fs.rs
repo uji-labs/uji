@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::io::{BufRead, BufReader};
 use std::path::{Component, Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -250,10 +251,35 @@ fn normalized(path: &Path) -> PathBuf {
 }
 
 #[function(fs)]
-fn resolve(directory: &str, path: &str) -> String {
-    normalized(&Path::new(directory).join(os::expanded(path)))
+async fn resolve(directory: &str, path: &str) -> String {
+    access_path(&Path::new(directory).join(os::expanded(path)))
+        .await
         .display()
         .to_string()
+}
+
+async fn access_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for part in path.components() {
+        match (part, out.components().next_back()) {
+            (Component::CurDir, _)
+            | (Component::ParentDir, Some(Component::RootDir | Component::Prefix(_))) => {}
+            (Component::ParentDir, Some(Component::Normal(_))) => {
+                // Removing a symlink before `..` changes the path the OS accesses.
+                let cancel = match tokio::fs::symlink_metadata(&out).await {
+                    Ok(metadata) => metadata.is_dir(),
+                    Err(error) => error.kind() == std::io::ErrorKind::NotFound,
+                };
+                if cancel {
+                    out.pop();
+                } else {
+                    out.push(part);
+                }
+            }
+            _ => out.push(part),
+        }
+    }
+    out
 }
 
 #[function(fs)]
@@ -294,34 +320,112 @@ async fn glob(
     directory: String,
     pattern: String,
 ) -> Result<Vec<String>, Blocked<glob::PatternError>> {
-    io::blocking(move || {
-        let (base, rest, relative) = match os::home_relative(&pattern) {
-            Some((home, rest)) => (home, rest, false),
-            None => (
-                PathBuf::from(&directory),
-                pattern.as_str(),
-                Path::new(&pattern).is_relative(),
-            ),
+    let (base, rest, relative) = match os::home_relative(&pattern) {
+        Some((home, rest)) => (home, rest, false),
+        None => (
+            PathBuf::from(&directory),
+            pattern.as_str(),
+            Path::new(&pattern).is_relative(),
+        ),
+    };
+    let full = Path::new(&glob::Pattern::escape(&base.to_string_lossy())).join(rest);
+    let matches =
+        io::blocking(move || Ok(glob::glob(&full.to_string_lossy())?.collect::<Vec<_>>())).await?;
+    let mut out = Vec::with_capacity(matches.len());
+    for found in matches.into_iter().flatten() {
+        let found = access_path(&found).await;
+        let shown = if relative {
+            match found.strip_prefix(&base) {
+                Ok(inside) => inside,
+                _ => &found,
+            }
+        } else {
+            &found
         };
-        let full = Path::new(&glob::Pattern::escape(&base.to_string_lossy())).join(rest);
-        Ok(glob::glob(&full.to_string_lossy())?
-            .filter_map(Result::ok)
-            .map(|found| {
-                let found = normalized(&found);
-                let shown = match found.strip_prefix(&base) {
-                    Ok(inside) if relative => inside,
-                    _ => &found,
-                };
-                shown.display().to_string()
-            })
-            .collect())
-    })
-    .await
+        out.push(shown.display().to_string());
+    }
+    Ok(out)
 }
 
 #[function(fs)]
 async fn realpath(path: String) -> std::io::Result<String> {
     Ok(tokio::fs::canonicalize(path).await?.display().to_string())
+}
+
+const HOPS: usize = 40;
+
+fn anchored(dir: &Path, target: &Path) -> PathBuf {
+    if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        dir.join(target)
+    }
+}
+
+fn split(path: &Path) -> Option<(PathBuf, OsString)> {
+    let name = path.file_name()?.to_os_string();
+    let dir = match path.parent() {
+        Some(parent) if parent.as_os_str().is_empty() => PathBuf::from("."),
+        Some(parent) => parent.to_path_buf(),
+        None => return None,
+    };
+    Some((dir, name))
+}
+
+// The operating system follows a dangling link at the end of a path when it
+// creates or reads a file, so canonical has to spell the resolved target.
+async fn dereferenced(path: &Path) -> std::io::Result<PathBuf> {
+    let mut candidate = path.to_path_buf();
+    for _ in 0..HOPS {
+        match tokio::fs::canonicalize(&candidate).await {
+            Ok(found) => return Ok(found),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Ok(candidate),
+        }
+        let Some((dir, name)) = split(&candidate) else {
+            return Ok(candidate);
+        };
+        let Ok(base) = tokio::fs::canonicalize(&dir).await else {
+            return Ok(candidate);
+        };
+        let link = base.join(&name);
+        match tokio::fs::symlink_metadata(&link).await {
+            Ok(entry) if entry.is_symlink() => {}
+            _ => return Ok(candidate),
+        }
+        candidate = anchored(&base, &tokio::fs::read_link(&link).await?);
+    }
+    Err(std::io::Error::other("symlink loop in path"))
+}
+
+#[function(fs)]
+async fn canonical(path: String) -> std::io::Result<String> {
+    let full = dereferenced(Path::new(&path)).await?;
+    let mut head = full.clone();
+    let mut kept = 0;
+    loop {
+        match tokio::fs::canonicalize(&head).await {
+            Ok(found) => {
+                let mut out = found;
+                for part in full.components().skip(full.components().count() - kept) {
+                    match part {
+                        Component::CurDir => {}
+                        Component::ParentDir => {
+                            out.pop();
+                        }
+                        _ => out.push(part),
+                    }
+                }
+                return Ok(out.display().to_string());
+            }
+            Err(error) => {
+                if !head.pop() {
+                    return Err(error);
+                }
+                kept += 1;
+            }
+        }
+    }
 }
 
 async fn delete(path: String, recursive: bool) -> std::io::Result<()> {

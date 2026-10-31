@@ -6,6 +6,11 @@ local function around(target, line, count)
     return Files(require("uji.core.app").session.directory):around(target, line, count)
 end
 
+local function symlink(target, path)
+    local link = assert(sys.proc.spawn({ "ln", "-s", target, path }))
+    assert.equal(0, link:wait().code)
+end
+
 it("numbers the lines around a hit in a preview", function()
     local rows = {}
     for n = 1, 300 do
@@ -111,4 +116,66 @@ end)
 it("matches a pattern in a working directory whose name has brackets", function()
     sandbox.file("[x]/f.txt", "f")
     assert.same({ "f.txt" }, Files(sandbox.work .. "/[x]"):glob("*.txt"))
+end)
+
+it("reads, previews and writes through a symlink before a parent component", function()
+    sandbox.file("note.txt", "neighbor")
+    sandbox.write(sandbox.root .. "/other/note.txt", "target")
+    assert(sys.fs.mkdir(sandbox.root .. "/other/sub"))
+    symlink("../other/sub", sandbox.work .. "/link")
+    assert.equal("target", uji.fs.read("link/../note.txt"))
+    assert.same({ "    1| target" }, around("link/../note.txt", 1, 1))
+    assert(sys.fs.mkdir(sandbox.root .. "/other/sub/nested"))
+    assert.equal("target", uji.fs.read("link/nested/../../note.txt"))
+    assert.equal("target", Files(sandbox.work .. "/link"):read("../note.txt"))
+    assert(uji.fs.write("link/../note.txt", "updated"))
+    assert.equal("updated", sandbox.read(sandbox.root .. "/other/note.txt"))
+    assert.equal("neighbor", uji.fs.read("note.txt"))
+end)
+
+it("creates missing files after a symlink and a parent component", function()
+    assert(sys.fs.mkdir(sandbox.root .. "/other/sub"))
+    symlink("../other/sub", sandbox.work .. "/link")
+    assert(uji.fs.write("link/../new/deep.txt", "created"))
+    assert.equal("created", sandbox.read(sandbox.root .. "/other/new/deep.txt"))
+    assert.is_nil(uji.fs.stat("new/deep.txt"))
+end)
+
+it("keeps glob matches readable after a symlink and a parent component", function()
+    sandbox.file("note.txt", "neighbor")
+    sandbox.write(sandbox.root .. "/other/note.txt", "target")
+    assert(sys.fs.mkdir(sandbox.root .. "/other/sub"))
+    symlink("../other/sub", sandbox.work .. "/link")
+    local matches = uji.fs.glob("link/../*.txt")
+    assert.equal(1, #matches)
+    assert.equal("target", uji.fs.read(matches[1]))
+end)
+
+it("does not redirect a failed parent traversal to a neighboring file", function()
+    sandbox.file("note.txt", "neighbor")
+    sandbox.file("regular", "not a directory")
+    symlink("missing", sandbox.work .. "/dangling")
+    for _, path in ipairs({ "regular/../note.txt", "dangling/../note.txt" }) do
+        assert.is_nil((uji.fs.read(path)))
+        assert.is_nil((uji.fs.write(path, "wrong")))
+    end
+    assert.equal("neighbor", uji.fs.read("note.txt"))
+end)
+
+it("resolves a path to the file the system would touch", function()
+    sandbox.file("note.txt", "note")
+    assert.equal(sys.fs.realpath(sandbox.work .. "/note.txt"), sys.fs.canonical(sandbox.work .. "/note.txt"))
+    assert.equal(sys.fs.realpath(sandbox.work) .. "/new.txt", sys.fs.canonical(sandbox.work .. "/new.txt"))
+    assert.equal(sys.fs.realpath(sandbox.work) .. "/b.txt", sys.fs.canonical(sandbox.work .. "/a/../b.txt"))
+end)
+
+it("follows a dangling link to the path the system creates", function()
+    assert(sys.fs.mkdir(sandbox.root .. "/other"))
+    symlink("secret.env", sandbox.root .. "/other/alias")
+    assert.equal(sys.fs.realpath(sandbox.root .. "/other") .. "/secret.env", sys.fs.canonical(sandbox.root .. "/other/alias"))
+end)
+
+it("does not follow a link that points at itself", function()
+    symlink("self", sandbox.work .. "/self")
+    assert.equal(sys.fs.realpath(sandbox.work) .. "/self", sys.fs.canonical(sandbox.work .. "/self"))
 end)
