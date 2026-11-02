@@ -157,6 +157,38 @@ it("lists the models a llama.cpp server holds", function()
     assert.equal("qwen3-8b", uji.model.current().model)
 end)
 
+it("lists the chat models in the Cheaper Inference catalog", function()
+    providers.all()
+    local mock = server.start(function()
+        return {
+            status = 200,
+            body = uji.json.encode({
+                models = {
+                    {
+                        id = "gpt-5.4-mini",
+                        model_type = "text",
+                        supported_endpoints = { "/v1/chat/completions", "/v1/responses" },
+                        context_length = 400000,
+                        max_output_tokens = 128000,
+                        supports_reasoning = true,
+                        supports_vision = true,
+                    },
+                    { id = "gpt-5.4-pro", model_type = "text", supported_endpoints = { "/v1/responses" } },
+                    { id = "text-embedding-3-small", model_type = "embedding", endpoint = "/v1/embeddings" },
+                },
+            }),
+        }
+    end)
+    uji.provider.add({ id = "cheaperinference", base_url = mock.url .. "/v1" })
+    local loaded = uji.provider.load("cheaperinference")
+    assert.equal(STATE.LOADED, loaded.state)
+    assert.same({ "gpt-5.4-mini" }, ids(loaded.models))
+    assert.equal(400000, loaded.models[1].context)
+    assert.equal(128000, loaded.models[1].output)
+    assert.is_true(loaded.models[1].reasoning)
+    assert.is_true(loaded.models[1].images)
+end)
+
 it("leaves a provider file alone until something asks for it", function()
     assert.is_nil(package.loaded[PREFIX .. "openrouter"], "the boot loaded it anyway")
     assert.is_not_nil(uji.provider.get("openrouter"))
