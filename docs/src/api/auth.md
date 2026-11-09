@@ -102,6 +102,15 @@ default method. uji saves the GitHub token and exchanges it for a Copilot
 token. uji refreshes the Copilot token before it expires. Copilot does not
 offer API key sign-in in `/login`.
 
+The built-in provider uses the fixed Copilot OAuth application ID
+`Iv1.b507a08c87ecfe98`, also used by
+[OpenCode's Copilot auth plugin](https://github.com/anomalyco/opencode-copilot-auth/blob/main/index.mjs).
+This public ID identifies the application, not the user. It is not a client
+secret or an access token. Users authorize their own accounts through the
+[GitHub device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow).
+The provider keeps the ID fixed so users do not need to register an OAuth
+application to sign in.
+
 An unsupported sign-in method for a provider returns `nil` and an error
 message. An unknown option or a `method` other than `"browser"` or `"device"`
 raises an error. With a callback, the function returns a cancellation function.

@@ -34,27 +34,26 @@ uji.auth = {
         if type(opts) == "function" then
             on_done, opts = opts, nil
         end
-        local modal
-        local function close()
-            if modal then
-                modal:close()
-            end
-        end
+        local shown
         local run = task.callback(function()
             local ok, err = auth.login(provider(id), opts, function(flow)
-                modal = ui:present(DeviceLogin(flow))
+                shown = ui:present(DeviceLogin(flow))
                 return function()
-                    modal:wait()
+                    shown:wait()
                 end
             end)
-            close()
+            if shown then
+                shown:close()
+            end
             return ok, err
         end)
         if on_done then
             local cancel = run(on_done)
             return function()
                 cancel()
-                close()
+                if shown then
+                    shown:close()
+                end
             end
         end
         return run()

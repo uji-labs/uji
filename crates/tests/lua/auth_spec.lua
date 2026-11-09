@@ -781,7 +781,7 @@ it("starts Copilot device sign-in without a method picker and keeps the account 
 end)
 
 it("backs off Copilot polling and stops on denied authorization without saving", function()
-    local copilot = require("uji.core.auth.copilot")
+    local copilot = require("uji.builtin.copilot")
     local chosen = catalog.get("github-copilot")
     local polls, delays = 0, {}
     copilot.request = function(url, body)

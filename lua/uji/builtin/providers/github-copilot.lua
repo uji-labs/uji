@@ -1,7 +1,9 @@
 local auth = require("uji.core.auth")
-local copilot = require("uji.core.auth.copilot")
+local copilot = require("uji.builtin.copilot")
 local list = require("uji.utils.list")
 local tables = require("uji.core.tables")
+
+local COPILOT_OAUTH_CLIENT_ID = "Iv1.b507a08c87ecfe98"
 
 local function request_headers(request)
     local session = request.auth.oauth
@@ -103,7 +105,7 @@ uji.provider.add({
     api = Copilot(),
     base_url = "https://api.githubcopilot.com",
     oauth = {
-        client_id = "Iv1.b507a08c87ecfe98",
+        client_id = COPILOT_OAUTH_CLIENT_ID,
         token_url = "https://api.github.com/copilot_internal/v2/token",
         api_key = false,
         refresh = copilot.refresh,
