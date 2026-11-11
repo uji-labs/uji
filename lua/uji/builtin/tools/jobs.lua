@@ -43,6 +43,7 @@ uji.tool.add("stop_job", {
     parameters = PARAMETERS,
     subject = subject,
     policy = "allow",
+    execution = "sequential",
     display = { label = "Stop", question = "Stop a background job?" },
     run = function(args)
         local job, err = lookup(args)

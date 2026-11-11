@@ -1,8 +1,11 @@
 local class = require("uji.core.class")
+local executor = require("uji.core.executor")
 local json = require("uji.utils.json")
+local list = require("uji.utils.list")
 local model = require("uji.core.model")
 local sys = require("uji.sys")
 local text = require("ito").text
+local tool = require("uji.core.tool")
 local view = require("uji.core.agent.view")
 
 local RETRY_ATTEMPTS = 5
@@ -88,9 +91,9 @@ function Loop:init(agent, turn)
         self[key] = value
     end
     self.names, self.known = {}, {}
-    for _, tool in ipairs(self.tools) do
-        self.names[#self.names + 1] = tool.name
-        self.known[tool.name] = true
+    for _, spec in ipairs(self.tools) do
+        self.names[#self.names + 1] = spec.name
+        self.known[spec.name] = true
     end
 end
 
@@ -153,38 +156,102 @@ function Loop:steer()
     return true
 end
 
-function Loop:execute(call)
+function Loop:refused(call, status, reason)
+    self.agent:tool_completed(call, { text = reason })
+    return { resolved = { status = status, reason = reason } }
+end
+
+function Loop:prepare(call)
     if not self.known[call.name] then
-        return { text = string.format("error: unknown tool `%s`. Available tools: %s.", call.name, table.concat(self.names, ", ")) }
+        return self:refused(
+            call,
+            "failed",
+            string.format("error: unknown tool `%s`. Available tools: %s.", call.name, table.concat(self.names, ", "))
+        )
     end
     local args, problem = arguments(call.arguments)
     if not args then
-        return { text = problem }
+        return self:refused(call, "failed", problem)
     end
     args, problem = self.agent:resolve(call.name, args)
     if not args then
-        return { text = problem }
+        return self:refused(call, "failed", problem)
     end
     local decision = self.agent:approve(call.name, args)
     if decision.deny then
-        return { text = "denied: " .. decision.deny }
+        return self:refused(call, "denied", "denied: " .. decision.deny)
     end
-    return self.agent:run_tool(call, decision.arguments)
+    local agent = self.agent
+    return {
+        run = function()
+            agent:tool_running(call)
+            return agent:tool_completed(call, agent:run_tool(call, decision.arguments))
+        end,
+    }
+end
+
+function Loop:execution(calls)
+    for _, call in ipairs(calls) do
+        if tool.execution(call.name) == executor.Sequential then
+            return executor.Sequential
+        end
+    end
+    return executor.Parallel
+end
+
+function Loop:result(call, result)
+    local value
+    if result.status == "completed" then
+        value = result.value
+    else
+        value = { text = result.reason }
+    end
+    if type(value) ~= "table" then
+        value = { text = tostring(value) }
+    end
+    value.text = self.agent:after_tool(call.name, value.text or "")
+    self.agent:tool_result(call, value)
+    self.messages[#self.messages + 1] = {
+        type = "tool",
+        tool_call_id = call.id,
+        name = call.name,
+        content = value.text,
+        images = value.images,
+    }
 end
 
 function Loop:run_tools(calls)
-    for _, call in ipairs(calls) do
-        self.agent:tool_running(call)
-        local result = self:execute(call)
-        result.text = self.agent:after_tool(call.name, result.text)
-        self.agent:tool_result(call, result)
-        self.messages[#self.messages + 1] = {
-            type = "tool",
-            tool_call_id = call.id,
-            name = call.name,
-            content = result.text,
-            images = result.images,
+    local Execution = self:execution(calls)
+    local items = list.mapped(calls, function(call)
+        if Execution == executor.Parallel then
+            return self:prepare(call)
+        end
+        return {
+            run = function()
+                local item = self:prepare(call)
+                local result = item.resolved
+                if not result then
+                    result = { status = "completed", value = item.run() }
+                end
+                self:result(call, result)
+            end,
         }
+    end)
+    self.batch = Execution(items)
+    self.batch:execute()
+    local results = self.batch:await()
+    local turn = self.agent.turn
+    for index, call in ipairs(calls) do
+        if not (turn and turn.answered[call.id]) then
+            self:result(call, results[index])
+        end
+    end
+    self.batch = nil
+end
+
+function Loop:interrupt()
+    if self.batch then
+        self.batch:cancel("interrupted by the user")
     end
 end
 
@@ -200,10 +267,15 @@ function Loop:run()
             self.agent:usage(answer.usage)
         end
         local calls = answer.tool_calls or {}
+        local taken = {}
         for _, call in ipairs(calls) do
-            if call.id:match("^%s*$") then
+            if call.id:match("^%s*$") or taken[call.id] then
                 call.id = fresh_id()
             end
+            while taken[call.id] do
+                call.id = fresh_id()
+            end
+            taken[call.id] = true
         end
         local message = {
             type = "assistant",

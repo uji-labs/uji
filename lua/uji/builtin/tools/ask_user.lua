@@ -7,6 +7,7 @@ uji.tool.add("ask_user", {
         return type(args) == "table" and type(args.question) == "string" and args.question or "a question"
     end,
     policy = "allow",
+    execution = "sequential",
     parameters = {
         type = "object",
         properties = {
