@@ -1,6 +1,8 @@
 local auth = require("uji.core.auth")
 local catalog = require("uji.core.catalog")
+local DeviceLogin = require("uji.core.ui.views.device_login")
 local task = require("uji.core.task")
+local ui = require("uji.core.ui")
 
 local function provider(id)
     local found = catalog.get(id)
@@ -28,7 +30,32 @@ uji.auth = {
     remove = function(id)
         return auth.remove(provider(id).id)
     end,
-    login = task.callback(function(id, opts)
-        return auth.login(provider(id), opts)
-    end),
+    login = function(id, opts, on_done)
+        if type(opts) == "function" then
+            on_done, opts = opts, nil
+        end
+        local shown
+        local run = task.callback(function()
+            local ok, err = auth.login(provider(id), opts, function(flow)
+                shown = ui:present(DeviceLogin(flow))
+                return function()
+                    shown:wait()
+                end
+            end)
+            if shown then
+                shown:close()
+            end
+            return ok, err
+        end)
+        if on_done then
+            local cancel = run(on_done)
+            return function()
+                cancel()
+                if shown then
+                    shown:close()
+                end
+            end
+        end
+        return run()
+    end,
 }

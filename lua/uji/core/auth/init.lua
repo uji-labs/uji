@@ -5,6 +5,7 @@ local notices = require("uji.core.notices")
 local oauth = require("uji.core.auth.oauth")
 local paths = require("uji.core.paths")
 local process = require("uji.core.system.process")
+local task = require("uji.core.task")
 
 local OPTIONS = { keychain = "boolean", file = "string" }
 
@@ -53,7 +54,8 @@ local function session_credential(provider, credential)
     if not oauth.expired(credential) then
         return credential
     end
-    local refreshed = oauth.refresh(provider.oauth, credential)
+    local refresh = provider.oauth.refresh or oauth.refresh
+    local refreshed = refresh(provider.oauth, credential)
     local saved, err = M.credentials():save(provider.id, refreshed)
     if not saved then
         error("refreshed the session but could not save it: " .. tostring(err), 0)
@@ -73,6 +75,7 @@ function M.resolve(provider)
         end
         session = {
             token = credential.access,
+            base_url = credential.base_url,
             account_id = credential.account_id,
             headers = provider.oauth.request_headers or {},
             identity_prompt = provider.oauth.identity_prompt,
@@ -89,15 +92,26 @@ local function browser_login(config)
     return oauth.login(config, flow, server)
 end
 
-local function device_login(config)
-    local flow = device.start(config)
-    notices.push("open " .. flow.url .. " and enter code " .. flow.code .. " to sign in; expires in 15 minutes")
-    return device.login(config, flow)
+local function device_login(config, present)
+    local handler = config.device.start and config.device or device
+    local flow = handler.start(config)
+    notices.push("open " .. flow.url .. " and enter code " .. flow.code .. " to sign in")
+    if present then
+        local canceled = present(flow)
+        local winner, credential = task.race(function()
+            return handler.login(config, flow)
+        end, canceled)
+        if winner == 2 then
+            error("sign-in canceled", 0)
+        end
+        return credential
+    end
+    return handler.login(config, flow)
 end
 
 local METHODS = { browser = browser_login, device = device_login }
 
-function M.login(provider, opts)
+function M.login(provider, opts, present)
     opts = opts or {}
     check.options(opts, "uji.auth.login")
     for key in pairs(opts) do
@@ -105,19 +119,22 @@ function M.login(provider, opts)
             error("unknown key " .. tostring(key), 2)
         end
     end
-    local method = opts.method or "browser"
+    local config = provider.oauth
+    local method = opts.method or (config and not config.authorize_url and "device" or "browser")
     local sign_in = METHODS[method]
     if not sign_in then
         error("uji.auth.login method must be browser or device", 2)
     end
-    local config = provider.oauth
     if not config then
         return nil, "this provider does not support subscription sign-in"
     end
     if method == "device" and not config.device then
         return nil, "this provider does not support device code sign-in"
     end
-    local signed, grant = pcall(sign_in, config)
+    if method == "browser" and not config.authorize_url then
+        return nil, "this provider does not support browser sign-in"
+    end
+    local signed, grant = pcall(sign_in, config, present)
     if not signed then
         return nil, tostring(grant)
     end

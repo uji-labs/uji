@@ -22,6 +22,10 @@ Type `/login` and pick a provider from the list.
 - A provider that needs a key asks for it. The prompt names the environment
   variable uji also reads, such as `ANTHROPIC_API_KEY`, and pressing Enter on
   an empty prompt uses that variable instead.
+- GitHub Copilot starts device code sign-in without a method picker. Open the
+  displayed link and enter the one-time code. uji uses your Copilot subscription
+  and loads its chat models with tool support. GitHub Models remains a separate
+  provider.
 - Custom asks for the `base_url` and model of a server that takes OpenAI chat
   requests.
 - A provider you are signed in to asks whether to sign in again or sign out.
