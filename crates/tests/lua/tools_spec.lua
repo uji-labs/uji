@@ -26,6 +26,11 @@ local function slice(list, from, to)
     return { table.unpack(list, from, to) }
 end
 
+local function symlink(target, path)
+    local link = assert(sys.proc.spawn({ "ln", "-s", target, path }))
+    assert.equal(0, link:wait().code)
+end
+
 local function round_trip(calls)
     local round = 0
     local mock = server.start(function(request)
@@ -315,3 +320,79 @@ it("uses the policy a tool declares when no default is set", function()
     assert.same({ allow = true, arguments = { path = "a.txt" } }, app.agent:approve("read_file", { path = "a.txt" }))
     assert.same({ deny = "user denied" }, app.agent:approve("write_file", { path = "a.txt", content = "x" }))
 end)
+
+it("denies a symlink traversal that reaches a denied file", { timeout = 20 }, function()
+    sandbox.file("secret.env", "realm")
+    assert(sys.fs.mkdir(sandbox.work .. "/sub"))
+    symlink("sub", sandbox.work .. "/link")
+    uji.tool.policy({ read_file = { deny = { sys.fs.realpath(sandbox.work .. "/secret.env") } } })
+    local results = round_trip({ { "read_file", '{"path": "link/../secret.env"}' } })
+    assert.same({ "denied: denied by policy" }, results)
+end)
+
+it("denies a write through a link that creates a denied file", { timeout = 20 }, function()
+    assert(sys.fs.mkdir(sandbox.work .. "/sub"))
+    assert(sys.fs.mkdir(sandbox.work .. "/sub/deeper"))
+    symlink("sub/deeper", sandbox.work .. "/link")
+    symlink("secret.env", sandbox.work .. "/sub/alias")
+    uji.tool.policy({ write_file = { deny = { sys.fs.realpath(sandbox.work .. "/sub") .. "/secret.env" } } })
+    local results = round_trip({ { "write_file", '{"path": "link/../alias", "content": "x"}' } })
+    assert.same({ "denied: denied by policy" }, results)
+    assert.is_nil((sys.fs.read(sandbox.work .. "/sub/secret.env")))
+end)
+
+it("keeps an absolute deny rule under a directory alias", { timeout = 20 }, function()
+    sandbox.file("secret.env", "secret")
+    assert(sys.fs.mkdir(sandbox.work .. "/sub"))
+    symlink("sub", sandbox.work .. "/link")
+    local alias = sandbox.root .. "/work-alias"
+    symlink("work", alias)
+    app.session.directory = alias
+    uji.tool.policy({ read_file = { allow = { "*" } } })
+    uji.tool.policy({
+        read_file = {
+            deny = {
+                { pattern = alias .. "/secret.env", message = "alias is read-only" },
+                { pattern = sys.fs.realpath(sandbox.work .. "/secret.env"), message = "target is read-only" },
+            },
+        },
+    }, { name = "readonly" })
+    assert.equal("secret", uji.fs.read("link/../secret.env"))
+    local results = round_trip({
+        { "read_file", '{"path": "secret.env"}' },
+        { "read_file", '{"path": "link/../secret.env"}' },
+    })
+    assert.same({ "denied: alias is read-only", "denied: alias is read-only" }, results)
+end)
+
+it("does not allow or ask for a different target through a lexical rule", { timeout = 20 }, function()
+    sandbox.file("secret.env", "neighbor")
+    sandbox.write(sandbox.root .. "/other/secret.env", "target")
+    assert(sys.fs.mkdir(sandbox.root .. "/other/sub"))
+    symlink("../other/sub", sandbox.work .. "/link")
+    local alias = sandbox.root .. "/work-alias"
+    symlink("work", alias)
+    app.session.directory = alias
+    local entry = tool.get("read_file")
+    for _, action in ipairs({ "allow", "ask" }) do
+        uji.tool.policy({ read_file = { default = "deny", [action] = { alias .. "/secret.env" } } })
+        assert.same({ deny = "denied by policy" }, app.agent:verdict("read_file", entry, { path = "link/../secret.env" }))
+    end
+    uji.tool.policy({ read_file = { default = "deny", allow = { sys.fs.realpath(sandbox.root .. "/other/secret.env") } } })
+    local results = round_trip({ { "read_file", '{"path": "link/../secret.env"}' } })
+    assert.same({ numbered({ "target" }, 1) }, results)
+    assert.equal("neighbor", sandbox.read(sandbox.work .. "/secret.env"))
+end)
+
+if uji.os.platform == "linux" then
+    it("denies a write to a missing target after forty symlinks", { timeout = 20 }, function()
+        local dir = sys.fs.realpath(sandbox.work)
+        for at = 1, 40 do
+            symlink(at == 40 and "secret.env" or "link" .. (at + 1), dir .. "/link" .. at)
+        end
+        uji.tool.policy({ write_file = { default = "allow", deny = { dir .. "/secret.env" } } })
+        local results = round_trip({ { "write_file", '{"path": "link1", "content": "wrong"}' } })
+        assert.same({ "denied: denied by policy" }, results)
+        assert.is_nil((sys.fs.read(dir .. "/secret.env")))
+    end)
+end

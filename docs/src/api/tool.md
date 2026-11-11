@@ -140,6 +140,10 @@ matches the file's full path, and a rule that starts with `~/` starts at your
 home folder. A rule can also be a table with `pattern` and `message`, and the
 model reads `message` when that rule refuses a call.
 
+For file tools, rules also check the canonical target, including the target of a dangling symlink.
+Deny rules also check the lexically normalized full path to preserve rules that use a directory alias.
+Allow and ask rules do not use that extra spelling because it can name a different file from the target.
+
 uji checks `deny` rules first, then `allow`, then `ask`, and uses the first
 match. With no match, it uses the tool's `default`, then the top-level
 `default`, then the policy the tool declares, then `ask`. `read_file`,
