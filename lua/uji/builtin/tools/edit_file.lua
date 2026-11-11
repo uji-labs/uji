@@ -99,6 +99,7 @@ uji.tool.add("edit_file", {
     subject = field.subject("path"),
     path = true,
     policy = "ask",
+    execution = "sequential",
     display = {
         label = "Update",
         question = "Would you like to make the following edit?",

@@ -176,6 +176,228 @@ it("allows one call and denies the next with the approval keys", { timeout = 15 
     assert.equal("done", agent.last_answer(messages))
 end)
 
+local function recorded(log, execution)
+    return function(name)
+        uji.tool.add(name, {
+            execution = execution,
+            run = function()
+                log[#log + 1] = name .. " started"
+                sys.sleep(0.1)
+                log[#log + 1] = name .. " stopped"
+                return name .. " returned"
+            end,
+        })
+    end
+end
+
+it("runs two calls at once when neither of them asks to run alone", { timeout = 15 }, function()
+    local log = {}
+    local add = recorded(log, "parallel")
+    add("slow_a")
+    add("slow_b")
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, { { "slow_a", "{}" }, { "slow_b", "{}" } })
+        end
+        return server.text("done")
+    end)
+    agent.allow_all()
+    local messages = run(mock.url)
+    assert.same({ "slow_a started", "slow_b started", "slow_a stopped", "slow_b stopped" }, log)
+    assert.same({ "slow_a returned", "slow_b returned" }, agent.tool_results(messages))
+end)
+
+it("runs the whole batch one call at a time when a tool asks for it", { timeout = 15 }, function()
+    local log = {}
+    recorded(log, "parallel")("slow_a")
+    recorded(log, "sequential")("slow_b")
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, { { "slow_a", "{}" }, { "slow_b", "{}" } })
+        end
+        return server.text("done")
+    end)
+    agent.allow_all()
+    run(mock.url)
+    assert.same({ "slow_a started", "slow_a stopped", "slow_b started", "slow_b stopped" }, log)
+end)
+
+it("resolves a sequential read after the preceding write", function()
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, {
+                { "write_file", '{"path":"created.txt","content":"fresh content"}' },
+                { "read_file", '{"path":"created.*"}' },
+            })
+        end
+        return server.text("done")
+    end)
+    agent.allow_all()
+    local results = agent.tool_results(run(mock.url))
+    assert.truthy(results[2]:find("fresh content", 1, true), results[2])
+end)
+
+it("finalizes a sequential call before preparing the next one", function()
+    local log = {}
+    uji.tool.add("ordered", {
+        execution = "sequential",
+        resolve = function(args)
+            log[#log + 1] = "resolve " .. args.step
+            return args
+        end,
+        display = {
+            preview = function(args)
+                log[#log + 1] = "preview " .. args.step
+                return uji.diff("before", "after", "notes.txt")
+            end,
+        },
+        run = function(args)
+            log[#log + 1] = "run " .. args.step
+            return args.step
+        end,
+    })
+    uji.on("after_tool", function(result)
+        log[#log + 1] = "after " .. result.content
+        return result.content .. " finished"
+    end)
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, { { "ordered", '{"step":"a"}' }, { "ordered", '{"step":"b"}' } })
+        end
+        return server.text("done")
+    end)
+    local results = agent.tool_results(run(mock.url, { answers = { "y", "y" } }))
+    assert.same({ "resolve a", "preview a", "run a", "after a", "resolve b", "preview b", "run b", "after b" }, log)
+    assert.same({ "a finished", "b finished" }, results)
+end)
+
+it("keeps completed parallel results and cancels only unfinished tools on esc", function()
+    local stopped, folded = {}, {}
+    local release = sys.promise()
+    uji.tool.add("unfinished", {
+        run = function()
+            return function()
+                stopped[#stopped + 1] = "unfinished"
+            end
+        end,
+    })
+    uji.tool.add("completed", {
+        run = function(_, ctx)
+            sys.task.spawn(function()
+                release:await()
+                ctx.done({ text = "kept", summary = "completed summary" })
+            end)
+            return function()
+                stopped[#stopped + 1] = "completed"
+            end
+        end,
+    })
+    uji.on("after_tool", function(result)
+        folded[#folded + 1] = result.name
+        return result.content .. " folded"
+    end)
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, { { "unfinished", "{}" }, { "completed", "{}" } })
+        end
+        return server.text("done")
+    end)
+    sys.task.spawn(function()
+        wait.eventually(function()
+            return app.agent.turn and app.agent.turn.cancel_tool.r0c1 ~= nil
+        end)
+        release:resolve()
+        wait.eventually(function()
+            local batch = app.agent.turn.loop.batch
+            return batch and batch.results[2] and batch.results[2].status == "completed"
+        end)
+        screen.press("esc")
+    end)
+    agent.allow_all()
+    local messages = run(mock.url)
+    assert.same({ "error: interrupted by the user while this tool ran folded", "kept folded" }, agent.tool_results(messages))
+    assert.same({ "unfinished" }, stopped)
+    assert.same({ "unfinished", "completed" }, folded)
+    local results = list.filtered(messages, function(message)
+        return message.type == "tool"
+    end)
+    assert.equal("r0c0", results[1].tool_call_id)
+    assert.equal("r0c1", results[2].tool_call_id)
+    assert.equal("completed summary", results[2].summary)
+end)
+
+it("keeps sequential results when interrupted at the next approval", function()
+    local folded = {}
+    uji.on("after_tool", function(result)
+        folded[#folded + 1] = result.name
+    end)
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.tool_calls(0, {
+                { "read_file", '{"path":"notes.txt"}' },
+                { "write_file", '{"path":"blocked.txt","content":"blocked"}' },
+                { "write_file", '{"path":"pending.txt","content":"pending"}' },
+            })
+        end
+        return server.text("done")
+    end)
+    sys.task.spawn(function()
+        wait.eventually(function()
+            return ui.modal and ui.modal.mode == "confirm"
+        end)
+        app.agent:interrupt()
+    end)
+    local results = agent.tool_results(run(mock.url))
+    assert.truthy(results[1]:find("alpha", 1, true), results[1])
+    assert.equal("error: interrupted by the user before this tool ran", results[2])
+    assert.equal("error: interrupted by the user before this tool ran", results[3])
+    assert.same({ "read_file", "write_file", "write_file" }, folded)
+    assert.is_nil(uji.fs.read("blocked.txt"))
+    assert.is_nil(uji.fs.read("pending.txt"))
+end)
+
+it("gives two calls that share an id different ones", function()
+    local mock = agent.serve(function(round)
+        if round == 0 then
+            return server.events({
+                {
+                    choices = {
+                        {
+                            index = 0,
+                            delta = {
+                                tool_calls = {
+                                    {
+                                        index = 0,
+                                        id = "same",
+                                        type = "function",
+                                        ["function"] = { name = "read_file", arguments = '{"path":"notes.txt"}' },
+                                    },
+                                    {
+                                        index = 1,
+                                        id = "same",
+                                        type = "function",
+                                        ["function"] = { name = "read_file", arguments = '{"path":"notes.txt","limit":1}' },
+                                    },
+                                },
+                            },
+                            finish_reason = uji.json.null,
+                        },
+                    },
+                },
+                { choices = { { index = 0, delta = {}, finish_reason = "tool_calls" } } },
+            })
+        end
+        return server.text("done")
+    end)
+    agent.allow_all()
+    local messages = run(mock.url)
+    local results = list.filtered(messages, function(message)
+        return message.type == "tool"
+    end)
+    assert.equal(2, #results)
+    assert.truthy(results[1].tool_call_id ~= results[2].tool_call_id)
+end)
+
 it("compacts a turn that outgrows its window mid turn", { timeout = 20 }, function()
     local mock = agent.serve(function(round)
         if round == 0 then
@@ -278,7 +500,7 @@ it("answers the calls a failed turn left open", function()
     local call = { id = "c1", name = "run_command", arguments = "{}" }
     session:append({ type = "user", text = "go" })
     session:append({ type = "assistant", text = "", tool_calls = { call } })
-    app.agent.turn = { calls = { call }, answered = {} }
+    app.agent.turn = { calls = { call }, answered = {}, completed = {}, running = {}, cancel_tool = {} }
     app.agent:failed("loop: boom")
     local stored = list.mapped(app.agent.session:entries(), function(entry)
         return entry.message
