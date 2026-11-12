@@ -70,6 +70,7 @@ UNMANAGED = {
     "ollama": "its models are local",
     "opencode-go": "its models come from opencode",
     "opencode-zen": "its models come from opencode",
+    "uberllm": "its models come from its own api",
 }
 
 

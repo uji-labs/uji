@@ -189,6 +189,53 @@ it("lists the chat models in the Cheaper Inference catalog", function()
     assert.is_true(loaded.models[1].images)
 end)
 
+it("lists the tool-calling chat models in the UberLLM catalog", function()
+    providers.all()
+    local mock = server.start(function()
+        return {
+            status = 200,
+            body = uji.json.encode({
+                object = "list",
+                data = {
+                    {
+                        id = "deepseek/deepseek-v4.1-flash",
+                        type = "chat",
+                        available = true,
+                        endpoints = { "/v1/chat/completions", "/v1/messages", "/v1/responses" },
+                        context_length = 1048576,
+                        max_output_tokens = 384000,
+                        supports_tools = true,
+                        supports_reasoning = true,
+                        supports_vision = true,
+                    },
+                    {
+                        id = "sakana/sakana-namazu",
+                        type = "chat",
+                        available = false,
+                        endpoints = { "/v1/chat/completions" },
+                        supports_tools = true,
+                    },
+                    {
+                        id = "example/no-tools",
+                        type = "chat",
+                        available = true,
+                        endpoints = { "/v1/chat/completions" },
+                        supports_tools = false,
+                    },
+                },
+            }),
+        }
+    end)
+    uji.provider.add({ id = "uberllm", base_url = mock.url .. "/v1" })
+    local loaded = uji.provider.load("uberllm")
+    assert.equal(STATE.LOADED, loaded.state)
+    assert.same({ "deepseek/deepseek-v4.1-flash" }, ids(loaded.models))
+    assert.equal(1048576, loaded.models[1].context)
+    assert.equal(384000, loaded.models[1].output)
+    assert.is_true(loaded.models[1].reasoning)
+    assert.is_true(loaded.models[1].images)
+end)
+
 it("leaves a provider file alone until something asks for it", function()
     assert.is_nil(package.loaded[PREFIX .. "openrouter"], "the boot loaded it anyway")
     assert.is_not_nil(uji.provider.get("openrouter"))
