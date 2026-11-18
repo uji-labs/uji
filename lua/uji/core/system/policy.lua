@@ -37,12 +37,15 @@ local function top_default(value, notices)
     return "ask"
 end
 
-local function matched(rules, subjects)
+local function matched(rules, subjects, deny_subject)
     for _, candidate in ipairs(rules) do
         for _, subject in ipairs(subjects) do
             if candidate.match:handle(subject) then
                 return candidate
             end
+        end
+        if candidate.action == "deny" and deny_subject and candidate.match:handle(deny_subject) then
+            return candidate
         end
     end
 end
@@ -134,9 +137,9 @@ function Policy.tool_rules(name, value, notices)
     return out
 end
 
-function Policy:evaluate(tool, subjects, declared)
+function Policy:evaluate(tool, subjects, declared, deny_subject)
     local entry = self.tools[tool] or NONE
-    local found = matched(entry.rules, subjects)
+    local found = matched(entry.rules, subjects, deny_subject)
     if found then
         return found.action, found.match.message
     end

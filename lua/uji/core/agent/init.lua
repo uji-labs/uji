@@ -372,12 +372,16 @@ function Agent:verdict(name, entry, args, subject)
         return { ask = true }
     end
     local subjects = { subject }
+    local deny_subject
     if entry and entry.path then
-        subjects[2] = Files(self.session.directory):resolve(subject)
+        local resolved = Files(self.session.directory):resolve(subject)
+        subjects[2] = resolved
+        subjects[3] = sys.fs.canonical(resolved)
+        deny_subject = sys.fs.lexical(self.session.directory, subject)
     end
     local policy = tool.compiled()
     local action, message
-    ok, action, message = pcall(policy.evaluate, policy, name, subjects, entry and entry.policy)
+    ok, action, message = pcall(policy.evaluate, policy, name, subjects, entry and entry.policy, deny_subject)
     if not ok then
         notices.push(name .. " policy: " .. sys.message(action))
         return { ask = true }
