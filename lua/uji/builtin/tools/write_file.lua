@@ -35,8 +35,12 @@ uji.tool.add("write_file", {
         label = "Write",
         question = "Would you like to write the following file?",
         preview = function(args)
+            local content = field.string(args, "content")
+            if not content then
+                return nil
+            end
             local path = field.text(args, "path")
-            return uji.diff(uji.fs.read(path) or "", field.text(args, "content"), path)
+            return uji.diff(uji.fs.read(path) or "", content, path)
         end,
     },
     run = function(args)
@@ -45,7 +49,10 @@ uji.tool.add("write_file", {
             return missing
         end
         local path = field.text(args, "path")
-        local content = field.text(args, "content")
+        local content, invalid = field.string(args, "content")
+        if not content then
+            return invalid
+        end
         local before = uji.fs.read(path)
         local written, err = uji.fs.write(path, content)
         if not written then

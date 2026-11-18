@@ -38,7 +38,10 @@ local function apply(args)
     end
     local path = field.text(args, "path")
     local old = field.text(args, "old_string")
-    local new = field.text(args, "new_string")
+    local new, invalid = field.string(args, "new_string")
+    if not new then
+        return nil, invalid
+    end
     local all = args.replace_all == true
     if old == new then
         return nil, "error: old_string and new_string are identical"
