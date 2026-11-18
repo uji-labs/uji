@@ -2,11 +2,13 @@ local Any = require("uji.utils.any")
 local Policy = require("uji.core.system.policy")
 local Registry = require("uji.core.registry")
 local check = require("uji.core.check")
+local executor = require("uji.core.executor")
 local notices = require("uji.core.notices")
 local plugin = require("uji.core.plugin")
 local sys = require("uji.sys")
 
 local ACTIONS = { allow = true, ask = true, deny = true }
+local EXECUTION = { sequential = executor.Sequential, parallel = executor.Parallel }
 
 local M = {
     registry = plugin.track(Registry(plugin.current)),
@@ -39,6 +41,9 @@ function M.add(name, spec)
     if spec.path ~= nil and type(spec.path) ~= "boolean" then
         error("path must be true or false", 2)
     end
+    if spec.execution ~= nil and EXECUTION[spec.execution] == nil then
+        error("execution must be sequential or parallel", 2)
+    end
     return M.registry:add(name, {
         name = name,
         description = spec.description or "",
@@ -48,6 +53,7 @@ function M.add(name, spec)
         path = spec.path,
         policy = spec.policy,
         display = spec.display or {},
+        execution = EXECUTION[spec.execution],
         run = spec.run,
     })
 end
@@ -58,6 +64,11 @@ end
 
 function M.get(name)
     return M.registry:get(name)
+end
+
+function M.execution(name)
+    local entry = M.get(name)
+    return entry ~= nil and entry.execution or executor.Parallel
 end
 
 function M.display(name, opts)

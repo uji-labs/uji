@@ -44,6 +44,7 @@ uji.tool.add("run_command", {
         return field.text(args, "command")
     end,
     policy = "ask",
+    execution = "sequential",
     display = {
         label = "Shell",
         question = "Would you like to run the following command?",

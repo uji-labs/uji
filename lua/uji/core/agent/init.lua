@@ -247,7 +247,7 @@ function Agent:start(system, prompt)
         max_output = model.max_output(),
         cache = model.retention(),
     }
-    local turn = { calls = {}, answered = {} }
+    local turn = { calls = {}, answered = {}, completed = {}, running = {}, cancel_tool = {} }
     self:begin()
     self.turn = turn
     self.task = task.spawn_in(self.ctx, function()
@@ -268,7 +268,12 @@ function Agent:answer_open(reason)
     end
     for _, call in ipairs(turn.calls) do
         if not turn.answered[call.id] then
-            self:answer(call, self:after_tool(call.name, reason(call)))
+            local result = turn.completed[call.id]
+            if not result then
+                result = { text = reason(call) }
+            end
+            result.text = self:after_tool(call.name, result.text)
+            self:tool_result(call, result)
         end
     end
 end
@@ -298,12 +303,13 @@ function Agent:assistant_step(message)
     if self.turn and #message.tool_calls > 0 then
         self.turn.calls = message.tool_calls
         self.turn.answered = {}
+        self.turn.completed = {}
     end
 end
 
 function Agent:tool_running(call)
     if self.turn then
-        self.turn.running = call
+        self.turn.running[call.id] = true
     end
 end
 
@@ -336,13 +342,22 @@ function Agent:answer(call, value)
     })
 end
 
+function Agent:tool_completed(call, value)
+    if self.turn then
+        self.turn.completed[call.id] = value
+        self.turn.running[call.id] = nil
+        self.turn.cancel_tool[call.id] = nil
+    end
+    return value
+end
+
 function Agent:tool_result(call, value)
     event.emit("tool_progress", {})
     self:answer(call, value)
     if self.turn then
         self.turn.answered[call.id] = true
-        self.turn.running = nil
-        self.turn.cancel_tool = nil
+        self.turn.running[call.id] = nil
+        self.turn.cancel_tool[call.id] = nil
     end
 end
 
@@ -470,7 +485,7 @@ function Agent:run_tool(call, args)
     end
     if type(result) == "function" then
         if self.turn then
-            self.turn.cancel_tool = result
+            self.turn.cancel_tool[call.id] = result
         end
     elseif result ~= nil then
         return {
@@ -641,8 +656,8 @@ function Agent:interrupt()
         pcall(self.asking.close, self.asking)
         self.asking = nil
     end
-    if turn and turn.cancel_tool then
-        local ok, err = pcall(turn.cancel_tool)
+    for _, cancel in pairs(turn and turn.cancel_tool or {}) do
+        local ok, err = pcall(cancel)
         if not ok then
             notices.push(sys.message(err))
         end
@@ -655,7 +670,7 @@ function Agent:interrupt()
     end
     self:clear_stream()
     self:answer_open(function(call)
-        return turn.running == call and WHILE_RUNNING or BEFORE_RUNNING
+        return turn.running[call.id] and WHILE_RUNNING or BEFORE_RUNNING
     end)
     self:append({ type = "error", text = "interrupted" })
     self:finish(true)

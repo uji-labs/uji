@@ -39,6 +39,7 @@ local spec = {
     parameters = { type = "object", properties = {}, additionalProperties = false },
     subject = "config",
     policy = "allow",
+    execution = "sequential",
     display = { label = "Reload" },
     run = function()
         if not state.waiting then

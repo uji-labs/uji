@@ -305,6 +305,15 @@ it("answers with an error when a tool's resolve returns nothing", { timeout = 20
     assert.same({ "error: blank resolve returned no arguments" }, round_trip({ { "blank", "{}" } }))
 end)
 
+it("refuses an execution it cannot honour", function()
+    local ok, err = pcall(uji.tool.add, "odd", {
+        execution = "sometimes",
+        run = function() end,
+    })
+    assert.is_false(ok)
+    assert.truthy(err:find("execution must be sequential or parallel", 1, true))
+end)
+
 it("puts a tool's own default before the top-level default", function()
     uji.tool.policy({ default = "allow", write_file = { default = "deny" } })
     assert.same({ deny = "denied by policy" }, app.agent:approve("write_file", { path = "a.txt", content = "x" }))

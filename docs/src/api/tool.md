@@ -21,6 +21,7 @@ Registers a tool the model can call, or replaces the tool with the same name.
 | `subject` | string or function | no | What policy rules match against, and what the transcript shows unless `display.detail` is set. A function receives the arguments and returns a string. The default is the tool's name. |
 | `policy` | string | no | `"allow"`, `"ask"` or `"deny"`. Used when no policy rule matches. |
 | `path` | boolean | no | `true` when the subject is a file path, so policy rules match it the way they match the file tools. |
+| `execution` | string | no | `"sequential"` runs every call in the batch that holds this tool one at a time; `"parallel"` is the default and runs them beside each other. uji's own tools that are not read-only are sequential. |
 | `display.label` | string | no | The name the transcript shows for a call, such as `"Read"`, followed by the subject or `display.detail` in brackets. The default is the tool's name. |
 | `display.detail` | function | no | Receives the arguments and returns the text in brackets after the label, in place of the subject. The approval question shows it too. |
 | `display.question` | string | no | The title of the approval question. |
@@ -50,7 +51,8 @@ is left out, and a note at the end of the text says so.
 `ctx.progress(line)` shows a line under the running tool while it works.
 
 Raises an error when `run` is missing, `policy` is not one of the three
-values, or `subject` is neither a string nor a function.
+values, `subject` is neither a string nor a function, or `execution` is neither
+`"sequential"` nor `"parallel"`.
 
 ```lua
 uji.tool.add("branch", {

@@ -31,6 +31,7 @@ uji.tool.add("write_file", {
     subject = field.subject("path"),
     path = true,
     policy = "ask",
+    execution = "sequential",
     display = {
         label = "Write",
         question = "Would you like to write the following file?",
